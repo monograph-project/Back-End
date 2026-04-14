@@ -1,0 +1,10 @@
+spring:
+  eureka:
+    client:
+      fetch-registry: false
+      register-with-eureka: false
+  application:
+    name: eurak-service
+server:
+  port: 8761
+

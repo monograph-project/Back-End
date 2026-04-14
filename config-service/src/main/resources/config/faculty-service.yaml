@@ -1,0 +1,20 @@
+spring:
+  eureka:
+    client:
+      serviceUrl:
+        defaultZone: http://localhost:8761/eureka
+  mongodb:
+    uri: mongodb://localhost:27017/faculty_db
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+  rabbitmq:
+    password: ${RABBIT_PASSWORD}
+    username: ${RABBIT_USERNAME}
+    host: ${RABBIT_HOST}
+    port: ${RABBIT_PORT}
+server:
+  port: 8081
+file:
+  upload: ${FILE_DIRECTORY}
