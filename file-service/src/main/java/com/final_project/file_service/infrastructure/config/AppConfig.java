@@ -2,6 +2,7 @@ package com.final_project.file_service.infrastructure.config;
 
 import com.final_project.file_service.domain.ports.BucketStrategy;
 import com.final_project.file_service.domain.ports.FileStoragePort;
+import com.final_project.file_service.domain.service.FileRecordService;
 import com.final_project.file_service.domain.service.FileService;
 import com.final_project.file_service.infrastructure.minio.MinioStorageAdapter;
 import com.final_project.file_service.infrastructure.stradegy.UniversalBucketStrategy;
@@ -37,8 +38,8 @@ public class AppConfig {
         return new MinioStorageAdapter(client);
     }
     @Bean
-    public FileService fileService(FileStoragePort fileStoragePort, BucketStrategy bucketStrategy){
-        return new FileService(fileStoragePort,bucketStrategy);
+    public FileService fileService(FileStoragePort fileStoragePort, BucketStrategy bucketStrategy, FileRecordService fileRecordService){
+        return new FileService(fileStoragePort,bucketStrategy, fileRecordService);
     }
 
 }

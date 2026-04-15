@@ -40,6 +40,8 @@ public class UniversalBucketStrategy implements BucketStrategy {
                     return base + "events/" + m.getSubFolder() + "/" + m.getFileName();
                 case PRIVATE:
                     return base + "private/" + m.getFileName();
+                case LOGO:
+                    return base + "logo/" + m.getFileName();
                 default:
                     return base + "misc/" + m.getFileName();
             }

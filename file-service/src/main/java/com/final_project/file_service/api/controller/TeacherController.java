@@ -12,28 +12,26 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.time.Instant;
 
 @RestController
 @AllArgsConstructor
-@RequestMapping("/file/student")
-public class StudentController {
+@RequestMapping("/file/teacher")
+public class TeacherController {
     private final FileService fileService;
-    private final FileRecordService  fileRecordService;
+    private final FileRecordService fileRecordService;
     private final FileStoragePort fileStoragePort;
     @PostMapping("/profile/{id}")
     public String uploadProfile(@RequestParam MultipartFile file,
                                 @PathVariable String id) throws IOException {
-        FileMetadata metadata = new FileMetadata(
+        FileMetadata fileMetadata = new FileMetadata(
                 file.getOriginalFilename(),
                 file.getContentType(),
                 id,
-                OwnerType.STUDENT,
+                OwnerType.TEACHER,
                 FileCategory.PROFILE,
                 null
         );
-
-        return fileService.upload(metadata, file.getInputStream());
+        return fileService.upload(fileMetadata, file.getInputStream());
     }
 
     @GetMapping("/profile/{id}")

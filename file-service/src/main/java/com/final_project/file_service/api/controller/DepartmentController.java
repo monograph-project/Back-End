@@ -12,33 +12,31 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.time.Instant;
 
 @RestController
 @AllArgsConstructor
-@RequestMapping("/file/student")
-public class StudentController {
+@RequestMapping("/file/department")
+public class DepartmentController {
     private final FileService fileService;
-    private final FileRecordService  fileRecordService;
+    private final FileRecordService fileRecordService;
     private final FileStoragePort fileStoragePort;
-    @PostMapping("/profile/{id}")
+    @PostMapping("/logo/{id}")
     public String uploadProfile(@RequestParam MultipartFile file,
                                 @PathVariable String id) throws IOException {
-        FileMetadata metadata = new FileMetadata(
+        FileMetadata fileMetadata = new FileMetadata(
                 file.getOriginalFilename(),
                 file.getContentType(),
                 id,
-                OwnerType.STUDENT,
-                FileCategory.PROFILE,
+                OwnerType.FACULTY,
+                FileCategory.LOGO,
                 null
         );
-
-        return fileService.upload(metadata, file.getInputStream());
+        return fileService.upload(fileMetadata, file.getInputStream());
     }
 
-    @GetMapping("/profile/{id}")
+    @GetMapping("/logo/{id}")
     public String getProfile(@PathVariable String id) throws IOException {
-        FileRecord file = fileRecordService.findByOwnerIdAndCategory(id, FileCategory.PROFILE.name());
+        FileRecord file = fileRecordService.findByOwnerIdAndCategory(id, FileCategory.LOGO.name());
         return fileStoragePort.generatePresignedUrl(file.getBucket(), file.getObjectKey());
     }
 }

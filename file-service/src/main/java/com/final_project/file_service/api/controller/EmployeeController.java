@@ -1,5 +1,6 @@
 package com.final_project.file_service.api.controller;
 
+
 import com.final_project.file_service.domain.model.FileCategory;
 import com.final_project.file_service.domain.model.FileMetadata;
 import com.final_project.file_service.domain.model.FileRecord;
@@ -12,28 +13,26 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.time.Instant;
 
 @RestController
+@RequestMapping("/file/employee")
 @AllArgsConstructor
-@RequestMapping("/file/student")
-public class StudentController {
+public class EmployeeController {
     private final FileService fileService;
-    private final FileRecordService  fileRecordService;
+    private final FileRecordService fileRecordService;
     private final FileStoragePort fileStoragePort;
-    @PostMapping("/profile/{id}")
+    @PostMapping("/profile")
     public String uploadProfile(@RequestParam MultipartFile file,
                                 @PathVariable String id) throws IOException {
-        FileMetadata metadata = new FileMetadata(
+        FileMetadata fileMetadata = new FileMetadata(
                 file.getOriginalFilename(),
                 file.getContentType(),
                 id,
-                OwnerType.STUDENT,
+                OwnerType.EMPLOYEE,
                 FileCategory.PROFILE,
                 null
         );
-
-        return fileService.upload(metadata, file.getInputStream());
+        return fileService.upload(fileMetadata, file.getInputStream());
     }
 
     @GetMapping("/profile/{id}")

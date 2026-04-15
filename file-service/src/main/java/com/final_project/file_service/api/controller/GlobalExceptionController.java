@@ -1,10 +1,7 @@
 package com.final_project.file_service.api.controller;
 
 import com.final_project.file_service.api.dto.ErrorResponse;
-import com.final_project.file_service.domain.service.BucketCreationFail;
-import com.final_project.file_service.domain.service.NotDownloadException;
-import com.final_project.file_service.domain.service.NotGenerateURLException;
-import com.final_project.file_service.domain.service.NotUploadException;
+import com.final_project.file_service.domain.service.*;
 import io.minio.messages.Bucket;
 import org.apache.coyote.Response;
 import org.springframework.http.HttpStatus;
@@ -48,5 +45,14 @@ public class GlobalExceptionController {
                 HttpStatus.INTERNAL_SERVER_ERROR
         );
     }
+
+    @ExceptionHandler(value = FileNotFound.class)
+    public ResponseEntity<ErrorResponse> get(FileNotFound e) {
+        return new ResponseEntity<>(
+                new ErrorResponse(e.getMessage(), HttpStatus.NOT_FOUND.value(), LocalDateTime.now()),
+                HttpStatus.NOT_FOUND
+        );
+    }
+
 
 }

@@ -1,0 +1,30 @@
+package com.final_project.file_service.domain.service;
+
+import com.final_project.file_service.domain.model.FileRecord;
+import com.final_project.file_service.domain.repo.FileRecordRepository;
+import lombok.AllArgsConstructor;
+import org.springframework.stereotype.Service;
+
+@Service
+@AllArgsConstructor
+public class FileRecordService {
+    private final FileRecordRepository fileRecordRepository;
+    public void add(FileRecord fileRecord) {
+        fileRecordRepository.save(fileRecord);
+    }
+    public void remove(FileRecord fileRecord) {
+        fileRecordRepository.delete(fileRecord);
+    }
+    public FileRecord findByOwnerIdAndCategory(String ownerId, String category) {
+        FileRecord file =  fileRecordRepository.findFirstByOwnerIdAndCategory(ownerId, category)
+                .orElseThrow(() -> new FileNotFound("File Not Found"));
+        return file;
+    }
+    public FileRecord updateFileName(String ownerId, String category, String fileName) {
+        FileRecord file = fileRecordRepository.findFirstByOwnerIdAndCategory(ownerId, category)
+                .orElseThrow(() -> new FileNotFound("File Not Found"));
+        file.setFileName(fileName);
+        fileRecordRepository.save(file);
+        return file;
+    }
+}

@@ -3,6 +3,8 @@ spring:
     multipart:
       max-file-size: 5MB
       max-request-size: 5MB
+  mongodb:
+    uri: mongodb://localhost:27017/fileRecords
   rabbitmq:
     password: ${RABBIT_PASSWORD}
     username: ${RABBIT_USERNAME}

@@ -14,8 +14,10 @@ import com.final_project.faculty_service.utils.FileServiceStorage;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -28,7 +30,7 @@ public class UniversityService {
     private final SequenceGeneratorService sequenceGeneratorService;
     private final FileServiceStorage  fileServiceStorage;
     private final UniversityMapper universityMapper;
-    private final FacultyRepository facultyRepository;
+    private final WebClient webClient;
     public PageResponse<UniversityResponse> findAll(Pageable pageable){
         Page<University> universityPage = universityRepository.findByIsDeletedIsFalse(pageable);
         List<UniversityResponse> uns = universityPage.getContent()
@@ -90,8 +92,20 @@ public class UniversityService {
     public UniversityResponse updateLogo(String university, MultipartFile logo){
        University un = universityRepository.findByIdAndIsDeletedIsFalse(university)
                .orElseThrow(() -> new ResourceNotFoundException("University Not Found with "+university));
-        String updatedLogo = fileServiceStorage.saveLogo(logo, un.getId());
-        un.setLogo(updatedLogo);
+//        String updatedLogo = fileServiceStorage.saveLogo(logo, un.getId());
+
+        webClient.post()
+                        .uri("/university/logo/{id}", un.getId())
+                        .contentType(MediaType.MULTIPART_FORM_DATA)
+                        .retrieve()
+                        .bodyToMono(String.class)
+                .block();
+
+
+
+
+
+//        un.setLogo(updatedLogo);
         universityRepository.save(un);
         return universityMapper.toResponse(un);
     }
