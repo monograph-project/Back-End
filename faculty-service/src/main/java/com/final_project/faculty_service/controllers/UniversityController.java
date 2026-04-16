@@ -55,4 +55,13 @@ public class UniversityController {
     public ResponseEntity<UniversityResponse> updateLogo(@PathVariable String id, @RequestParam("file") MultipartFile logo){
         return ResponseEntity.ok(universityService.updateLogo(id, logo));
     }
+    @GetMapping("/{id}/logo/download")
+    public ResponseEntity<byte[]> downloadLogo(@PathVariable String id){
+        return ResponseEntity.ok(universityService.downloadLogo(id));
+    }
+    @DeleteMapping("/{id}/logo")
+    public ResponseEntity<Void> deleteLogo(@PathVariable String id){
+        universityService.deleteLogo(id);
+        return  ResponseEntity.noContent().build();
+    }
 }

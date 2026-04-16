@@ -1,8 +1,4 @@
 spring:
-  eureka:
-    client:
-      serviceUrl:
-        defaultZone: http://localhost:8761/eureka
   mongodb:
     uri: mongodb://localhost:27017/faculty_db
   servlet:
@@ -14,6 +10,16 @@ spring:
     username: ${RABBIT_USERNAME}
     host: ${RABBIT_HOST}
     port: ${RABBIT_PORT}
+eureka:
+  instance:
+    prefer-ip-address: true
+    ip-address: 127.0.0.1
+    hostname: localhost
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
 server:
   port: 8081
 file:

@@ -9,14 +9,20 @@ import com.final_project.faculty_service.models.Address;
 import com.final_project.faculty_service.models.University;
 import com.final_project.faculty_service.repository.FacultyRepository;
 import com.final_project.faculty_service.repository.UniversityRepository;
+import com.final_project.faculty_service.services.exception.ResourceBadRequest;
 import com.final_project.faculty_service.services.exception.ResourceNotFoundException;
 import com.final_project.faculty_service.utils.FileServiceStorage;
 import lombok.AllArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.LocalDateTime;
@@ -30,6 +36,8 @@ public class UniversityService {
     private final SequenceGeneratorService sequenceGeneratorService;
     private final FileServiceStorage  fileServiceStorage;
     private final UniversityMapper universityMapper;
+
+    @Qualifier("fileServiceClient")
     private final WebClient webClient;
     public PageResponse<UniversityResponse> findAll(Pageable pageable){
         Page<University> universityPage = universityRepository.findByIsDeletedIsFalse(pageable);
@@ -92,29 +100,45 @@ public class UniversityService {
     public UniversityResponse updateLogo(String university, MultipartFile logo){
        University un = universityRepository.findByIdAndIsDeletedIsFalse(university)
                .orElseThrow(() -> new ResourceNotFoundException("University Not Found with "+university));
-//        String updatedLogo = fileServiceStorage.saveLogo(logo, un.getId());
+        MultipartBodyBuilder bodyBuilder = new  MultipartBodyBuilder();
+        bodyBuilder.part("file", logo.getResource());
 
-        webClient.post()
-                        .uri("/university/logo/{id}", un.getId())
+       String updatedLogo =  webClient.post()
+                        .uri("/file/university/logo/{id}", un.getId())
                         .contentType(MediaType.MULTIPART_FORM_DATA)
+                        .body(BodyInserters.fromMultipartData(bodyBuilder.build()))
                         .retrieve()
                         .bodyToMono(String.class)
-                .block();
-
-
-
-
-
-//        un.setLogo(updatedLogo);
+                        .block();
+        un.setLogo(updatedLogo);
         universityRepository.save(un);
         return universityMapper.toResponse(un);
     }
+    public void  deleteLogo(String university){
+        University un = universityRepository.findByIdAndIsDeletedIsFalse(university)
+                .orElseThrow(() -> new ResourceNotFoundException("University Not Found with "+university));
+        webClient.delete()
+                .uri("/file/university/logo/{id}", un.getId())
+                        .retrieve()
+                                .onStatus(HttpStatusCode::isError, res ->
+                                        res.bodyToMono(String.class)
+                                                .map(error -> new ResourceBadRequest("Error Not Deleting Logo"))
+                                        );
+        un.setLogo("");
+        universityRepository.save(un);
+    }
+    public byte[] downloadLogo(String id){
+        University un = universityRepository.findByIdAndIsDeletedIsFalse(id)
+                .orElseThrow(() -> new ResourceNotFoundException("University Not Found with "+id));
+        byte[] content =  webClient.get()
+                .uri("/file/university/logo/{id}/download", un.getId())
+
+                .retrieve().bodyToMono(byte[].class)
+                        .block();
+       return content;
+    }
 
 
-
-//    public FacultyResponse getOneFaculty(String university, String faculty ){
-//
-//    }
 
 
 

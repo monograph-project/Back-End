@@ -8,10 +8,16 @@ import com.final_project.file_service.domain.ports.FileStoragePort;
 import com.final_project.file_service.domain.service.FileRecordService;
 import com.final_project.file_service.domain.service.FileService;
 import lombok.AllArgsConstructor;
+import org.apache.coyote.Response;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 
 @RestController
 @AllArgsConstructor
@@ -21,8 +27,7 @@ public class UniversityController {
     private final FileRecordService fileRecordService;
     private final FileStoragePort fileStoragePort;
     @PostMapping("/logo/{id}")
-    public String uploadLogo(@RequestParam MultipartFile file,
-                                @PathVariable String id) throws IOException {
+    public ResponseEntity<String> uploadLogo(@RequestParam MultipartFile file, @PathVariable String id) throws IOException {
         FileMetadata fileMetadata = new FileMetadata(
                 file.getOriginalFilename(),
                 file.getContentType(),
@@ -31,12 +36,30 @@ public class UniversityController {
                 FileCategory.LOGO,
                 null
         );
-        return fileService.upload(fileMetadata, file.getInputStream());
+        return new  ResponseEntity<>(fileService.upload(fileMetadata, file.getInputStream()), HttpStatus.CREATED);
     }
 
     @GetMapping("/logo/{id}")
-    public String getProfile(@PathVariable String id) throws IOException {
+    public ResponseEntity<String> getLogo(@PathVariable String id) throws IOException {
         FileRecord file = fileRecordService.findByOwnerIdAndCategory(id, FileCategory.LOGO.name());
-        return fileStoragePort.generatePresignedUrl(file.getBucket(), file.getObjectKey());
+        return new ResponseEntity<>(fileStoragePort.generatePresignedUrl(file.getBucket(), file.getObjectKey()), HttpStatus.OK);
+    }
+    @DeleteMapping("/logo/{id}")
+    public ResponseEntity<Void>   deleteLogo(@PathVariable String id) throws IOException {
+        FileRecord file = fileRecordService.findByOwnerIdAndCategory(id, FileCategory.LOGO.name());
+        fileStoragePort.delete(file.getBucket(), file.getObjectKey());
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
+    @GetMapping("/logo/{id}/download")
+    public ResponseEntity<byte[]> downloadLogo(@PathVariable String id) throws IOException {
+        FileRecord file = fileRecordService.findByOwnerIdAndCategory(id, FileCategory.LOGO.name());
+
+        InputStream stream = fileStoragePort.download(file.getBucket(), file.getObjectKey());
+        byte[] content = stream.readAllBytes();
+        return ResponseEntity
+                .ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + file.getFileName() + "\"")
+                .contentType(MediaType.IMAGE_PNG)
+                .body(content);
     }
 }
