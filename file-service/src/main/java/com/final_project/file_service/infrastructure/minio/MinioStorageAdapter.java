@@ -5,7 +5,6 @@ import com.final_project.file_service.domain.service.*;
 import io.minio.*;
 import io.minio.http.Method;
 import lombok.AllArgsConstructor;
-import lombok.experimental.Delegate;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;

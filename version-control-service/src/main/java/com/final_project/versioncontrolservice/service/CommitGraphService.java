@@ -15,7 +15,6 @@ public class CommitGraphService {
         this.minio = minio;
     }
 
-
     public boolean isAncestorInRepo(String owner, String repo, String ancestor, String descendant) {
         if (ancestor == null || descendant == null || ancestor.isEmpty() || descendant.isEmpty()) {
             return false;

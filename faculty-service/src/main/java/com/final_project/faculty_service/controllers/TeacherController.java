@@ -36,11 +36,11 @@ public class TeacherController {
         return new ResponseEntity<>(teacherService.update(id, request), HttpStatus.OK);
     }
 
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable String id){
         teacherService.delete(id);
         return ResponseEntity.noContent().build();
     }
-
 }
 
