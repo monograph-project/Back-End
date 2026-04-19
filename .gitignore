@@ -31,7 +31,6 @@ logs/
 /.gradle/
 /**/gradle-wrapper.jar
 !gradle/wrapper/gradle-wrapper.jar
-
 # Temporary files
 *.tmp
 *.swp
