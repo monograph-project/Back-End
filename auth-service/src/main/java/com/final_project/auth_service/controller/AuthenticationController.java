@@ -1,5 +1,6 @@
 package com.final_project.auth_service.controller;
 
+import com.final_project.auth_service.config.RemoteIP;
 import com.final_project.auth_service.dto.*;
 import com.final_project.auth_service.service.AuthenticationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -140,8 +141,12 @@ public class AuthenticationController {
     })
     public ResponseEntity<Map<String, String>> changePassword(
             @PathVariable String userId,
-            @Valid @RequestBody ChangePasswordRequest request) {
+            @Valid @RequestBody ChangePasswordRequest request,
+            @RemoteIP String ip
+            ) {
         log.info("Change password request for user: {}", userId);
+
+        request.setIpAddress(ip);
         authenticationService.changePassword(userId, request);
 
         Map<String, String> response = new HashMap<>();
@@ -288,24 +293,6 @@ public class AuthenticationController {
 
         Map<String, Object> response = new HashMap<>();
         response.put("status", "authenticated");
-
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Health check for auth service.
-     *
-     * @return Service status
-     */
-    @GetMapping("/health")
-    @Operation(summary = "Auth service health", description = "Check if authentication service is running")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Service is healthy")
-    })
-    public ResponseEntity<Map<String, String>> health() {
-        Map<String, String> response = new HashMap<>();
-        response.put("status", "UP");
-        response.put("service", "authentication");
 
         return ResponseEntity.ok(response);
     }

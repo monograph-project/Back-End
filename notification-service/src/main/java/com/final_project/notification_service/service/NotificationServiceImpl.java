@@ -38,10 +38,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationRepository repository;
     private final NotificationMapper mapper;
     private final EmailService emailService;
-    private final IdempotencyService idempotencyService;
     private final RateLimitService rateLimitService;
-    private final AppProperties appProperties;
-    private final ObjectMapper objectMapper;
 
     // ── Sending ──────────────────────────────────────────────────────────────
 

@@ -1,6 +1,7 @@
 package com.final_project.auth_service.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.final_project.auth_service.model.User;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -50,4 +51,20 @@ public class CreateUserRequest {
     @JsonProperty("roles")
     @Schema(description = "Initial user roles")
     private Set<String> roles;
+
+    @JsonProperty("user_type")
+    @Schema(description = "user blongs to for instance teacher, student ... ")
+    private User.UserType userType;
+
+    @JsonProperty("entity_id")
+    @Schema(description = "Entity that belongs to this user", example = "teacher account with id: 8902323")
+    private String entityId;
+
+    @JsonProperty("profile")
+    @Schema(description = "http:u023i23")
+    private String profile;
+
+    @JsonProperty("password")
+    @Schema( description =  "password for user ")
+    private String password;
 }

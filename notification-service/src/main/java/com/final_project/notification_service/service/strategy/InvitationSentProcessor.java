@@ -37,7 +37,7 @@ public class InvitationSentProcessor implements NotificationProcessor<Invitation
         String acceptUrl = props.getNotification().getBaseUrl()
                 + "/invitations/accept?token=" + event.getInvitationToken();
 
-        String template = isRepoInvite ? "repo-invitation" : "system-invitation";
+        String template = isRepoInvite ? "repo-invitation.html" : "system-invitation";
 
         emailService.sendHtmlEmail(
                 event.getInviteeEmail(),

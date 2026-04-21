@@ -9,7 +9,6 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedBy;
 import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -67,16 +66,11 @@ public class User {
 
     private String password;
 
-    /**
-     * Store role IDs instead of ManyToMany.
-     */
     @Builder.Default
     private Set<String> roleIds = new HashSet<>();
 
-    /**
-     * Option 1: store profile as separate document ID.
-     */
-    private String profileId;
+
+    private String profile;
 
     @CreatedDate
     private LocalDateTime createdAt;
@@ -94,12 +88,20 @@ public class User {
 
     private String deletedBy;
 
+    private UserType userType;
 
+    private String entityId;
     public enum UserStatus {
         ACTIVE,
         INACTIVE,
         SUSPENDED,
         DELETED
+    }
+    public enum UserType{
+        TEACHER,
+        STUDENT,
+        USER,
+        EMPLOYEE
     }
 
     public boolean isAccountLocked() {

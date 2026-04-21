@@ -1,6 +1,7 @@
 package com.final_project.auth_service.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.final_project.auth_service.model.User;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -35,7 +36,6 @@ public class RoleDTO {
     private Set<String> permissionIds;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-
     @JsonProperty("permissions")
     @Schema(description = "Permissions assigned to this role")
     private Set<PermissionDTO> permissions;

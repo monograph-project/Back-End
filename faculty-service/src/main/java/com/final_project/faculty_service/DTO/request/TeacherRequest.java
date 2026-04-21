@@ -13,6 +13,10 @@ public class TeacherRequest {
     @NotBlank(message = "First name is required")
     @Size(min = 2, max = 50)
     private String firstName;
+    private String userName;
+    private String password;
+    private String role;
+    private String profileUrl;
 
     @NotBlank(message = "Last name is required")
     private String lastName;

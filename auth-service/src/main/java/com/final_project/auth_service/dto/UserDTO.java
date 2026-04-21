@@ -2,6 +2,7 @@ package com.final_project.auth_service.dto;
 
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.final_project.auth_service.model.User;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -75,5 +76,17 @@ public class UserDTO {
     @JsonProperty("updated_at")
     @Schema(description = "Last update timestamp")
     private LocalDateTime updatedAt;
+
+    @JsonProperty("entity_id")
+    @Schema(description = "Entity that belongs to this user", example = "teacher account with id: 8902323")
+    private String entityId;
+
+    @JsonProperty("profile")
+    @Schema(description = "http:u023i23")
+    private String profile;
+
+    @JsonProperty("user_type")
+    @Schema(description = "user type like teacher.. student")
+    private User.UserType userType;
 }
 

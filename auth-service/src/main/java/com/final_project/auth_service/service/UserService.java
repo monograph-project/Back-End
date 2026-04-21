@@ -1,12 +1,16 @@
 package com.final_project.auth_service.service;
 import com.final_project.auth_service.dto.*;
+import com.final_project.auth_service.event.UserRegisteredEvent;
 import com.final_project.auth_service.exception.*;
 import com.final_project.auth_service.exception.UserNotFoundException;
+import com.final_project.auth_service.kafka.AuthEventPublisher;
 import com.final_project.auth_service.model.User;
 import com.final_project.auth_service.repository.RoleRepository;
 import com.final_project.auth_service.repository.UserRepository;
+import jakarta.ws.rs.SeBootstrap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.logging.log4j.CloseableThreadContext;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -14,6 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -34,11 +39,13 @@ import java.util.stream.Collectors;
 @Transactional
 public class UserService {
 
+
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final AuditLogService auditLogService;
     private final KeycloakService keycloakService;
     private final PasswordEncoder passwordEncoder;
+    private final AuthEventPublisher authEventPublisher;
 
     /**
      * Create a new user.
@@ -46,6 +53,7 @@ public class UserService {
      * @param request User creation request
      * @return Created user DTO
      */
+    @Transactional
     public UserDTO createUser(CreateUserRequest request) {
         log.info("Creating new user: {}", request.getEmail());
 
@@ -75,13 +83,31 @@ public class UserService {
                 .status(User.UserStatus.ACTIVE)
                 .emailVerified(false)
                 .twoFactorEnabled(false)
+                .password(passwordEncoder.encode(request.getPassword()))
                 .failedLoginAttempts(0)
                 .roleIds(new HashSet<>())
                 .createdAt(LocalDateTime.now())
+                .profile(request.getProfile())
+                .entityId(request.getEntityId())
+                .userType(request.getUserType())
                 .build();
-
         User savedUser = userRepository.save(user);
-
+        try {
+            UserRegisteredEvent event =  UserRegisteredEvent
+                    .builder()
+                    .userId(savedUser.getId())
+                    .eventId(UUID.randomUUID().toString())
+                    .occurredAt(LocalDateTime.now())
+                    .email(savedUser.getEmail())
+                    .firstName(savedUser.getFirstName())
+                    .lastName(savedUser.getLastName())
+                    .registrationSource("WEB")
+                    .verificationToken("token..sdf")
+                    .build();
+            authEventPublisher.publishUserRegister(event);
+        } catch (RuntimeException e) {
+            throw new RuntimeException(e);
+        }
         // Log audit
         auditLogService.logAuditEvent(
                 savedUser.getId(),
@@ -580,6 +606,9 @@ public class UserService {
                 .lastLogin(user.getLastLogin())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
+                .profile(user.getProfile())
+                .entityId(user.getEntityId())
+                .userType(user.getUserType())
                 .build();
     }
 }

@@ -1,5 +1,6 @@
 package com.final_project.faculty_service.DTO.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.final_project.faculty_service.models.Address;
 import com.final_project.faculty_service.models.StudentStatus;
 import jakarta.validation.Valid;
@@ -13,7 +14,22 @@ public class StudentRequest {
     @NotBlank(message = "First name is required")
     @Size(min = 2, max = 50)
     private String firstName;
+    @NotBlank(message = "Username is required")
+    @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
+    @Pattern(regexp = "^[a-zA-Z0-9._]+$", message = "Username can only contain alphanumeric characters, dots, and underscores")
+    @JsonProperty("username")
+    private String username;
 
+    private String role;
+
+    @NotBlank(message = "Password is required")
+    @Size(min = 8, max = 128, message = "Password must be between 8 and 128 characters")
+    @Pattern(
+            regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]+$",
+            message = "Password must contain uppercase, lowercase, number, and special character"
+    )
+    @JsonProperty("password")
+    private String password;
     @NotBlank(message = "Father name is required")
     private String fatherName;
 

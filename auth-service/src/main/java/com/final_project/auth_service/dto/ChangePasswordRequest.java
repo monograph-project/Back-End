@@ -36,4 +36,6 @@ public class ChangePasswordRequest {
     @JsonProperty("confirm_password")
     @Schema(description = "Confirm new password", example = "NewPassword123!")
     private String confirmPassword;
+
+    private String ipAddress;
 }
