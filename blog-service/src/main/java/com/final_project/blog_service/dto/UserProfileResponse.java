@@ -1,0 +1,20 @@
+package com.final_project.blog_service.dto;
+
+import lombok.*;
+
+import java.time.LocalDateTime;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public  class UserProfileResponse {
+    private String id;
+    private String username;
+    private String email;
+    private String displayName;
+    private String profileImageUrl;
+    private String bio;
+    private Long totalArticles;
+    private LocalDateTime createdAt;
+}

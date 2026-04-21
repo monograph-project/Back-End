@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Data
 @Builder(toBuilder = true)
@@ -60,6 +61,6 @@ public class ApiResponse<T> {
     public static class ErrorDetail {
         private String code;
         private String details;
-        private java.util.Map<String, String> fieldErrors;
+        private Map<String, String> fieldErrors;
     }
 }

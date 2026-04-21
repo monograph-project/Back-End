@@ -37,6 +37,10 @@ public class RoleService {
     /**
      * Create a new role.
      *
+     * Architecture: MongoDB Authority + Keycloak Sync
+     * 1. Create in MongoDB (AUTHORITY)
+     * 2. Sync to Keycloak (NON-BLOCKING)
+     *
      * @param request Role creation request
      * @return Created role DTO
      */
@@ -66,16 +70,12 @@ public class RoleService {
                 .permissionIds(new HashSet<>(request.getPermissionIds() != null ? request.getPermissionIds() : new HashSet<>()))
                 .createdAt(LocalDateTime.now())
                 .build();
-        try {
-            String keycloakId = keycloakService.createKeycloakRole(request.getName(), request.getDescription());
-            role.setKeycloakId(keycloakId);
-        } catch (Exception e) {
-            log.warn("Failed to sync role with Keycloak: {}", e.getMessage());
-            throw new KeycloakException("Failded to sync role with keycloak");
-            // Continue without Keycloak sync - local role is still created
-        }
 
         Role savedRole = roleRepository.save(role);
+        log.info("Role created in MongoDB: {}", savedRole.getId());
+
+        syncRoleToKeycloak(savedRole);
+
         // Log audit
         auditLogService.logAuditEvent(
                 null,
@@ -88,6 +88,32 @@ public class RoleService {
 
         log.info("Role created successfully: {}", savedRole.getId());
         return toDTO(savedRole);
+    }
+
+    /**
+     * Sync role to Keycloak (non-blocking, non-transactional).
+     * If sync fails, log warning but don't fail the operation.
+     * MongoDB is the source of truth.
+     *
+     * @param role Role to sync to Keycloak
+     */
+    private void syncRoleToKeycloak(Role role) {
+        try {
+            log.info("Syncing role to Keycloak: {}", role.getName());
+            String keycloakId = keycloakService.createKeycloakRole(
+                    role.getName(),
+                    role.getDescription()
+            );
+            role.setKeycloakId(keycloakId);
+            roleRepository.save(role);
+            log.info("Role synced to Keycloak successfully with ID: {}", keycloakId);
+        } catch (Exception e) {
+            log.warn(" Failed to sync role to Keycloak: {}. " +
+                            "Role exists in MongoDB (authority). " +
+                            "Keycloak sync can be retried later.",
+                    role.getName(), e);
+
+        }
     }
 
     /**
@@ -209,6 +235,10 @@ public class RoleService {
     /**
      * Delete role.
      *
+     * Architecture: MongoDB Authority + Keycloak Sync
+     * 1. Delete from MongoDB (AUTHORITY)
+     * 2. Delete from Keycloak (NON-BLOCKING)
+     *
      * @param roleId Role ID
      */
     public void deleteRole(String roleId) {
@@ -227,14 +257,10 @@ public class RoleService {
         }
 
         roleRepository.deleteById(roleId);
+        log.info("Role deleted from MongoDB: {}", roleId);
 
-        // Delete from Keycloak
         if (role.getKeycloakId() != null) {
-            try {
-                keycloakService.deleteKeycloakRole(role.getKeycloakId());
-            } catch (Exception e) {
-                log.warn("Failed to delete role from Keycloak: {}", e.getMessage());
-            }
+            deleteRoleFromKeycloak(role);
         }
 
         // Log audit
@@ -248,6 +274,28 @@ public class RoleService {
         );
 
         log.info("Role deleted successfully: {}", roleId);
+    }
+
+    /**
+     * Delete role from Keycloak (non-blocking, non-transactional).
+     * If deletion fails, log warning but don't fail the operation.
+     * MongoDB is the source of truth - role is already deleted there.
+     *
+     * @param role Role to delete from Keycloak
+     */
+    private void deleteRoleFromKeycloak(Role role) {
+        try {
+            log.info("Deleting role from Keycloak: {}", role.getName());
+            keycloakService.deleteKeycloakRole(role.getKeycloakId());
+            log.info("Role deleted from Keycloak successfully");
+        } catch (Exception e) {
+            log.warn("⚠️ Failed to delete role from Keycloak: {}. " +
+                            "Role already deleted from MongoDB (authority). " +
+                            "Keycloak cleanup can be retried later.",
+                    role.getName(), e);
+            // ✅ MongoDB deletion succeeded - continue without failing
+            // Keycloak deletion can be retried manually
+        }
     }
 
     /**

@@ -37,7 +37,6 @@ import java.util.UUID;
 public class NotificationController {
     private final NotificationService notificationService;
 
-    // ── Send ──────────────────────────────────────────────────────────────────
 
     @PostMapping
     @Operation(summary = "Send a custom notification",

@@ -4,7 +4,6 @@ import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -18,13 +17,18 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @Service
-@RequiredArgsConstructor
+//@RequiredArgsConstructor
 @Slf4j
 public class EmailService {
 
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
     private final AppProperties appProperties;
+    public EmailService (JavaMailSender mailSender, TemplateEngine templateEngine, AppProperties appProperties){
+        this.templateEngine = templateEngine;
+        this.mailSender = mailSender;
+        this.appProperties = appProperties;
+    }
 
     /**
      * Sends an HTML email rendered from a Thymeleaf template.

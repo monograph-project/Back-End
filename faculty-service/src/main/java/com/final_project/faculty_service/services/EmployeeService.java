@@ -1,7 +1,11 @@
 package com.final_project.faculty_service.services;
 
+import com.final_project.faculty_service.DTO.RoleDTO;
+import com.final_project.faculty_service.DTO.UserDto;
 import com.final_project.faculty_service.DTO.mapper.EmployeeMapper;
 import com.final_project.faculty_service.DTO.request.EmployeeRequest;
+import com.final_project.faculty_service.DTO.request.SignupRequest;
+import com.final_project.faculty_service.DTO.request.TeacherRequest;
 import com.final_project.faculty_service.DTO.response.EmployeeResponse;
 import com.final_project.faculty_service.DTO.response.FacultyResponseEmployee;
 import com.final_project.faculty_service.DTO.response.PageResponse;
@@ -26,7 +30,7 @@ public class EmployeeService {
     private final FacultyRepository facultyRepository;
     private final SequenceGeneratorService sequenceGeneratorService;
     private final EmployeeMapper employeeMapper;
-
+    private final AuthService authService;
     public PageResponse<EmployeeResponse> findAll(Pageable pageable) {
         Page<Employee> page = employeeRepository.findByIsDeletedIsFalse(pageable);
 
@@ -62,7 +66,24 @@ public class EmployeeService {
         String code = buildEmployeeCode(faculty, seq);
         employee.setCode(code);
         employee.setFaculty(faculty);
-        return employeeMapper.toResponse(employeeRepository.save(employee));
+
+
+        Employee result = employeeRepository.save(employee);
+
+        SignupRequest signupRequest = mapToSignupRequest(request);
+        signupRequest.setEntityId(result.getId());
+        UserDto response = authService.createUser(signupRequest);
+        if(response.getId().isEmpty()){
+            throw new ResourceNotFoundException("User couldn't save ");
+        }
+
+        RoleDTO role = authService.getRole(request.getRole());
+
+        if (role.getId().isEmpty()){
+            throw new ResourceNotFoundException("Not Found Role");
+        }
+        authService.assignRoleToUser(response.getId(), role.getId());
+        return employeeMapper.toResponse(result);
     }
 
     public EmployeeResponse updateEmployee(String id, EmployeeRequest request) {
@@ -99,6 +120,21 @@ public class EmployeeService {
         String uniAbbr = Helper.generateAbbreviation(faculty.getUniversity().getName());
         String facAbbr = Helper.generateAbbreviation(faculty.getName());
         return "EMP-" + uniAbbr + "-" + facAbbr + "-" + seq;
+    }
+
+    private static SignupRequest mapToSignupRequest(EmployeeRequest request){
+        SignupRequest signupRequest = new SignupRequest();
+        signupRequest.setFirstName(request.getProfileUrl());
+        signupRequest.setLastName(request.getLastName());
+        signupRequest.setFirstName(request.getFirstName());
+        signupRequest.setPassword(request.getPassword());
+        signupRequest.setPrivacyAgreed(true);
+        signupRequest.setUsername(request.getUserName());
+        signupRequest.setTermsAgreed(true);
+        signupRequest.setEmail(request.getEmail());
+        signupRequest.setPhoneNumber(request.getPhone());
+        signupRequest.setUserType("EMPLOYEE");
+        return signupRequest;
     }
 
 }

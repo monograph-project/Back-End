@@ -1,7 +1,9 @@
 package com.final_project.auth_service.service;
 
 import com.final_project.auth_service.dto.*;
+import com.final_project.auth_service.event.PasswordChangedEvent;
 import com.final_project.auth_service.exception.*;
+import com.final_project.auth_service.kafka.AuthEventPublisher;
 import com.final_project.auth_service.model.*;
 import com.final_project.auth_service.repository.RoleRepository;
 import com.final_project.auth_service.repository.UserRepository;
@@ -52,7 +54,7 @@ public class AuthenticationService {
     private final long refreshTokenExpirationMs;
     private final String googleClientId;
     private final String defaultRole;
-
+    private final AuthEventPublisher eventPublisher;
     public AuthenticationService(
             UserRepository userRepository,
             RoleRepository roleRepository,
@@ -64,8 +66,10 @@ public class AuthenticationService {
             @Value("${app.security.jwt.expiration:3600000}") long jwtExpirationMs,
             @Value("${app.security.jwt.refresh-expiration:604800000}") long refreshTokenExpirationMs,
             @Value("${google.client-id}") String googleClientId,
-            @Value("${app.default-role}") String defaultRole
+            @Value("${app.default-role}") String defaultRole,
+            AuthEventPublisher eventPublisher
     ) {
+        this.eventPublisher = eventPublisher;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.keycloakService = keycloakService;
@@ -375,6 +379,7 @@ public class AuthenticationService {
      * @param userId User ID
      * @param request Change password request
      */
+    @Transactional
     public void changePassword(String userId, ChangePasswordRequest request) {
         log.info("Changing password for user: {}", userId);
 
@@ -399,11 +404,26 @@ public class AuthenticationService {
         // Update password locally
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         user.setLastPasswordChange(LocalDateTime.now());
-        userRepository.save(user);
+        User savedUser =  userRepository.save(user);
 
         // Update password in Keycloak
         keycloakService.setUserPassword(user.getKeycloakId(), request.getNewPassword());
 
+        try{
+            PasswordChangedEvent event = PasswordChangedEvent.builder()
+                    .eventId(UUID.randomUUID().toString())
+                    .email(savedUser.getEmail())
+                    .firstName(savedUser.getFirstName())
+                    .changeType("CHANGED")
+                    .userId(savedUser.getId())
+                    .ipAddress(request.getIpAddress())
+                    .occurredAt(LocalDateTime.now())
+                    .userAgent(savedUser.getUserType().toString())
+                    .build();
+            eventPublisher.publishPasswordChange(event);
+        }catch (RuntimeException e){
+            throw new RuntimeException(e);
+        }
         auditLogService.logAuditEvent(
                 userId,
                 "PASSWORD_CHANGED",

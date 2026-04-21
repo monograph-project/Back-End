@@ -30,15 +30,23 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
-@AllArgsConstructor
 public class UniversityService {
-    private final UniversityRepository  universityRepository;
+    private final UniversityRepository universityRepository;
     private final SequenceGeneratorService sequenceGeneratorService;
-    private final FileServiceStorage  fileServiceStorage;
     private final UniversityMapper universityMapper;
+    private final WebClient fileWebClient;
 
-    @Qualifier("fileServiceClient")
-    private final WebClient webClient;
+    public UniversityService(
+            UniversityRepository universityRepository,
+            SequenceGeneratorService sequenceGeneratorService,
+            UniversityMapper universityMapper,
+            @Qualifier("fileServiceClient") WebClient fileWebClient
+    ) {
+        this.universityRepository = universityRepository;
+        this.sequenceGeneratorService = sequenceGeneratorService;
+        this.universityMapper = universityMapper;
+        this.fileWebClient = fileWebClient;
+    }
     public PageResponse<UniversityResponse> findAll(Pageable pageable){
         Page<University> universityPage = universityRepository.findByIsDeletedIsFalse(pageable);
         List<UniversityResponse> uns = universityPage.getContent()
@@ -103,7 +111,7 @@ public class UniversityService {
         MultipartBodyBuilder bodyBuilder = new  MultipartBodyBuilder();
         bodyBuilder.part("file", logo.getResource());
 
-       String updatedLogo =  webClient.post()
+       String updatedLogo =  fileWebClient.post()
                         .uri("/file/university/logo/{id}", un.getId())
                         .contentType(MediaType.MULTIPART_FORM_DATA)
                         .body(BodyInserters.fromMultipartData(bodyBuilder.build()))
@@ -117,7 +125,7 @@ public class UniversityService {
     public void  deleteLogo(String university){
         University un = universityRepository.findByIdAndIsDeletedIsFalse(university)
                 .orElseThrow(() -> new ResourceNotFoundException("University Not Found with "+university));
-        webClient.delete()
+        fileWebClient.delete()
                 .uri("/file/university/logo/{id}", un.getId())
                         .retrieve()
                                 .onStatus(HttpStatusCode::isError, res ->
@@ -130,7 +138,7 @@ public class UniversityService {
     public byte[] downloadLogo(String id){
         University un = universityRepository.findByIdAndIsDeletedIsFalse(id)
                 .orElseThrow(() -> new ResourceNotFoundException("University Not Found with "+id));
-        byte[] content =  webClient.get()
+        byte[] content =  fileWebClient.get()
                 .uri("/file/university/logo/{id}/download", un.getId())
 
                 .retrieve().bodyToMono(byte[].class)

@@ -57,7 +57,6 @@ public class StudentMapper implements BaseMapper<StudentRequest, StudentResponse
         studentResponse.setLastName(student.getLastName());
         studentResponse.setCode(student.getCode());
         studentResponse.setNationality(student.getNationality());
-        studentResponse.setBatch(student.getBatch().getId());
         studentResponse.setGender(student.getGender());
         studentResponse.setDateOfBirth(student.getDateOfBirth());
         studentResponse.setAddress(student.getAddress());

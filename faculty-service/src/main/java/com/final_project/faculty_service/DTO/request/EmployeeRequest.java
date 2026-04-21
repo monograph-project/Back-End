@@ -11,7 +11,10 @@ public class EmployeeRequest {
 
 
     @NotNull(message = "Faculty is required")
-
+    private String password;
+    private String role;
+    private String userName;
+    private String profileUrl;
     private String  faculty;
     @NotBlank(message = "First name is required")
     @Size(min = 2, max = 50, message = "First name must be between 2 and 50 characters")

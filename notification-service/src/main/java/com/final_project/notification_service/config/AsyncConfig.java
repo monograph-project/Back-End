@@ -104,9 +104,6 @@ public class AsyncConfig implements AsyncConfigurer {
     // ── ObjectMapper ─────────────────────────────────────────────────────────
 
     /**
-     * Configure ObjectMapper for JSON serialization.
-     * Includes support for Java 8+ date/time API.
-     * Used for event deserialization from Kafka.
      *
      * @return Configured ObjectMapper
      */
