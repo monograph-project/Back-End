@@ -12,11 +12,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.ArrayList;
 
-/**
- * Article entity representing a blog post
- * Supports flexible content blocks (text, images, videos, code, etc.)
- * Design inspired by Medium and Notion
- */
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -47,10 +43,10 @@ public class Article {
     private Metadata metadata;
 
     @Builder.Default
-    private String status = "DRAFT";  // DRAFT, PUBLISHED, ARCHIVED
+    private ArticleStatus status = ArticleStatus.PUBLISHED;
 
     @Builder.Default
-    private String visibility = "PUBLIC";  // PUBLIC, PRIVATE, UNLISTED
+    private ArticleVisiblity visibility = ArticleVisiblity.PUBLIC;
 
     private Stats stats;
 

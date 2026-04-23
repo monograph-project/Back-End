@@ -1,6 +1,8 @@
 package com.final_project.blog_service.repo;
 
 import com.final_project.blog_service.model.Article;
+import com.final_project.blog_service.model.ArticleStatus;
+import com.final_project.blog_service.model.ArticleVisiblity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
@@ -22,7 +24,7 @@ public interface ArticleRepository extends MongoRepository<Article, String> {
     // Find published articles by author
     Page<Article> findByAuthorIdAndStatusOrderByPublishedAtDesc(
             String authorId,
-            String status,
+            ArticleStatus status,
             Pageable pageable
     );
 
@@ -33,34 +35,36 @@ public interface ArticleRepository extends MongoRepository<Article, String> {
     // Find articles by tags
     Page<Article> findByMetadataTagsInAndStatusAndVisibility(
             List<String> tags,
-            String status,
-            String visibility,
+            ArticleStatus status,
+            ArticleVisiblity visibility,
             Pageable pageable
     );
 
     // Find articles by category
     Page<Article> findByMetadataCategoryAndStatusAndVisibility(
             String category,
-            String status,
-            String visibility,
+            ArticleStatus status,
+            ArticleVisiblity visibility,
             Pageable pageable
     );
 
     // Find articles by author and status
-    List<Article> findByAuthorIdAndStatus(String authorId, String status);
+    List<Article> findByAuthorIdAndStatus(String authorId, ArticleStatus status);
 
     // Count articles by author
-    Long countByAuthorIdAndStatus(String authorId, String status);
+    Long countByAuthorIdAndStatus(String authorId, ArticleStatus status);
 
     // Find articles published after a date
     List<Article> findByPublishedAtAfterAndStatusOrderByPublishedAtDesc(
             LocalDateTime publishedAt,
-            String status
+            ArticleStatus status
     );
 
     // Delete soft-deleted articles (archives older than 30 days)
     @Query("{ 'status': 'ARCHIVED', 'archivedAt': { $lt: ?0 } }")
     void deleteOldArchives(LocalDateTime threshold);
+
+    Optional<Article> findArticleByIdAndAuthorId(String articleId, String authorId);
 }
 
 

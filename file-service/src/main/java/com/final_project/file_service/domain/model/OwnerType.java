@@ -7,6 +7,6 @@ public enum OwnerType {
     UNIVERSITY,
     FACULTY,
     DEPARTMENT,
-    PUBLIC
-
+    PUBLIC,
+    USER
 }

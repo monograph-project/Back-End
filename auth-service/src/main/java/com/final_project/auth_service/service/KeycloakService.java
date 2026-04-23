@@ -41,10 +41,8 @@ public class KeycloakService {
      */
     public String createKeycloakUser(CreateUserRequest request) {
         try {
-            log.info("Creating user in Keycloak: {}", request.getUsername());
 
             UsersResource usersResource = getUsersResource();
-
             UserRepresentation user = new UserRepresentation();
             user.setUsername(request.getUsername());
             user.setEmail(request.getEmail());
@@ -314,5 +312,8 @@ public class KeycloakService {
      */
     private RealmResource getRealmResource() {
         return keycloak.realm(realm);
+    }
+    public void login(String usernameOrEmail, String  password) {
+
     }
 }

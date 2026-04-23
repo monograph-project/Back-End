@@ -1,5 +1,8 @@
 package com.final_project.auth_service.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.final_project.auth_service.config.KeycloakConfig;
 import com.final_project.auth_service.dto.*;
 import com.final_project.auth_service.event.PasswordChangedEvent;
 import com.final_project.auth_service.exception.*;
@@ -12,12 +15,19 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -48,20 +58,31 @@ public class AuthenticationService {
     private final AuditLogService auditLogService;
     private final PasswordEncoder passwordEncoder;
     private final GoogleIdTokenVerifier googleIdTokenVerifier;
-
+    private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper;
     private final String jwtSecret;
     private final long jwtExpirationMs;
     private final long refreshTokenExpirationMs;
     private final String googleClientId;
     private final String defaultRole;
     private final AuthEventPublisher eventPublisher;
+    private String keycloakServerUrl;
+    private String realm;
+    private String clientId;
+    private String clientSecret;
     public AuthenticationService(
+            @Value("${keycloak.server-url}") String keycloakServerUrl,
+            @Value("${keycloak.realm}") String realm,
+            @Value("${keycloak.client-id}") String clientId,
+            @Value("${keycloak.client-secret}") String clientSecret,
             UserRepository userRepository,
             RoleRepository roleRepository,
             KeycloakService keycloakService,
             AuditLogService auditLogService,
             PasswordEncoder passwordEncoder,
+            RestTemplate restTemplate,
             GoogleIdTokenVerifier googleIdTokenVerifier,
+            ObjectMapper objectMapper,
             @Value("${app.security.jwt.secret}") String jwtSecret,
             @Value("${app.security.jwt.expiration:3600000}") long jwtExpirationMs,
             @Value("${app.security.jwt.refresh-expiration:604800000}") long refreshTokenExpirationMs,
@@ -69,6 +90,11 @@ public class AuthenticationService {
             @Value("${app.default-role}") String defaultRole,
             AuthEventPublisher eventPublisher
     ) {
+        this.keycloakServerUrl = keycloakServerUrl;
+        this.clientSecret = clientSecret;
+        this.clientId = clientId;
+        this.realm = realm;
+        this.objectMapper = objectMapper;
         this.eventPublisher = eventPublisher;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
@@ -77,11 +103,14 @@ public class AuthenticationService {
         this.passwordEncoder = passwordEncoder;
         this.googleIdTokenVerifier = googleIdTokenVerifier;
         this.jwtSecret = jwtSecret;
+        this.restTemplate = restTemplate;
         this.jwtExpirationMs = jwtExpirationMs;
         this.refreshTokenExpirationMs = refreshTokenExpirationMs;
         this.googleClientId = googleClientId;
         this.defaultRole = defaultRole;
     }
+
+
     /**
      * Login user with email/username and password.
      *
@@ -89,7 +118,6 @@ public class AuthenticationService {
      * @return Auth response with tokens
      */
     public AuthResponse login(LoginRequest request) {
-        log.info("Login attempt for: {}", request.getUsernameOrEmail());
 
         // Find user by email or username
         User user = userRepository.findByEmail(request.getUsernameOrEmail())
@@ -184,8 +212,9 @@ public class AuthenticationService {
 
         log.info("User logged in successfully: {}", user.getUsername());
 
+
         // Generate tokens
-        return generateAuthResponse(user, "Login successful");
+        return generateResponseTokenWithKeycloak(getTokensFromKeycloak(user.getUsername(), user.getPassword()),user, "Login successful");
     }
 
     /**
@@ -644,5 +673,71 @@ public class AuthenticationService {
     private Key getSigningKey() {
         byte[] keyBytes = jwtSecret.getBytes();
         return Keys.hmacShaKeyFor(keyBytes);
+    }
+    private AuthResponse generateResponseTokenWithKeycloak(String keycloakTokenResponse, User user, String message) {
+
+        try {
+            JsonNode jsonNode = objectMapper.readTree(keycloakTokenResponse);
+            String accessToken = jsonNode.path("access_token").asText(null);
+            String refreshToken = jsonNode.path("refresh_token").asText(null);
+            String idToken = jsonNode.path("id_token").asText(null);
+            String tokenType = jsonNode.path("token_type").asText(null);
+            long expiresIn = jsonNode.path("expires_in").asLong(0);
+            long refreshExpiresIn = jsonNode.path("refresh_expires_in").asLong(0);
+            String scope = jsonNode.path("scope").asText(null);
+
+
+            UserDTO userDTO = null;
+            if (user != null) {
+                userDTO = UserDTO.builder()
+                        .id(user.getId())
+                        .username(user.getUsername())
+                        .email(user.getEmail())
+                        .firstName(user.getFirstName())
+                        .lastName(user.getLastName())
+                        .status(user.getStatus().name())
+                        .emailVerified(user.getEmailVerified())
+                        .twoFactorEnabled(user.getTwoFactorEnabled())
+                        .lastLogin(user.getLastLogin())
+                        .createdAt(user.getCreatedAt())
+                        .build();
+            }
+            return AuthResponse.builder()
+                    .accessToken(accessToken)              // ✅ FROM KEYCLOAK
+                    .refreshToken(refreshToken)            // ✅ FROM KEYCLOAK
+                    .tokenType("Bearer")
+                    .expiresIn(expiresIn)
+                    .user(userDTO)
+                    .message(message)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Failed to parse Keycloak token response", e);
+            throw new UnauthorizedException("Failed to process authentication response");
+        }
+    }
+    private String getTokensFromKeycloak(String username, String password) {
+        try {
+            String url = keycloakServerUrl +"/realms/"+realm+"/protocol/openid-connect/token";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+            MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+            body.add("grant_type", "password");                    // Password grant
+            body.add("client_id", clientId);              // Your client secret
+            body.add("username", username.toLowerCase());                        // User's username
+            body.add("password", password);                        // User's password
+            body.add("client_secret", clientSecret);
+            body.add("scope", "openid profile email roles");      // Request scopes
+            HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);
+            ResponseEntity<String> response = restTemplate.postForEntity(url, request, String.class);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new UnauthorizedException("Failed to obtain tokens from Keycloak");
+            }
+
+            return response.getBody();
+
+        } catch (Exception e) {
+            throw new UnauthorizedException("Failed to authenticate with Keycloak: " + e.getMessage());
+        }
     }
 }

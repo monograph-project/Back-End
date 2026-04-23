@@ -1,5 +1,6 @@
 package com.final_project.file_service.domain.service;
 
+import com.final_project.file_service.domain.model.FileCategory;
 import com.final_project.file_service.domain.model.FileRecord;
 import com.final_project.file_service.domain.repo.FileRecordRepository;
 import lombok.AllArgsConstructor;
@@ -12,15 +13,16 @@ public class FileRecordService {
     public void add(FileRecord fileRecord) {
         fileRecordRepository.save(fileRecord);
     }
+
     public void remove(FileRecord fileRecord) {
         fileRecordRepository.delete(fileRecord);
     }
-    public FileRecord findByOwnerIdAndCategory(String ownerId, String category) {
+    public FileRecord findByOwnerIdAndCategory(String ownerId, FileCategory category) {
         FileRecord file =  fileRecordRepository.findFirstByOwnerIdAndCategory(ownerId, category)
                 .orElseThrow(() -> new FileNotFound("File Not Found"));
         return file;
     }
-    public FileRecord updateFileName(String ownerId, String category, String fileName) {
+    public FileRecord updateFileName(String ownerId, FileCategory category, String fileName) {
         FileRecord file = fileRecordRepository.findFirstByOwnerIdAndCategory(ownerId, category)
                 .orElseThrow(() -> new FileNotFound("File Not Found"));
         file.setFileName(fileName);

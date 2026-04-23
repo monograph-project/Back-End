@@ -611,4 +611,17 @@ public class UserService {
                 .userType(user.getUserType())
                 .build();
     }
+
+    public AuthorResponse getUserAsAuthor(String id) {
+        User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User Not Found"));
+        return AuthorResponse
+                .builder()
+                .userType(user.getUserType().name())
+                .email(user.getEmail())
+                .entityId(user.getEntityId())
+                .profile(user.getProfile())
+                .id(user.getId())
+                .userName(user.getUsername())
+                .build();
+    }
 }

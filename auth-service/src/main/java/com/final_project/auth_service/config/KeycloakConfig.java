@@ -67,4 +67,10 @@ public class KeycloakConfig {
     public String getClientId() {
         return clientId;
     }
+    public String getTokenURl(){
+        return keycloakServerUrl + "/realms/" + this.realm + "/protocol/openid-connect/token";
+    }
+    public String keycloakSecretToken(){
+        return this.clientSecret;
+    }
 }

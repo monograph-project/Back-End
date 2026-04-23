@@ -1,5 +1,6 @@
 package com.final_project.file_service.domain.model;
 
+import lombok.Builder;
 import lombok.Data;
 
 import java.time.Instant;

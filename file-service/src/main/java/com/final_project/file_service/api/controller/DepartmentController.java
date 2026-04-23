@@ -36,7 +36,7 @@ public class DepartmentController {
 
     @GetMapping("/logo/{id}")
     public String getProfile(@PathVariable String id) throws IOException {
-        FileRecord file = fileRecordService.findByOwnerIdAndCategory(id, FileCategory.LOGO.name());
+        FileRecord file = fileRecordService.findByOwnerIdAndCategory(id, FileCategory.LOGO);
         return fileStoragePort.generatePresignedUrl(file.getBucket(), file.getObjectKey());
     }
 }

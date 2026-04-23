@@ -70,6 +70,25 @@ public class UserController {
      * @param id User ID
      * @return User DTO
      */
+    @GetMapping("/author/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'USER_ADMIN', 'USER_VIEW', 'USER')")
+    @Operation(summary = "Get user by ID", description = "Retrieves user information by unique identifier")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "User found"),
+            @ApiResponse(responseCode = "404", description = "User not found"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    public ResponseEntity<AuthorResponse> getUserAsAuthor(
+            @PathVariable String id) {
+        AuthorResponse user = userService.getUserAsAuthor(id);
+        return ResponseEntity.ok(user);
+    }
+    /**
+     * Get user by ID.
+     *
+     * @param id User ID
+     * @return User DTO
+     */
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'USER_ADMIN', 'USER_VIEW')")
     @Operation(summary = "Get user by ID", description = "Retrieves user information by unique identifier")

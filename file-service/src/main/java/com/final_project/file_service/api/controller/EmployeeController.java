@@ -37,7 +37,7 @@ public class EmployeeController {
 
     @GetMapping("/profile/{id}")
     public String getProfile(@PathVariable String id) throws IOException {
-        FileRecord file = fileRecordService.findByOwnerIdAndCategory(id, FileCategory.PROFILE.name());
+        FileRecord file = fileRecordService.findByOwnerIdAndCategory(id, FileCategory.PROFILE);
         return fileStoragePort.generatePresignedUrl(file.getBucket(), file.getObjectKey());
     }
 }

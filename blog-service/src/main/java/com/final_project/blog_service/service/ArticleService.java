@@ -1,6 +1,11 @@
 package com.final_project.blog_service.service;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.final_project.blog_service.client.FileServiceClient;
+import com.final_project.blog_service.client.UserServiceClient;
 import com.final_project.blog_service.exception.ResourceNotFoundException;
 import com.final_project.blog_service.exception.UnauthorizedException;
+import com.final_project.blog_service.exception.UserNotFoundException;
 import com.final_project.blog_service.utile.SlugUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +21,9 @@ import com.final_project.blog_service.repo.*;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+import static com.final_project.blog_service.utile.ReadTimeCalculator.calculateReadTime;
 
 /**
  * Article Service - Core business logic for article management
@@ -23,36 +31,60 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class ArticleService {
 
     private final ArticleRepository articleRepository;
     private final CommentRepository commentRepository;
     private final LikeRepository likeRepository;
     private final ShareRepository shareRepository;
-    private final ReadingHistoryRepository readingHistoryRepository;
     private final RedisTemplate<String, String> redisTemplate;
+    private final FileServiceClient fileServiceClient;
+    private final UserServiceClient userServiceClient;
+    private final UserCacheService userCacheService;
+    private final ObjectMapper objectMapper;
+    public ArticleService(ArticleRepository articleRepository,
+                          CommentRepository commentRepository,
+                          LikeRepository likeRepository,
+                          RedisTemplate<String, String> redisTemplate,
+                          FileServiceClient fileServiceClient,
+                          UserServiceClient userServiceClient,
+                          UserCacheService userCacheService,
+                          ObjectMapper objectMapper,
+                          ShareRepository shareRepository
+
+    ){
+        this.articleRepository = articleRepository;
+        this.commentRepository = commentRepository;
+        this.fileServiceClient = fileServiceClient;
+        this.likeRepository = likeRepository;
+        this.objectMapper = objectMapper;
+        this.shareRepository = shareRepository;
+        this.redisTemplate = redisTemplate;
+        this.userServiceClient = userServiceClient;
+        this.userCacheService = userCacheService;
+    }
 
     private static final String ARTICLE_CACHE_KEY = "article:";
     private static final String ARTICLE_STATS_CACHE_KEY = "article:stats:";
     private static final int CACHE_TTL_MINUTES = 5;
-
-    // ============= ARTICLE MANAGEMENT =============
-
     /**
      * Create a new draft article
      */
     @Transactional
     public ArticleResponse createArticle(String authorId, CreateArticleRequest request) {
-        log.info("Creating article for author: {}", authorId);
+        UserAuthorResponse authorResponse = userServiceClient.getUserAuthor(authorId);
+        if (authorResponse == null){
+            throw new ResourceNotFoundException("The User is Not Exist");
+        }
+
 
         Article article = Article.builder()
-                .authorId(authorId)
+                .authorId(authorResponse.getId())
                 .title(request.getTitle())
                 .subtitle(request.getSubtitle())
                 .slug(generateUniqueSlug(request.getTitle()))
-                .status("DRAFT")
-                .visibility("PUBLIC")
+                .status(ArticleStatus.DRAFT)
+                .visibility(ArticleVisiblity.PUBLIC)
                 .content(Article.Content.builder()
                         .blocks(mapContentBlocks(request.getBlocks()))
                         .estimatedReadTime(calculateReadTime(request.getBlocks()))
@@ -78,8 +110,6 @@ public class ArticleService {
                 .build();
 
         Article saved = articleRepository.save(article);
-        log.info("Article created with ID: {}", saved.getId());
-
         return mapToResponse(saved);
     }
 
@@ -122,13 +152,13 @@ public class ArticleService {
         Article article = getArticleByIdOrThrow(articleId);
         validateAuthor(article, authorId);
 
-        if (!"DRAFT".equals(article.getStatus())) {
+        if (!ArticleStatus.DRAFT.equals(article.getStatus())) {
             throw new IllegalStateException("Only draft articles can be published");
         }
 
         log.info("Publishing article: {}", articleId);
 
-        article.setStatus("PUBLISHED");
+        article.setStatus(ArticleStatus.PUBLISHED);
         article.setVisibility(request.getVisibility());
         article.setPublishedAt(LocalDateTime.now());
         article.setUpdatedAt(LocalDateTime.now());
@@ -189,7 +219,7 @@ public class ArticleService {
 
         Page<Article> articles = articleRepository.findByAuthorIdAndStatusOrderByPublishedAtDesc(
                 authorId,
-                "PUBLISHED",
+                ArticleStatus.PUBLISHED,
                 pageable
         );
 
@@ -218,7 +248,7 @@ public class ArticleService {
 
         log.info("Archiving article: {}", articleId);
 
-        article.setStatus("ARCHIVED");
+        article.setStatus(ArticleStatus.ARCHIVED);
         article.setArchivedAt(LocalDateTime.now());
         article.setUpdatedAt(LocalDateTime.now());
 
@@ -226,7 +256,6 @@ public class ArticleService {
         invalidateCache(articleId);
     }
 
-    // ============= COMMENT MANAGEMENT =============
 
     /**
      * Post a comment on an article
@@ -240,7 +269,7 @@ public class ArticleService {
                 .parentCommentId(null)  // Top-level comment
                 .authorId(authorId)
                 .body(request.getBody())
-                .status("PUBLISHED")
+                .status(CommentStatus.PUBLISHED)
                 .engagement(Comment.Engagement.builder()
                         .likes(0L)
                         .replyCount(0L)
@@ -275,7 +304,7 @@ public class ArticleService {
                 .parentCommentId(parentCommentId)
                 .authorId(authorId)
                 .body(request.getBody())
-                .status("PUBLISHED")
+                .status(CommentStatus.PUBLISHED)
                 .engagement(Comment.Engagement.builder()
                         .likes(0L)
                         .replyCount(0L)
@@ -309,7 +338,7 @@ public class ArticleService {
 
         Page<Comment> comments = commentRepository.findByArticleIdAndParentCommentIdIsNullAndStatusOrderByCreatedAtDesc(
                 articleId,
-                "PUBLISHED",
+                CommentStatus.PUBLISHED,
                 pageable
         );
 
@@ -344,7 +373,7 @@ public class ArticleService {
 
         log.info("Deleting comment: {}", commentId);
 
-        comment.setStatus("DELETED");
+        comment.setStatus(CommentStatus.DELETE);
         comment.setEditedAt(LocalDateTime.now());
 
         commentRepository.save(comment);
@@ -510,7 +539,7 @@ public class ArticleService {
 
         Page<Comment> replies = commentRepository.findByParentCommentIdAndStatusOrderByCreatedAtAsc(
                 comment.getId(),
-                "PUBLISHED",
+                CommentStatus.PUBLISHED,
                 pageable
         );
 
@@ -524,18 +553,14 @@ public class ArticleService {
                 .build();
     }
 
-    // ============= MAPPING METHODS =============
-
     private Article getArticleByIdOrThrow(String id) {
         return articleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Article not found: " + id));
     }
-
     private Comment getCommentByIdOrThrow(String id) {
         return commentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Comment not found: " + id));
     }
-
     private ArticleResponse mapToResponse(Article article) {
         return ArticleResponse.builder()
                 .id(article.getId())
@@ -578,12 +603,10 @@ public class ArticleService {
                 .estimatedReadTime(article.getContent().getEstimatedReadTime())
                 .build();
     }
-
     private PaginatedResponse<ArticlePreviewResponse> mapToPaginatedResponse(Page<Article> page, int pageNum, int pageSize) {
         List<ArticlePreviewResponse> previews = page.getContent().stream()
                 .map(this::mapToPreview)
                 .toList();
-
         return PaginatedResponse.<ArticlePreviewResponse>builder()
                 .data(previews)
                 .pagination(PaginatedResponse.PaginationMetadata.builder()
@@ -654,4 +677,394 @@ public class ArticleService {
                 .createdAt(share.getCreatedAt())
                 .build();
     }
+    public ArticleResponse getArticleByAuthorAndId(String authorId, String articleId) {
+        Article article = articleRepository.findArticleByIdAndAuthorId(authorId, articleId)
+                .orElseThrow(() -> new  ResourceNotFoundException("This Article by this user"));
+        return mapToResponse(article);
+
+
+    }
+
+    @Transactional
+    public ArticleResponse createArticleWithFiles(
+            String userId,
+            CreateArticleWithFilesRequest request
+    ) {
+
+        // Validate user exists
+        try {
+            UserProfileResponse userProfile = userCacheService.getUserProfile(userId);
+            log.info("User verified: {}", userProfile.getUsername());
+        } catch (UserNotFoundException e) {
+            log.error("User not found: {}", userId);
+            throw new UnauthorizedException("User not found: " + userId);
+        }
+
+        // Process content blocks
+        List<Article.ContentBlock> processedBlocks = processContentBlocks(request.getBlocks());
+
+        // Create article entity
+        Article article = Article.builder()
+                .authorId(userId)
+                .title(request.getTitle())
+                .slug(generateUniqueSlug(request.getTitle()))
+                .subtitle(request.getSubtitle())
+                .status(ArticleStatus.DRAFT)
+                .visibility(ArticleVisiblity.PRIVATE)
+                .content(Article.Content.builder()
+                        .blocks(processedBlocks)
+                        .estimatedReadTime(calculateReadTimeForContentBlock(processedBlocks))
+                        .build()
+                )
+                .metadata(Article.Metadata.builder()
+                        .tags(request.getTags())
+                        .category(request.getCategory())
+                        .description(request.getDescription())
+                        .coverImageUrl(request.getCoverImageUrl())
+                        .build()
+                )
+                .stats(Article.Stats.builder()
+                        .views(0L)
+                        .reads(0L)
+                        .likes(0L)
+                        .commentCount(0L)
+                        .shareCount(0L)
+                        .build()
+                )
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
+        Article saved = articleRepository.save(article);
+        log.info("Article created with files: {} by user: {}", saved.getId(), userId);
+
+        return mapToResponse(saved);
+    }
+
+    /**
+     * Process content blocks and validate file references
+     */
+    private List<Article.ContentBlock> processContentBlocks(List<FlexibleContentBlockRequest> blocks) {
+        return blocks.stream()
+                .map(block -> {
+                    // Validate block data based on type
+                    validateBlock(block);
+                    // For image/video blocks, validate file exists
+                    if ("image".equals(block.getType()) || "video".equals(block.getType())) {
+                        validateFileReference(block.getFileId());
+                    }
+                    // Convert to entity
+                    return Article.
+                            ContentBlock
+                            .builder()
+                            .type(block.getType())
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Validate individual content block
+     */
+    private void validateBlock(FlexibleContentBlockRequest block) {
+        switch (block.getType()) {
+            case "text":
+                if (block.getText() == null || block.getText().isBlank()) {
+                    throw new IllegalArgumentException("Text block requires 'text' field");
+                }
+                break;
+            case "heading":
+                if (block.getLevel() == null || block.getLevel() < 1 || block.getLevel() > 6) {
+                    throw new IllegalArgumentException("Heading block requires valid 'level' (1-6)");
+                }
+                if (block.getText() == null || block.getText().isBlank()) {
+                    throw new IllegalArgumentException("Heading block requires 'text' field");
+                }
+                break;
+            case "image":
+            case "video":
+                if (block.getFileId() == null || block.getFileUrl() == null) {
+                    throw new IllegalArgumentException(
+                            block.getType() + " block requires 'fileId' and 'fileUrl' fields"
+                    );
+                }
+                break;
+            case "code":
+                if (block.getCode() == null || block.getCode().isBlank()) {
+                    throw new IllegalArgumentException("Code block requires 'code' field");
+                }
+                break;
+            case "quote":
+                if (block.getText() == null || block.getText().isBlank()) {
+                    throw new IllegalArgumentException("Quote block requires 'text' field");
+                }
+                break;
+            case "embed":
+                if (block.getProvider() == null || block.getEmbedUrl() == null) {
+                    throw new IllegalArgumentException(
+                            "Embed block requires 'provider' and 'embedUrl' fields"
+                    );
+                }
+                break;
+            case "divider":
+                // No specific validation needed
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown block type: " + block.getType());
+        }
+    }
+
+
+    private Article.ContentBlock convertFlexibleBlockToEntity(
+            FlexibleContentBlockRequest blockRequest
+    ) {
+        if (blockRequest == null) {
+            throw new IllegalArgumentException("Content block cannot be null");
+        }
+
+
+        // Validate block
+        validateFlexibleContentBlock(blockRequest);
+
+        // For image/video blocks, validate file exists in File Service
+        if ("image".equals(blockRequest.getType()) || "video".equals(blockRequest.getType())) {
+            validateFileReference(blockRequest.getFileId());
+        }
+
+        // Convert DTO to JsonNode for flexible MongoDB storage
+        JsonNode blockData = objectMapper.valueToTree(blockRequest);
+
+        // Create and return entity
+        return Article.ContentBlock.builder()
+                .type(blockRequest.getType())
+                .data(blockData)
+                .build();
+    }
+
+    private Article.ContentBlock convertContentBlockRequestToEntity(
+            ContentBlockRequest blockRequest
+    ) {
+        if (blockRequest == null) {
+            throw new IllegalArgumentException("Content block cannot be null");
+        }
+
+        JsonNode blockData = objectMapper.valueToTree(blockRequest);
+
+        return Article.ContentBlock.builder()
+                .type(blockRequest.getType())
+                .data(blockData)
+                .build();
+    }
+
+    // ============= VALIDATION METHODS =============
+
+    /**
+     * Validate flexible content block structure
+     */
+    private void validateFlexibleContentBlock(FlexibleContentBlockRequest block) {
+        String type = block.getType();
+
+        switch (type) {
+            case "text":
+                if (block.getText() == null || block.getText().isBlank()) {
+                    throw new IllegalArgumentException("Text block requires non-empty 'text' field");
+                }
+                if (block.getText().length() > 10000) {
+                    throw new IllegalArgumentException("Text block exceeds maximum length");
+                }
+                break;
+
+            case "heading":
+                if (block.getLevel() == null || block.getLevel() < 1 || block.getLevel() > 6) {
+                    throw new IllegalArgumentException("Heading level must be 1-6");
+                }
+                if (block.getText() == null || block.getText().isBlank()) {
+                    throw new IllegalArgumentException("Heading block requires 'text'");
+                }
+                break;
+
+            case "image":
+                if (block.getFileId() == null || block.getFileId().isBlank()) {
+                    throw new IllegalArgumentException("Image block requires 'fileId'");
+                }
+                if (block.getFileUrl() == null || block.getFileUrl().isBlank()) {
+                    throw new IllegalArgumentException("Image block requires 'fileUrl'");
+                }
+                if (block.getAlt() == null || block.getAlt().isBlank()) {
+                    throw new IllegalArgumentException("Image block requires 'alt' text for accessibility");
+                }
+                break;
+
+            case "video":
+                if (block.getFileId() == null || block.getFileId().isBlank()) {
+                    throw new IllegalArgumentException("Video block requires 'fileId'");
+                }
+                if (block.getFileUrl() == null || block.getFileUrl().isBlank()) {
+                    throw new IllegalArgumentException("Video block requires 'fileUrl'");
+                }
+                if (block.getDuration() == null || block.getDuration() < 1) {
+                    throw new IllegalArgumentException("Video block requires valid 'duration'");
+                }
+                break;
+
+            case "code":
+                if (block.getCode() == null || block.getCode().isBlank()) {
+                    throw new IllegalArgumentException("Code block requires 'code'");
+                }
+                if (block.getLanguage() == null) {
+                    throw new IllegalArgumentException("Code block requires 'language'");
+                }
+                break;
+
+            case "quote":
+                if (block.getText() == null || block.getText().isBlank()) {
+                    throw new IllegalArgumentException("Quote block requires 'text'");
+                }
+                break;
+
+            case "embed":
+                if (block.getProvider() == null || block.getProvider().isBlank()) {
+                    throw new IllegalArgumentException("Embed block requires 'provider'");
+                }
+                if (block.getEmbedUrl() == null || block.getEmbedUrl().isBlank()) {
+                    throw new IllegalArgumentException("Embed block requires 'embedUrl'");
+                }
+                break;
+
+            case "divider":
+                // No validation needed
+                break;
+
+            default:
+                throw new IllegalArgumentException("Unknown block type: " + type);
+        }
+    }
+
+    /**
+     * Validate file reference exists in File Service
+     */
+    private void validateFileReference(String fileId) {
+        if (fileId == null || fileId.isBlank()) {
+            throw new IllegalArgumentException("File ID cannot be null");
+        }
+
+        try {
+            // Call File Service to verify file exists
+            fileServiceClient.getFileMetadata(fileId);
+            log.debug("File validated: {}", fileId);
+        } catch (Exception e) {
+            log.error("File validation failed: {} - {}", fileId, e.getMessage());
+            throw new IllegalArgumentException(
+                    "File not found or inaccessible: " + fileId + ". Upload file first."
+            );
+        }
+    }
+
+    // ============= UTILITY METHODS =============
+
+    /**
+     * Calculate estimated read time from content blocks
+     * Average: 200 words per minute
+     */
+    private Integer calculateReadTimeForContentBlock(List<Article.ContentBlock> blocks) {
+        int totalWords = 0;
+
+        for (Article.ContentBlock block : blocks) {
+            if (block.getData() != null) {
+                String text = block.getData().toString();
+                int words = text.split("\\s+").length;
+                totalWords += words;
+            }
+        }
+
+        int minutes = Math.max(1, totalWords / 200);
+        log.debug("Calculated read time: {} minutes", minutes);
+
+        return minutes;
+    }
+    /**
+     * Extract keywords from title and description
+     */
+    private List<String> extractKeywords(String title, String description) {
+        if (title == null && description == null) {
+            return List.of();
+        }
+
+        String combined = (title != null ? title : "") + " " + (description != null ? description : "");
+
+        return List.of(combined.split("\\s+")).stream()
+                .filter(word -> word.length() > 3)
+                .distinct()
+                .limit(10)
+                .collect(Collectors.toList());
+    }
+
+    // ============= RESPONSE MAPPING =============
+
+    /**
+     * Map Article entity to ArticleResponse DTO
+     */
+    private ArticleResponse mapToResponse(Article article, UserProfileResponse author) {
+        return ArticleResponse.builder()
+                .id(article.getId())
+                .slug(article.getSlug())
+                .title(article.getTitle())
+                .subtitle(article.getSubtitle())
+                .content(mapContentToResponse(article.getContent()))
+                .metadata(mapMetadataToResponse(article.getMetadata()))
+                .status(article.getStatus())
+                .visibility(article.getVisibility())
+                .stats(mapStatsToResponse(article.getStats()))
+                .author(mapAuthorResponse(author))
+                .publishedAt(article.getPublishedAt())
+                .updatedAt(article.getUpdatedAt())
+                .createdAt(article.getCreatedAt())
+                .estimatedReadTime(article.getContent().getEstimatedReadTime())
+                .build();
+    }
+
+    private ContentResponse mapContentToResponse(Article.Content content) {
+        return ContentResponse.builder()
+                .blocks(content.getBlocks().stream()
+                        .map(block -> ContentBlockResponse.builder()
+                                .type(block.getType())
+                                .data(block.getData())
+                                .build()
+                        )
+                        .collect(Collectors.toList())
+                )
+                .estimatedReadTime(content.getEstimatedReadTime())
+                .build();
+    }
+
+    private MetadataResponse mapMetadataToResponse(Article.Metadata metadata) {
+        return MetadataResponse.builder()
+                .tags(metadata.getTags())
+                .category(metadata.getCategory())
+                .description(metadata.getDescription())
+                .keywords(metadata.getKeywords())
+                .coverImageUrl(metadata.getCoverImageUrl())
+                .build();
+    }
+
+    private StatsResponse mapStatsToResponse(Article.Stats stats) {
+        return StatsResponse.builder()
+                .views(stats.getViews())
+                .reads(stats.getReads())
+                .likes(stats.getLikes())
+                .commentCount(stats.getCommentCount())
+                .shareCount(stats.getShareCount())
+                .lastEngagedAt(stats.getLastEngagedAt())
+                .build();
+    }
+
+    private AuthorResponse mapAuthorResponse(UserProfileResponse user) {
+        return AuthorResponse.builder()
+                .id(user.getId())
+                .displayName(user.getDisplayName())
+                .profileImageUrl(user.getProfileImageUrl())
+                .totalArticles(user.getTotalArticles() != null ? user.getTotalArticles() : 0L)
+                .build();
+    }
 }
+

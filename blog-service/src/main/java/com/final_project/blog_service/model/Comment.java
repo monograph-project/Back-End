@@ -41,7 +41,7 @@ public class Comment {
     private Engagement engagement;
 
     @Builder.Default
-    private String status = "PUBLISHED";  // PUBLISHED, DELETED
+    private CommentStatus status = CommentStatus.PUBLISHED;  // PUBLISHED, DELETED
 
     private LocalDateTime editedAt;
 
