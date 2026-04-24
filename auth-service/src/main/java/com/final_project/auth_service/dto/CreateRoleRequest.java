@@ -30,11 +30,10 @@ public class CreateRoleRequest {
     @Schema(description = "Role description", example = "Administrator with full access")
     private String description;
 
-    @NotBlank(message = "Role key is required")
     @Pattern(regexp = "^[A-Z_]+$", message = "Role key must contain only uppercase letters and underscores")
     @Size(min = 3, max = 50, message = "Role key must be between 3 and 50 characters")
     @JsonProperty("role_key")
-    @Schema(description = "Role key for Keycloak sync", example = "ADMIN_ROLE")
+    @Schema(description = "Legacy field kept for backward compatibility", example = "ADMIN_ROLE")
     private String roleKey;
 
     @JsonProperty("permission_ids")

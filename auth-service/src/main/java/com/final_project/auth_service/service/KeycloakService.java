@@ -1,319 +1,264 @@
 package com.final_project.auth_service.service;
-import com.final_project.auth_service.dto.CreateUserRequest;
+
+import com.final_project.auth_service.config.KeycloakConfig;
 import com.final_project.auth_service.exception.KeycloakException;
+import jakarta.ws.rs.core.Response;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.admin.client.Keycloak;
+import org.keycloak.admin.client.resource.ClientResource;
 import org.keycloak.admin.client.resource.RealmResource;
-import org.keycloak.admin.client.resource.UsersResource;
+import org.keycloak.admin.client.spi.ResteasyClientProvider;
+import org.keycloak.representations.idm.ClientRepresentation;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import lombok.RequiredArgsConstructor;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
-/**
- * Service for Keycloak integration.
- *
- * Handles:
- * - User creation/deletion in Keycloak
- * - Password management
- * - Role assignment/removal
- * - User enable/disable
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class KeycloakService {
 
     private final Keycloak keycloak;
+    private final KeycloakConfig keycloakConfig;
 
-    @Value("${keycloak.realm}")
-    private String realm;
+    private RealmResource realm() {
+        return keycloak.realm(keycloakConfig.getRealm());
+    }
 
-    /**
-     * Create a new user in Keycloak.
-     *
-     * @param request User creation request
-     * @return Keycloak user ID
-     */
-    public String createKeycloakUser(CreateUserRequest request) {
+
+    public String createUser(String username,
+                             String email,
+                             String firstName,
+                             String lastName,
+                             String password,
+                             boolean enabled,
+                             boolean emailVerified,
+                             Map<String, List<String>> attributes) {
+        UserRepresentation user = new UserRepresentation();
+        user.setUsername(username);
+        user.setEmail(email);
+        user.setFirstName(firstName);
+        user.setLastName(lastName);
+        user.setEnabled(enabled);
+        user.setEmailVerified(emailVerified);
+        user.setAttributes(attributes);
+
+        CredentialRepresentation credential = new CredentialRepresentation();
+        credential.setType(CredentialRepresentation.PASSWORD);
+        credential.setValue(password);
+        credential.setTemporary(false);
+        user.setCredentials(Collections.singletonList(credential));
+
+        Response response = realm().users().create(user);
         try {
 
-            UsersResource usersResource = getUsersResource();
-            UserRepresentation user = new UserRepresentation();
-            user.setUsername(request.getUsername());
-            user.setEmail(request.getEmail());
-            user.setFirstName(request.getFirstName());
-            user.setLastName(request.getLastName());
-            user.setEnabled(true);
-            user.setEmailVerified(false);
+            if (response.getStatus() != 201) {
+                throw new KeycloakException("Failed to create user in Keycloak. HTTP " + response.getStatus());
+            }
 
-            // Create user and get ID from response
-            var response = usersResource.create(user);
-            String userId = response.getLocation().getPath().replaceAll(".*/([^/]+)$", "$1");
-
-            log.info("User created in Keycloak with ID: {}", userId);
-            return userId;
-
-        } catch (Exception e) {
-            log.error("Failed to create user in Keycloak: {}", request.getUsername(), e);
-            throw new KeycloakException("Failed to create user in Keycloak", e);
+            String location = response.getHeaderString("Location");
+            return location.substring(location.lastIndexOf('/') + 1);
+        } finally {
+            response.close();
         }
     }
 
-    /**
-     * Delete a user from Keycloak.
-     *
-     * @param userId Keycloak user ID
-     */
-    public void deleteKeycloakUser(String userId) {
+    public Optional<UserRepresentation> findUserByUsername(String username) {
+        return realm().users().searchByUsername(username, true).stream().findFirst();
+    }
+
+    public Optional<UserRepresentation> findUserByEmail(String email) {
+        return realm().users().searchByEmail(email, true).stream().findFirst();
+    }
+
+    public UserRepresentation getUserById(String userId) {
         try {
-            log.info("Deleting user from Keycloak: {}", userId);
-
-            UsersResource usersResource = getUsersResource();
-            usersResource.delete(userId);
-
-            log.info("User deleted from Keycloak: {}", userId);
-
-        } catch (Exception e) {
-            log.error("Failed to delete user from Keycloak: {}", userId, e);
-            throw new KeycloakException("Failed to delete user from Keycloak", e);
+            return realm().users().get(userId).toRepresentation();
+        } catch (Exception exception) {
+            throw new KeycloakException("User not found in Keycloak: " + userId, exception);
         }
     }
 
-    /**
-     * Assign a role to a user.
-     *
-     * @param userId Keycloak user ID
-     * @param roleName Role name
-     */
-    public void assignRoleToUser(String userId, String roleName) {
+    public List<UserRepresentation> getUsers() {
+        System.out.println(keycloakConfig.getRealm());
+        System.out.println(keycloakConfig.getAdminClientId());
+        return realm().users().list();
+    }
+
+    public List<UserRepresentation> searchUsers(String searchTerm) {
+        if (searchTerm == null || searchTerm.isBlank()) {
+            return getUsers();
+        }
+        return realm().users().search(searchTerm.trim());
+    }
+
+    public void updateUser(String userId, UserRepresentation userRepresentation) {
         try {
-            log.info("Assigning role {} to user {}", roleName, userId);
-
-            RealmResource realmResource = getRealmResource();
-            UsersResource usersResource = realmResource.users();
-
-            var role = realmResource.roles().get(roleName).toRepresentation();
-            usersResource.get(userId).roles().realmLevel().add(Collections.singletonList(role));
-
-            log.info("Role assigned successfully");
-
-        } catch (Exception e) {
-            log.error("Failed to assign role to user: {}", userId, e);
-            throw new KeycloakException("Failed to assign role to user", e);
+            realm().users().get(userId).update(userRepresentation);
+        } catch (Exception exception) {
+            throw new KeycloakException("Failed to update user in Keycloak: " + userId, exception);
         }
     }
 
-    /**
-     * Remove a role from a user.
-     *
-     * @param userId Keycloak user ID
-     * @param roleName Role name
-     */
-    public void removeRoleFromUser(String userId, String roleName) {
+    public void deleteUser(String userId) {
         try {
-            log.info("Removing role {} from user {}", roleName, userId);
-
-            RealmResource realmResource = getRealmResource();
-            UsersResource usersResource = realmResource.users();
-
-            var role = realmResource.roles().get(roleName).toRepresentation();
-            usersResource.get(userId).roles().realmLevel().remove(Collections.singletonList(role));
-
-            log.info("Role removed successfully");
-
-        } catch (Exception e) {
-            log.error("Failed to remove role from user: {}", userId, e);
-            throw new KeycloakException("Failed to remove role from user", e);
+            realm().users().delete(userId);
+        } catch (Exception exception) {
+            throw new KeycloakException("Failed to delete user in Keycloak: " + userId, exception);
         }
     }
 
-    /**
-     * Disable a user in Keycloak.
-     *
-     * @param userId Keycloak user ID
-     */
-    public void disableKeycloakUser(String userId) {
-        try {
-            log.info("Disabling user in Keycloak: {}", userId);
+    public void setPassword(String userId, String newPassword, boolean temporary) {
+        CredentialRepresentation credential = new CredentialRepresentation();
+        credential.setType(CredentialRepresentation.PASSWORD);
+        credential.setValue(newPassword);
+        credential.setTemporary(temporary);
+        realm().users().get(userId).resetPassword(credential);
+    }
 
-            UsersResource usersResource = getUsersResource();
-            UserRepresentation user = usersResource.get(userId).toRepresentation();
-            user.setEnabled(false);
-            usersResource.get(userId).update(user);
+    public void sendVerifyEmail(String userId) {
+        realm().users().get(userId).sendVerifyEmail();
+    }
 
-            log.info("User disabled in Keycloak");
+    public void sendResetPasswordEmail(String userId) {
+        realm().users().get(userId).executeActionsEmail(List.of("UPDATE_PASSWORD"));
+    }
 
-        } catch (Exception e) {
-            log.error("Failed to disable user in Keycloak: {}", userId, e);
-            throw new KeycloakException("Failed to disable user in Keycloak", e);
+    public void setUserEnabled(String userId, boolean enabled) {
+        UserRepresentation user = getUserById(userId);
+        user.setEnabled(enabled);
+        updateUser(userId, user);
+    }
+
+    public void markEmailVerified(String userId, boolean emailVerified) {
+        UserRepresentation user = getUserById(userId);
+        user.setEmailVerified(emailVerified);
+        updateUser(userId, user);
+    }
+
+    public List<String> getUserRealmRoleNames(String userId) {
+        return realm().users().get(userId).roles().realmLevel().listAll().stream()
+                .map(RoleRepresentation::getName)
+                .toList();
+    }
+
+    public void assignRealmRoles(String userId, List<String> roleNames) {
+        List<RoleRepresentation> roles = roleNames.stream()
+                .map(roleName -> realm().roles().get(roleName).toRepresentation())
+                .toList();
+        realm().users().get(userId).roles().realmLevel().add(roles);
+    }
+
+    public void removeRealmRoles(String userId, List<String> roleNames) {
+        List<RoleRepresentation> roles = roleNames.stream()
+                .map(roleName -> realm().roles().get(roleName).toRepresentation())
+                .toList();
+        realm().users().get(userId).roles().realmLevel().remove(roles);
+    }
+
+    public void replaceRealmRoles(String userId, List<String> roleNames) {
+        var roleScope = realm().users().get(userId).roles().realmLevel();
+        List<RoleRepresentation> existing = roleScope.listAll();
+        if (!existing.isEmpty()) {
+            roleScope.remove(existing);
+        }
+        if (roleNames != null && !roleNames.isEmpty()) {
+            assignRealmRoles(userId, roleNames);
         }
     }
 
-    /**
-     * Enable a user in Keycloak.
-     *
-     * @param userId Keycloak user ID
-     */
-    public void enableKeycloakUser(String userId) {
+    public void createRealmRole(String roleName, String description) {
+        RoleRepresentation role = new RoleRepresentation();
+        role.setName(roleName);
+        role.setDescription(description);
+        realm().roles().create(role);
+    }
+
+    public List<RoleRepresentation> getRealmRoles() {
+        return realm().roles().list();
+    }
+    public RoleRepresentation getClientRole(String clientId, String roleName) {
         try {
-            log.info("Enabling user in Keycloak: {}", userId);
-
-            UsersResource usersResource = getUsersResource();
-            UserRepresentation user = usersResource.get(userId).toRepresentation();
-            user.setEnabled(true);
-            usersResource.get(userId).update(user);
-
-            log.info("User enabled in Keycloak");
-
+            return clientResource(clientId)
+                    .roles()
+                    .get(roleName)
+                    .toRepresentation();
+        } catch (jakarta.ws.rs.NotFoundException e) {
+            throw new KeycloakException(
+                    "Client role not found: " + roleName + " in client: " + clientId, e
+            );
         } catch (Exception e) {
-            log.error("Failed to enable user in Keycloak: {}", userId, e);
-            throw new KeycloakException("Failed to enable user in Keycloak", e);
+            throw new KeycloakException(
+                    "Failed to get client role: " + roleName, e
+            );
         }
     }
 
-    /**
-     * Set password for a user.
-     *
-     * @param userId Keycloak user ID
-     * @param password New password
-     */
-    public void setUserPassword(String userId, String password) {
-        try {
-            log.info("Setting password for user: {}", userId);
+    public RoleRepresentation getRealmRole(String roleName) {
+        return realm().roles().get(roleName).toRepresentation();
+    }
 
-            CredentialRepresentation credential = new CredentialRepresentation();
-            credential.setType(CredentialRepresentation.PASSWORD);
-            credential.setValue(password);
-            credential.setTemporary(false);
-
-            UsersResource usersResource = getUsersResource();
-            usersResource.get(userId).resetPassword(credential);
-
-            log.info("Password set successfully");
-
-        } catch (Exception e) {
-            log.error("Failed to set password for user: {}", userId, e);
-            throw new KeycloakException("Failed to set password for user", e);
+    public void updateRealmRole(String roleName, String newName, String description) {
+        RoleRepresentation role = realm().roles().get(roleName).toRepresentation();
+        if (newName != null && !newName.isBlank()) {
+            role.setName(newName);
         }
+        role.setDescription(description);
+        realm().roles().get(roleName).update(role);
     }
 
-    /**
-     * Create a new role in Keycloak.
-     *
-     * @param roleName Role name
-     * @param description Role description
-     * @return Keycloak role ID
-     */
-    public String createKeycloakRole(String roleName, String description) {
-        try {
-            log.info("Creating role in Keycloak: {}", roleName);
+    public void deleteRealmRole(String roleName) {
+        realm().roles().deleteRole(roleName);
+    }
 
-            RealmResource realmResource = getRealmResource();
+    public void createClientRole(String clientId, String roleName, String description) {
+        ClientResource clientResource = clientResource(clientId);
+        RoleRepresentation role = new RoleRepresentation();
+        role.setName(roleName);
+        role.setDescription(description);
+        clientResource.roles().create(role);
+    }
 
-            RoleRepresentation role = new RoleRepresentation();
-            role.setName(roleName);
-            role.setDescription(description);
+    public List<RoleRepresentation> getClientRoles(String clientId) {
+        return clientResource(clientId).roles().list();
+    }
 
-            realmResource.roles().create(role);
+    public void deleteClientRole(String clientId, String roleName) {
+        clientResource(clientId).roles().deleteRole(roleName);
+    }
 
-            // Get the created role to retrieve its ID
-            RoleRepresentation createdRole = realmResource.roles().get(roleName).toRepresentation();
-            String roleId = createdRole.getId();
+    public void assignClientRoles(String userId, String clientId, List<String> roleNames) {
+        ClientResource clientResource = clientResource(clientId);
+        List<RoleRepresentation> roles = roleNames.stream()
+                .map(roleName -> clientResource.roles().get(roleName).toRepresentation())
+                .toList();
+        realm().users().get(userId).roles().clientLevel(clientUuid(clientId)).add(roles);
+    }
 
-            log.info("Role created in Keycloak with ID: {}", roleId);
-            return roleId;
+    public void removeClientRoles(String userId, String clientId, List<String> roleNames) {
+        ClientResource clientResource = clientResource(clientId);
+        List<RoleRepresentation> roles = roleNames.stream()
+                .map(roleName -> clientResource.roles().get(roleName).toRepresentation())
+                .toList();
+        realm().users().get(userId).roles().clientLevel(clientUuid(clientId)).remove(roles);
+    }
 
-        } catch (Exception e) {
-            log.error("Failed to create role in Keycloak: {}", roleName, e);
-            throw new KeycloakException("Failed to create role in Keycloak", e);
+    private ClientResource clientResource(String clientId) {
+        return realm().clients().get(clientUuid(clientId));
+    }
+
+    private String clientUuid(String clientId) {
+        List<ClientRepresentation> clients = realm().clients().findByClientId(clientId);
+        if (clients.isEmpty()) {
+            throw new KeycloakException("Keycloak client not found: " + clientId);
         }
-    }
-
-    /**
-     * Delete a role from Keycloak.
-     *
-     * @param roleId Keycloak role ID
-     */
-    public void deleteKeycloakRole(String roleId) {
-        try {
-            log.info("Deleting role from Keycloak: {}", roleId);
-
-            RealmResource realmResource = getRealmResource();
-            realmResource.roles().deleteRole(roleId);
-
-            log.info("Role deleted from Keycloak: {}", roleId);
-
-        } catch (Exception e) {
-            log.error("Failed to delete role from Keycloak: {}", roleId, e);
-            throw new KeycloakException("Failed to delete role from Keycloak", e);
-        }
-    }
-
-    /**
-     * Get role representation from Keycloak.
-     *
-     * @param roleName Role name
-     * @return Role representation
-     */
-    public RoleRepresentation getKeycloakRole(String roleName) {
-        try {
-            log.info("Fetching role from Keycloak: {}", roleName);
-
-            RealmResource realmResource = getRealmResource();
-            return realmResource.roles().get(roleName).toRepresentation();
-
-        } catch (Exception e) {
-            log.error("Failed to get role from Keycloak: {}", roleName, e);
-            throw new KeycloakException("Failed to get role from Keycloak", e);
-        }
-    }
-
-    /**
-     * Update a role in Keycloak.
-     *
-     * @param roleName Role name
-     * @param description New description
-     */
-    public void updateKeycloakRole(String roleName, String description) {
-        try {
-            log.info("Updating role in Keycloak: {}", roleName);
-
-            RealmResource realmResource = getRealmResource();
-            RoleRepresentation role = realmResource.roles().get(roleName).toRepresentation();
-            role.setDescription(description);
-            realmResource.roles().get(roleName).update(role);
-
-            log.info("Role updated in Keycloak: {}", roleName);
-
-        } catch (Exception e) {
-            log.error("Failed to update role in Keycloak: {}", roleName, e);
-            throw new KeycloakException("Failed to update role in Keycloak", e);
-        }
-    }
-
-    /**
-     * Get users resource from realm.
-     *
-     * @return UsersResource
-     */
-    private UsersResource getUsersResource() {
-        return getRealmResource().users();
-    }
-
-    /**
-     * Get realm resource.
-     *
-     * @return RealmResource
-     */
-    private RealmResource getRealmResource() {
-        return keycloak.realm(realm);
-    }
-    public void login(String usernameOrEmail, String  password) {
-
+        return clients.get(0).getId();
     }
 }

@@ -1,627 +1,217 @@
 package com.final_project.auth_service.service;
-import com.final_project.auth_service.dto.*;
-import com.final_project.auth_service.event.UserRegisteredEvent;
-import com.final_project.auth_service.exception.*;
+
+import com.final_project.auth_service.dto.AuthorResponse;
+import com.final_project.auth_service.dto.CreateUserRequest;
+import com.final_project.auth_service.dto.UpdateUserRequest;
+import com.final_project.auth_service.dto.UserDTO;
+import com.final_project.auth_service.exception.DuplicateUserException;
 import com.final_project.auth_service.exception.UserNotFoundException;
-import com.final_project.auth_service.kafka.AuthEventPublisher;
-import com.final_project.auth_service.model.User;
-import com.final_project.auth_service.repository.RoleRepository;
-import com.final_project.auth_service.repository.UserRepository;
-import jakarta.ws.rs.SeBootstrap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.logging.log4j.CloseableThreadContext;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-/**
- * Service for user management operations.
- *
- * Handles:
- * - User CRUD operations
- * - User status management
- * - Role assignment
- * - Password management
- * - Account locking
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 @Transactional
 public class UserService {
-
-
-    private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
-    private final AuditLogService auditLogService;
     private final KeycloakService keycloakService;
-    private final PasswordEncoder passwordEncoder;
-    private final AuthEventPublisher authEventPublisher;
+    private final AuditLogService auditLogService;
 
-    /**
-     * Create a new user.
-     *
-     * @param request User creation request
-     * @return Created user DTO
-     */
-    @Transactional
     public UserDTO createUser(CreateUserRequest request) {
-        log.info("Creating new user: {}", request.getEmail());
 
-        // Check if email already exists
-        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
-            log.warn("User with email already exists: {}", request.getEmail());
+        if (keycloakService.findUserByUsername(request.getUsername()).isPresent()) {
+            throw new DuplicateUserException("username", request.getUsername());
+        }
+        if (keycloakService.findUserByEmail(request.getEmail()).isPresent()) {
             throw new DuplicateUserException("email", request.getEmail());
         }
 
-        // Check if username already exists
-        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
-            log.warn("User with username already exists: {}", request.getUsername());
-            throw new DuplicateUserException("username", request.getUsername());
-        }
-
-        // Create Keycloak user first
-        String keycloakId = keycloakService.createKeycloakUser(request);
-
-        // Create local user
-        User user = User.builder()
-                .username(request.getUsername())
-                .email(request.getEmail())
-                .firstName(request.getFirstName())
-                .lastName(request.getLastName())
-                .phoneNumber(request.getPhoneNumber())
-                .keycloakId(keycloakId)
-                .status(User.UserStatus.ACTIVE)
-                .emailVerified(false)
-                .twoFactorEnabled(false)
-                .password(passwordEncoder.encode(request.getPassword()))
-                .failedLoginAttempts(0)
-                .roleIds(new HashSet<>())
-                .createdAt(LocalDateTime.now())
-                .profile(request.getProfile())
-                .entityId(request.getEntityId())
-                .userType(request.getUserType())
-                .build();
-        User savedUser = userRepository.save(user);
-        try {
-            UserRegisteredEvent event =  UserRegisteredEvent
-                    .builder()
-                    .userId(savedUser.getId())
-                    .eventId(UUID.randomUUID().toString())
-                    .occurredAt(LocalDateTime.now())
-                    .email(savedUser.getEmail())
-                    .firstName(savedUser.getFirstName())
-                    .lastName(savedUser.getLastName())
-                    .registrationSource("WEB")
-                    .verificationToken("token..sdf")
-                    .build();
-            authEventPublisher.publishUserRegister(event);
-        } catch (RuntimeException e) {
-            throw new RuntimeException(e);
-        }
-        // Log audit
-        auditLogService.logAuditEvent(
-                savedUser.getId(),
-                "USER_CREATED",
-                "USER",
-                savedUser.getId(),
-                "User created: " + savedUser.getEmail(),
-                "SUCCESS"
+        String userId = keycloakService.createUser(
+                request.getUsername(),
+                request.getEmail(),
+                request.getFirstName(),
+                request.getLastName(),
+                request.getPassword(),
+                true,
+                true,
+                attributesFrom(request.getPhoneNumber(), request.getProfile(), request.getEntityId(), request.getUserType())
         );
 
-        log.info("User created successfully: {}", savedUser.getId());
-        return toDTO(savedUser);
+        if (request.getRoleNames() != null && !request.getRoleNames().isEmpty()) {
+            keycloakService.assignRealmRoles(userId, request.getRoleNames().stream().toList());
+        }
+
+        auditLogService.logAuditEvent(userId, "USER_CREATED", "USER", userId, "User created in Keycloak", "SUCCESS");
+        return toDTO(keycloakService.getUserById(userId));
     }
 
-    /**
-     * Get user by ID.
-     *
-     * @param userId User ID
-     * @return User DTO
-     */
     @Transactional(readOnly = true)
-    public UserDTO getUserById(String userId) {
-        log.info("Fetching user: {}", userId);
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> {
-                    log.error("User not found: {}", userId);
-                    return new UserNotFoundException(userId);
-                });
-        return toDTO(user);
+    public UserDTO getUserById(String id) {
+        return toDTO(keycloakService.getUserById(id));
     }
 
-    /**
-     * Get user by email.
-     *
-     * @param email Email address
-     * @return User DTO
-     */
-    @Transactional(readOnly = true)
-    public UserDTO getUserByEmail(String email) {
-        log.info("Fetching user by email: {}", email);
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> {
-                    log.error("User not found with email: {}", email);
-                    return new UserNotFoundException("email", email);
-                });
-        return toDTO(user);
-    }
-
-    /**
-     * Get user by username.
-     *
-     * @param username Username
-     * @return User DTO
-     */
     @Transactional(readOnly = true)
     public UserDTO getUserByUsername(String username) {
-        log.info("Fetching user by username: {}", username);
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> {
-                    log.error("User not found with username: {}", username);
-                    return new UserNotFoundException("username", username);
-                });
-        return toDTO(user);
-    }
-
-    /**
-     * Get all users.
-     *
-     * @return List of all user DTOs
-     */
-    @Transactional(readOnly = true)
-    public List<UserDTO> getAllUsers() {
-        log.info("Fetching all users");
-        return userRepository.findAll().stream()
+        return keycloakService.findUserByUsername(username)
                 .map(this::toDTO)
-                .collect(Collectors.toList());
+                .orElseThrow(() -> new UserNotFoundException("username", username));
     }
 
-    /**
-     * Get all active users.
-     *
-     * @return List of active user DTOs
-     */
     @Transactional(readOnly = true)
-    public Page<UserDTO> getAllActiveUsers(Pageable pageable) {
-        log.info("Fetching all active users");
-        Page<User> usersPage =  userRepository.findByStatus(User.UserStatus.ACTIVE, pageable);
-        return usersPage.map(this::toDTO);
-    }
-
-    /**
-     * Get users by role.
-     *
-     * @param roleId Role ID
-     * @return List of user DTOs with the role
-     */
-    @Transactional(readOnly = true)
-    public List<UserDTO> getUsersByRole(String roleId) {
-        log.info("Fetching users with role: {}", roleId);
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRoleIds() != null && user.getRoleIds().contains(roleId))
+    public UserDTO getUserByEmail(String email) {
+        return keycloakService.findUserByEmail(email)
                 .map(this::toDTO)
-                .collect(Collectors.toList());
+                .orElseThrow(() -> new UserNotFoundException("email", email));
     }
 
-    /**
-     * Search users by email or username (partial match).
-     *
-     * @param searchTerm Search term
-     * @return List of matching user DTOs
-     */
     @Transactional(readOnly = true)
     public List<UserDTO> searchUsers(String searchTerm) {
-        log.info("Searching users with term: {}", searchTerm);
-        String lowerTerm = searchTerm.toLowerCase();
-
-        return userRepository.findAll().stream()
-                .filter(user ->
-                        user.getEmail().toLowerCase().contains(lowerTerm) ||
-                                user.getUsername().toLowerCase().contains(lowerTerm) ||
-                                (user.getFirstName() != null && user.getFirstName().toLowerCase().contains(lowerTerm)) ||
-                                (user.getLastName() != null && user.getLastName().toLowerCase().contains(lowerTerm))
-                )
-                .map(this::toDTO)
-                .collect(Collectors.toList());
+        return keycloakService.searchUsers(searchTerm).stream().map(this::toDTO).toList();
     }
 
-    /**
-     * Get users with pagination.
-     *
-     * @param pageable Pagination info
-     * @return Page of user DTOs
-     */
     @Transactional(readOnly = true)
-    public Page<UserDTO> getUsersPage(Pageable pageable) {
-        log.info("Fetching users with pagination");
-        List<User> allUsers = userRepository.findAll();
-
-        int start = (int) pageable.getOffset();
-        int end = Math.min((start + pageable.getPageSize()), allUsers.size());
-
-        List<UserDTO> pageContent = allUsers.subList(start, end).stream()
+    public List<UserDTO> getAllActiveUsers() {
+        return keycloakService.getUsers().stream()
+                .filter(user -> Boolean.TRUE.equals(user.isEnabled()))
                 .map(this::toDTO)
-                .collect(Collectors.toList());
-
-        return new PageImpl<>(pageContent, pageable, allUsers.size());
+                .toList();
     }
 
-    /**
-     * Update user.
-     *
-     * @param userId User ID
-     * @param request Update request
-     * @return Updated user DTO
-     */
     public UserDTO updateUser(String userId, UpdateUserRequest request) {
-        log.info("Updating user: {}", userId);
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> {
-                    log.error("User not found: {}", userId);
-                    return new UserNotFoundException(userId);
-                });
-
-        // Store old value for audit
-        String oldValue = user.toString();
-
-        // Update fields
+        UserRepresentation user = keycloakService.getUserById(userId);
         if (request.getFirstName() != null) {
             user.setFirstName(request.getFirstName());
         }
-
         if (request.getLastName() != null) {
             user.setLastName(request.getLastName());
         }
-
-        if (request.getPhoneNumber() != null) {
-            user.setPhoneNumber(request.getPhoneNumber());
+        if (request.getEmail() != null) {
+            user.setEmail(request.getEmail());
         }
-
+        if (request.getEnabled() != null) {
+            user.setEnabled(request.getEnabled());
+        }
         if (request.getEmailVerified() != null) {
             user.setEmailVerified(request.getEmailVerified());
         }
 
-        if (request.getTwoFactorEnabled() != null) {
-            user.setTwoFactorEnabled(request.getTwoFactorEnabled());
+        Map<String, List<String>> attributes = user.getAttributes() == null ? new HashMap<>() : new HashMap<>(user.getAttributes());
+        putAttribute(attributes, "phone_number", request.getPhoneNumber());
+        putAttribute(attributes, "profile", request.getProfile());
+        putAttribute(attributes, "entity_id", request.getEntityId());
+        putAttribute(attributes, "user_type", request.getUserType());
+        user.setAttributes(attributes);
+
+        keycloakService.updateUser(userId, user);
+
+        if (request.getRoleNames() != null) {
+            keycloakService.replaceRealmRoles(userId, request.getRoleNames().stream().toList());
         }
 
-        user.setUpdatedAt(LocalDateTime.now());
-        User updatedUser = userRepository.save(user);
-
-        // Log audit
-        auditLogService.logAuditEvent(
-                userId,
-                "USER_UPDATED",
-                "USER",
-                userId,
-                "User updated",
-                oldValue,
-                updatedUser.toString(),
-                "SUCCESS"
-        );
-
-        log.info("User updated successfully: {}", userId);
-        return toDTO(updatedUser);
+        auditLogService.logAuditEvent(userId, "USER_UPDATED", "USER", userId, "User updated in Keycloak", "SUCCESS");
+        return toDTO(keycloakService.getUserById(userId));
     }
 
-    /**
-     * Delete user.
-     *
-     * @param userId User ID
-     */
     public void deleteUser(String userId) {
-        log.info("Deleting user: {}", userId);
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> {
-                    log.error("User not found: {}", userId);
-                    return new UserNotFoundException(userId);
-                });
-
-        // Soft delete - mark as deleted
-        user.setStatus(User.UserStatus.DELETED);
-        user.setDeletedAt(LocalDateTime.now());
-        user.setUpdatedAt(LocalDateTime.now());
-        userRepository.save(user);
-
-        // Delete from Keycloak
-        if (user.getKeycloakId() != null) {
-            try {
-                keycloakService.deleteKeycloakUser(user.getKeycloakId());
-            } catch (Exception e) {
-                log.warn("Failed to delete user from Keycloak: {}", e.getMessage());
-            }
-        }
-
-        // Log audit
-        auditLogService.logAuditEvent(
-                userId,
-                "USER_DELETED",
-                "USER",
-                userId,
-                "User deleted",
-                "SUCCESS"
-        );
-
-        log.info("User deleted successfully: {}", userId);
+        keycloakService.deleteUser(userId);
+        auditLogService.logAuditEvent(userId, "USER_DELETED", "USER", userId, "User deleted from Keycloak", "SUCCESS");
     }
 
-    /**
-     * Suspend user account.
-     *
-     * @param userId User ID
-     */
     public void suspendUser(String userId) {
-        log.info("Suspending user: {}", userId);
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException(userId));
-
-        user.setStatus(User.UserStatus.SUSPENDED);
-        user.setUpdatedAt(LocalDateTime.now());
-        userRepository.save(user);
-
-        // Log audit
-        auditLogService.logAuditEvent(
-                userId,
-                "USER_SUSPENDED",
-                "USER",
-                userId,
-                "User suspended",
-                "SUCCESS"
-        );
-
-        log.info("User suspended successfully: {}", userId);
+        keycloakService.setUserEnabled(userId, false);
+        auditLogService.logAuditEvent(userId, "USER_SUSPENDED", "USER", userId, "User suspended in Keycloak", "SUCCESS");
     }
 
-    /**
-     * Activate/restore user account.
-     *
-     * @param userId User ID
-     */
     public void activateUser(String userId) {
-        log.info("Activating user: {}", userId);
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException(userId));
-
-        user.setStatus(User.UserStatus.ACTIVE);
-        user.setUpdatedAt(LocalDateTime.now());
-        userRepository.save(user);
-
-        // Log audit
-        auditLogService.logAuditEvent(
-                userId,
-                "USER_ACTIVATED",
-                "USER",
-                userId,
-                "User activated",
-                "SUCCESS"
-        );
-
-        log.info("User activated successfully: {}", userId);
+        keycloakService.setUserEnabled(userId, true);
+        auditLogService.logAuditEvent(userId, "USER_ACTIVATED", "USER", userId, "User activated in Keycloak", "SUCCESS");
     }
 
-    /**
-     * Unlock user account (remove lock).
-     *
-     * @param userId User ID
-     */
-    public void unlockUser(String userId) {
-        log.info("Unlocking user: {}", userId);
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException(userId));
-
-        user.setLockedUntil(null);
-        user.setFailedLoginAttempts(0);
-        user.setUpdatedAt(LocalDateTime.now());
-        userRepository.save(user);
-
-        // Log audit
-        auditLogService.logAuditEvent(
-                userId,
-                "USER_UNLOCKED",
-                "USER",
-                userId,
-                "User unlocked",
-                "SUCCESS"
-        );
-
-        log.info("User unlocked successfully: {}", userId);
+    public void lockUser(String userId) {
+        keycloakService.setUserEnabled(userId, false);
+        auditLogService.logAuditEvent(userId, "USER_LOCKED", "USER", userId, "User disabled in Keycloak as a lock action", "SUCCESS");
     }
 
-    /**
-     * Verify user email.
-     *
-     * @param userId User ID
-     */
     public void verifyUserEmail(String userId) {
-        log.info("Verifying email for user: {}", userId);
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException(userId));
-
-        user.setEmailVerified(true);
-        user.setUpdatedAt(LocalDateTime.now());
-        userRepository.save(user);
-
-        // Log audit
-        auditLogService.logAuditEvent(
-                userId,
-                "EMAIL_VERIFIED",
-                "USER",
-                userId,
-                "Email verified",
-                "SUCCESS"
-        );
-
-        log.info("Email verified successfully for user: {}", userId);
+        keycloakService.markEmailVerified(userId, true);
+        auditLogService.logAuditEvent(userId, "EMAIL_VERIFIED", "USER", userId, "Email marked verified in Keycloak", "SUCCESS");
     }
 
-    /**
-     * Enable two-factor authentication for user.
-     *
-     * @param userId User ID
-     */
-    public void enableTwoFactorAuth(String userId) {
-        log.info("Enabling 2FA for user: {}", userId);
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException(userId));
-
-        user.setTwoFactorEnabled(true);
-        user.setUpdatedAt(LocalDateTime.now());
-        userRepository.save(user);
-
-        // Log audit
-        auditLogService.logAuditEvent(
-                userId,
-                "2FA_ENABLED",
-                "USER",
-                userId,
-                "Two-factor authentication enabled",
-                "SUCCESS"
-        );
-
-        log.info("2FA enabled successfully for user: {}", userId);
-    }
-
-    /**
-     * Disable two-factor authentication for user.
-     *
-     * @param userId User ID
-     */
-    public void disableTwoFactorAuth(String userId) {
-        log.info("Disabling 2FA for user: {}", userId);
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException(userId));
-
-        user.setTwoFactorEnabled(false);
-        user.setUpdatedAt(LocalDateTime.now());
-        userRepository.save(user);
-
-        // Log audit
-        auditLogService.logAuditEvent(
-                userId,
-                "2FA_DISABLED",
-                "USER",
-                userId,
-                "Two-factor authentication disabled",
-                "SUCCESS"
-        );
-
-        log.info("2FA disabled successfully for user: {}", userId);
-    }
-
-    /**
-     * Get user statistics.
-     *
-     * @return Statistics map
-     */
     @Transactional(readOnly = true)
     public Map<String, Object> getUserStatistics() {
-        log.info("Fetching user statistics");
-
-        List<User> allUsers = userRepository.findAll();
-        long totalUsers = allUsers.size();
-        long activeUsers = allUsers.stream()
-                .filter(u -> u.getStatus() == User.UserStatus.ACTIVE)
-                .count();
-        long suspendedUsers = allUsers.stream()
-                .filter(u -> u.getStatus() == User.UserStatus.SUSPENDED)
-                .count();
-        long deletedUsers = allUsers.stream()
-                .filter(u -> u.getStatus() == User.UserStatus.DELETED)
-                .count();
-        long emailVerifiedUsers = allUsers.stream()
-                .filter(User::getEmailVerified)
-                .count();
-        long twoFactorEnabledUsers = allUsers.stream()
-                .filter(User::getTwoFactorEnabled)
-                .count();
+        List<UserRepresentation> users = keycloakService.getUsers();
+        long totalUsers = users.size();
+        long activeUsers = users.stream().filter(user -> Boolean.TRUE.equals(user.isEnabled())).count();
+        long emailVerifiedUsers = users.stream().filter(UserRepresentation::isEmailVerified).count();
 
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalUsers", totalUsers);
         stats.put("activeUsers", activeUsers);
-        stats.put("suspendedUsers", suspendedUsers);
-        stats.put("deletedUsers", deletedUsers);
+        stats.put("disabledUsers", totalUsers - activeUsers);
         stats.put("emailVerifiedUsers", emailVerifiedUsers);
-        stats.put("twoFactorEnabledUsers", twoFactorEnabledUsers);
-
+        stats.put("generatedAt", LocalDateTime.now());
         return stats;
     }
 
-    public void lockUser(String userId) {
-        log.info("Locking user: {}", userId);
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException(userId));
-
-        user.setLockedUntil(LocalDateTime.now().plusMinutes(30));
-        user.setUpdatedAt(LocalDateTime.now());
-        userRepository.save(user);
-
-        // Log audit
-        auditLogService.logAuditEvent(
-                userId,
-                "USER_LOCKED",
-                "USER",
-                userId,
-                "User account locked",
-                "SUCCESS"
-        );
-
-        log.info("User locked successfully: {}", userId);
+    public AuthorResponse getUserAsAuthor(String id) {
+        UserRepresentation user = keycloakService.getUserById(id);
+        return AuthorResponse.builder()
+                .id(user.getId())
+                .userName(user.getUsername())
+                .email(user.getEmail())
+                .profile(getFirstAttribute(user, "profile"))
+                .entityId(getFirstAttribute(user, "entity_id"))
+                .userType(getFirstAttribute(user, "user_type"))
+                .build();
     }
-    /**
-     * Convert User entity to DTO.
-     *
-     * @param user User entity
-     * @return User DTO
-     */
-    private UserDTO toDTO(User user) {
+
+    private UserDTO toDTO(UserRepresentation user) {
         return UserDTO.builder()
                 .id(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
-                .phoneNumber(user.getPhoneNumber())
-                .status(user.getStatus().name())
-                .emailVerified(user.getEmailVerified())
-                .twoFactorEnabled(user.getTwoFactorEnabled())
-                .lastLogin(user.getLastLogin())
-                .createdAt(user.getCreatedAt())
-                .updatedAt(user.getUpdatedAt())
-                .profile(user.getProfile())
-                .entityId(user.getEntityId())
-                .userType(user.getUserType())
+                .phoneNumber(getFirstAttribute(user, "phone_number"))
+                .status(Boolean.TRUE.equals(user.isEnabled()) ? "ACTIVE" : "DISABLED")
+                .emailVerified(user.isEmailVerified())
+                .twoFactorEnabled(false)
+                .roles(new java.util.LinkedHashSet<>(keycloakService.getUserRealmRoleNames(user.getId())))
+                .entityId(getFirstAttribute(user, "entity_id"))
+                .profile(getFirstAttribute(user, "profile"))
+                .userType(getFirstAttribute(user, "user_type"))
                 .build();
     }
 
-    public AuthorResponse getUserAsAuthor(String id) {
-        User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("User Not Found"));
-        return AuthorResponse
-                .builder()
-                .userType(user.getUserType().name())
-                .email(user.getEmail())
-                .entityId(user.getEntityId())
-                .profile(user.getProfile())
-                .id(user.getId())
-                .userName(user.getUsername())
-                .build();
+    private Map<String, List<String>> attributesFrom(String phoneNumber, String profile, String entityId, String userType) {
+        Map<String, List<String>> attributes = new HashMap<>();
+        putAttribute(attributes, "phone_number", phoneNumber);
+        putAttribute(attributes, "profile", profile);
+        putAttribute(attributes, "entity_id", entityId);
+        putAttribute(attributes, "user_type", userType);
+        return attributes;
+    }
+
+    private void putAttribute(Map<String, List<String>> attributes, String key, String value) {
+        if (value == null || value.isBlank()) {
+            attributes.remove(key);
+            return;
+        }
+        attributes.put(key, List.of(value));
+    }
+
+    private String getFirstAttribute(UserRepresentation user, String key) {
+        if (user.getAttributes() == null || !user.getAttributes().containsKey(key) || user.getAttributes().get(key).isEmpty()) {
+            return null;
+        }
+        return user.getAttributes().get(key).get(0);
     }
 }

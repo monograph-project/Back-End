@@ -12,4 +12,7 @@ import java.util.Optional;
 public interface TeacherRepository extends MongoRepository<Teacher,String> {
     Page<Teacher> findByIsDeletedIsFalse(Pageable pageable);
     Optional<Teacher> findByIdAndIsDeletedIsFalse(String  id);
+
+    boolean existsTeacherByEmailAndIsDeletedIsFalse(String email);
+    boolean existsTeacherByFirstNameAndFatherNameAndLastName(String firstName, String fatherName, String lastName);
 }

@@ -40,5 +40,25 @@ public class UpdateUserRequest {
 
     @JsonProperty("roles")
     @Schema(description = "User roles")
-    private Set<String> roles;
+    private Set<String> roleNames;
+
+    @JsonProperty("email")
+    @Schema(description = "User email")
+    private String email;
+
+    @JsonProperty("enabled")
+    @Schema(description = "Whether the user account is enabled")
+    private Boolean enabled;
+
+    @JsonProperty("profile")
+    @Schema(description = "Profile image or URL")
+    private String profile;
+
+    @JsonProperty("entity_id")
+    @Schema(description = "Related domain entity id")
+    private String entityId;
+
+    @JsonProperty("user_type")
+    @Schema(description = "Related domain user type")
+    private String userType;
 }

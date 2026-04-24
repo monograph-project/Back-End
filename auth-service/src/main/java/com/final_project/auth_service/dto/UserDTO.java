@@ -1,8 +1,6 @@
 package com.final_project.auth_service.dto;
 
-
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.final_project.auth_service.model.User;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -66,8 +64,8 @@ public class UserDTO {
     private LocalDateTime lastLogin;
 
     @JsonProperty("roles")
-    @Schema(description = "User roles")
-    private Set<RoleDTO> roles;
+    @Schema(description = "Realm roles")
+    private Set<String> roles;
 
     @JsonProperty("created_at")
     @Schema(description = "Account creation timestamp")
@@ -87,6 +85,6 @@ public class UserDTO {
 
     @JsonProperty("user_type")
     @Schema(description = "user type like teacher.. student")
-    private User.UserType userType;
+    private String userType;
 }
 

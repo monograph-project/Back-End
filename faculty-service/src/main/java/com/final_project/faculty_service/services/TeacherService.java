@@ -14,6 +14,7 @@ import com.final_project.faculty_service.repository.DepartmentRepository;
 import com.final_project.faculty_service.repository.TeacherRepository;
 import com.final_project.faculty_service.services.exception.ResourceExist;
 import com.final_project.faculty_service.services.exception.ResourceNotFoundException;
+import com.final_project.faculty_service.services.exception.UserWithEmailExsit;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -69,6 +70,21 @@ public class TeacherService {
 
     @Transactional
     public TeacherResponse create(TeacherRequest request){
+        boolean isExistByEmail = teacherRepository.existsTeacherByEmailAndIsDeletedIsFalse(request.getEmail())
+                ;
+        if (isExistByEmail){
+            throw new UserWithEmailExsit("All Ready user with this email exsit");
+        }
+        boolean isExistByPersonalInformation = teacherRepository.existsTeacherByFirstNameAndFatherNameAndLastName(request.getFirstName(), request.getFatherName(), request.getLastName());
+        if (isExistByPersonalInformation){
+         throw   new ResourceExist("User with this infomratione exist");
+        }
+        SignupRequest signupRequest = mapToSignupRequest(request);
+        UserDto response = authService.createUser(signupRequest);
+        if(response.getId().isEmpty()){
+            throw new ResourceNotFoundException("User couldn't save ");
+        }
+        authService.assignRoleToUser(response.getId(), "teacher-user");
 
         Teacher mappedTeacher = teacherMapper.toEntity(request);
 
@@ -76,23 +92,9 @@ public class TeacherService {
                 .orElseThrow(() -> new ResourceNotFoundException("Department not found:" + request.getDepartment()));
 
         mappedTeacher.setDepartment(department);
+        mappedTeacher.setKeycloakId(response.getId());
         Teacher result =  teacherRepository.save(mappedTeacher);
-
-
-        SignupRequest signupRequest = mapToSignupRequest(request);
-        signupRequest.setEntityId(result.getId());
-        UserDto response = authService.createUser(signupRequest);
-        if(response.getId().isEmpty()){
-            throw new ResourceNotFoundException("User couldn't save ");
-        }
-        RoleDTO role = authService.getRole(request.getRole());
-
-        if (role.getId().isEmpty()){
-            throw new ResourceNotFoundException("Not Found Role");
-        }
-        authService.assignRoleToUser(response.getId(), role.getId());
-
-        return teacherMapper.toResponse(mappedTeacher);
+        return teacherMapper.toResponse(result);
     }
 
     public void delete(String id){
@@ -112,7 +114,6 @@ public class TeacherService {
         signupRequest.setEmail(request.getEmail());
         signupRequest.setPassword(request.getPassword());
         signupRequest.setPhoneNumber(request.getPhone());
-        signupRequest.setUserType("TEACHER");
         return signupRequest;
     }
 

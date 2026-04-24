@@ -37,6 +37,7 @@ public class Student {
     private Date enrollmentDate;
     private String kankorId;
     private String profilePicture;
+    private String keycloakId;
     @DBRef
     private Semester semester;
     @DBRef

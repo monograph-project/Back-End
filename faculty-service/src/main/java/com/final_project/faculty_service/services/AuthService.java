@@ -62,7 +62,7 @@ public class AuthService {
     }
     public void  assignRoleToUser(String userId, String roleId){
          authServiceClient.post()
-                .uri("/api/v1/roles/{roleId}/assign-to-user/{userId}",roleId, userId )
+                .uri("/api/v1/roles/{roleName}/assign-to-user/{userId}",roleId, userId )
                 .retrieve()
                 .onStatus(HttpStatusCode::is4xxClientError, response ->
                         response.bodyToMono(String.class)
