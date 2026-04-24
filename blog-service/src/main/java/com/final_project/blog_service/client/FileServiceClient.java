@@ -10,7 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @FeignClient(
         name = "file-service",
-        url = "${app.service.file-url}"
+        url = "http://localhost:8084"
 )
 public interface FileServiceClient {
 

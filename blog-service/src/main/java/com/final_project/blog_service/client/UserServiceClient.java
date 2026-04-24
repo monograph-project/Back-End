@@ -1,10 +1,7 @@
 package com.final_project.blog_service.client;
 
 import com.final_project.blog_service.config.UserServiceFeignConfig;
-import com.final_project.blog_service.dto.UserAuthorResponse;
-import com.final_project.blog_service.dto.UserExistsResponse;
-import com.final_project.blog_service.dto.UserPreferencesResponse;
-import com.final_project.blog_service.dto.UserProfileResponse;
+import com.final_project.blog_service.dto.*;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,8 +12,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import java.util.List;
 
 @FeignClient(
-        name = "auth-service",
-        url = "${app.service.auth-url}",
+        name = "AUTH-SERVICE",
+        url = "http://localhost:8085",
         configuration = UserServiceFeignConfig.class
 )
 public interface UserServiceClient {
@@ -27,6 +24,9 @@ public interface UserServiceClient {
      */
     @GetMapping("/api/v1/users/{userId}")
     UserProfileResponse getUserProfile(@PathVariable String userId);
+
+    @GetMapping("/api/v1/users/{id}/{roleName}")
+    UserDTO getUserByIdAndRoleName(@PathVariable String id, @PathVariable String roleName);
 
     /**
      * Get author by id

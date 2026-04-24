@@ -12,6 +12,7 @@ import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.naming.AuthenticationException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -56,6 +57,16 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserDTO getUserById(String id) {
         return toDTO(keycloakService.getUserById(id));
+    }
+
+    @Transactional
+    public UserDTO getUserByIdAndRoleName(String userId, String roleName) throws AuthenticationException {
+        UserRepresentation user = keycloakService.getUserById(userId);
+//        List<String> roles =  user.getRealmRoles().stream().filter((role) -> role.equals(roleName)).toList();
+//        if (roles.isEmpty()) {
+//            throw new AuthenticationException("Unauthorized Exception");
+//        }
+        return toDTO(user);
     }
 
     @Transactional(readOnly = true)

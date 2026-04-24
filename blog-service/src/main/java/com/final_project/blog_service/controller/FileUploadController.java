@@ -41,7 +41,7 @@ public class FileUploadController {
     /**
      * Upload an image file
      */
-    @PostMapping(value = "/upload/image", consumes = "multipart/form-data")
+    @PostMapping(value = "/upload/image/{userId}", consumes = "multipart/form-data")
     @Operation(
             summary = "Upload image",
             description = "Uploads an image file for use in article content blocks. Supports JPEG, PNG, WebP, GIF.",
@@ -94,16 +94,14 @@ public class FileUploadController {
                     description = "Unsupported media type"
             )
     })
-    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ImageUploadResponse> uploadImage(
             @RequestParam("file") MultipartFile file,
             @RequestParam(required = false) String alt,
             @RequestParam(required = false) String caption,
-            Authentication authentication
+            @PathVariable String userId
     ) {
         log.info("POST /api/v1/files/upload/image - Upload image");
 
-        String userId = authentication.getName();
         ImageUploadResponse response = fileUploadService.uploadImage(file, alt, caption, userId);
 
         return ResponseEntity.ok(response);
@@ -112,7 +110,7 @@ public class FileUploadController {
     /**
      * Upload a video file
      */
-    @PostMapping(value = "/upload/video", consumes = "multipart/form-data")
+    @PostMapping(value = "/upload/video/{userId}", consumes = "multipart/form-data")
     @Operation(
             summary = "Upload video",
             description = "Uploads a video file for use in article content blocks. Supports MP4, WebM, Ogg, MOV.",
@@ -165,14 +163,13 @@ public class FileUploadController {
                     description = "Unsupported media type"
             )
     })
-    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<VideoUploadResponse> uploadVideo(
             @RequestParam("file") MultipartFile file,
             @RequestParam(required = false) String title,
             @RequestParam(required = false) String description,
-            Authentication authentication
+            @PathVariable String userId
     ) {
-        String userId = authentication.getName();
+
         VideoUploadResponse response = fileUploadService.uploadVideo(file, title, description, userId);
         return ResponseEntity.ok(response);
     }
@@ -213,7 +210,6 @@ public class FileUploadController {
                     description = "File not found"
             )
     })
-    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<Void> deleteFile(
             @PathVariable String fileId,
             Authentication authentication

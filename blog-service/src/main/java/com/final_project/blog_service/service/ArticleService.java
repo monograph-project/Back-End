@@ -7,7 +7,6 @@ import com.final_project.blog_service.exception.ResourceNotFoundException;
 import com.final_project.blog_service.exception.UnauthorizedException;
 import com.final_project.blog_service.exception.UserNotFoundException;
 import com.final_project.blog_service.utile.SlugUtil;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -22,8 +21,6 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-
-import static com.final_project.blog_service.utile.ReadTimeCalculator.calculateReadTime;
 
 /**
  * Article Service - Core business logic for article management
@@ -72,11 +69,10 @@ public class ArticleService {
      */
     @Transactional
     public ArticleResponse createArticle(String authorId, CreateArticleRequest request) {
-        UserAuthorResponse authorResponse = userServiceClient.getUserAuthor(authorId);
+        UserDTO authorResponse = userServiceClient.getUserByIdAndRoleName(authorId, "AUTHOR_USER");
         if (authorResponse == null){
             throw new ResourceNotFoundException("The User is Not Exist");
         }
-
 
         Article article = Article.builder()
                 .authorId(authorResponse.getId())

@@ -4,14 +4,33 @@ import com.final_project.blog_service.exception.UnauthorizedException;
 import com.final_project.blog_service.exception.UserNotFoundException;
 import com.final_project.blog_service.exception.UserServiceException;
 import com.final_project.blog_service.exception.UserServiceUnavailableException;
+import feign.RequestInterceptor;
 import feign.codec.ErrorDecoder;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 @Slf4j
 @Configuration
 public class UserServiceFeignConfig {
+    @Bean
+    public RequestInterceptor bearerRequestInterceptor() {
+        return template -> {
+            ServletRequestAttributes attributes =(ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes == null){
+                return ;
+            }
+            HttpServletRequest request = attributes.getRequest();
+            String authorizationHeader = request.getHeader("Authorization");
+            if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+                template.header("Authorization", authorizationHeader);
+            }
+        };
+    }
+
     @Bean
     public ErrorDecoder errorDecoder() {
         return (methodKey, response) -> {
