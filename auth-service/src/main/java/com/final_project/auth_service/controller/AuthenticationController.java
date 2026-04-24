@@ -15,10 +15,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -130,7 +135,7 @@ public class AuthenticationController {
      * @return Success response
      */
     @PostMapping("/change-password/{userId}")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('FACULTY_USER', 'OPERATOR', 'PLATFORM_ADMIN')")
     @SecurityRequirement(name = "Bearer Token")
     @Operation(summary = "Change password", description = "Change user password (requires current password)")
     @ApiResponses({
@@ -217,7 +222,7 @@ public class AuthenticationController {
     })
     public ResponseEntity<Map<String, String>> verifyEmail(@Valid @RequestBody EmailVerificationRequest request) {
         log.info("Email verification request");
-        // TODO: Implement email verification logic
+        authenticationService.verifyEmail(request);
 
         Map<String, String> response = new HashMap<>();
         response.put("message", "Email verified successfully");
@@ -241,7 +246,7 @@ public class AuthenticationController {
     public ResponseEntity<Map<String, String>> resendVerificationEmail(
             @Valid @RequestBody ResendVerificationEmailRequest request) {
         log.info("Resend verification email request for: {}", request.getEmail());
-        // TODO: Implement resend verification logic
+        authenticationService.resendVerificationEmail(request);
 
         Map<String, String> response = new HashMap<>();
         response.put("message", "Verification email sent. Check your email");
@@ -256,16 +261,17 @@ public class AuthenticationController {
      * @return Success response
      */
     @PostMapping("/logout")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('FACULTY_USER', 'OPERATOR', 'PLATFORM_ADMIN')")
     @SecurityRequirement(name = "Bearer Token")
     @Operation(summary = "Logout user", description = "Logout and invalidate token on client side")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Logout successful"),
             @ApiResponse(responseCode = "401", description = "Unauthorized")
     })
-    public ResponseEntity<Map<String, String>> logout() {
-        log.info("Logout request");
-
+    public ResponseEntity<Map<String, String>> logout(
+            @AuthenticationPrincipal Jwt jwt
+            ) {
+        String id = jwt.getSubject();
         Map<String, String> response = new HashMap<>();
         response.put("message", "Logout successful. Please clear the token on client side");
         response.put("status", "success");
@@ -279,21 +285,38 @@ public class AuthenticationController {
      * @return Current user information
      */
     @GetMapping("/me")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('FACULTY_USER', 'ADMIN')")
     @SecurityRequirement(name = "Bearer Token")
     @Operation(summary = "Get current user", description = "Get information about currently authenticated user")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "User information retrieved"),
             @ApiResponse(responseCode = "401", description = "Unauthorized")
     })
-    public ResponseEntity<Map<String, Object>> getCurrentUser() {
-        log.info("Get current user request");
-        // This is handled by SecurityContext
-        // Return user info from principal
-
+    public ResponseEntity<Map<String, Object>> getCurrentUser(
+            @AuthenticationPrincipal Jwt jwt
+    ) {
         Map<String, Object> response = new HashMap<>();
+        response.put("authenticated", true);
+        response.put("sub", jwt.getSubject());
+        response.put("username", jwt.getClaimAsString("preferred_username"));
+        response.put("email", jwt.getClaimAsString("email"));
+        response.put("emailVerified", jwt.getClaim("email_verified"));
+        response.put("realmRoles", extractRealmRoles(jwt));
+        response.put("resourceAccess", jwt.getClaim("resource_access"));
+
         response.put("status", "authenticated");
 
         return ResponseEntity.ok(response);
+    }
+    private List<String> extractRealmRoles(Jwt jwt) {
+        Map<String, Object> realmAccess = jwt.getClaim("realm_access");
+        if (realmAccess == null) {
+            return List.of();
+        }
+        Object roles = realmAccess.get("roles");
+        if (roles instanceof Collection<?> collection) {
+            return collection.stream().map(Object::toString).toList();
+        }
+        return List.of();
     }
 }

@@ -14,8 +14,6 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
@@ -30,9 +28,6 @@ import java.util.*;
 @EnableMethodSecurity(prePostEnabled = true, securedEnabled = true, jsr250Enabled = true)
 public class SecurityConfig {
 
-    @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}")
-    private String jwkSetUri;
-
     @Value("${spring.cors.allowed-origins:*}")
     private String allowedOrigins;
 
@@ -43,29 +38,29 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authz -> authz
-                        .requestMatchers("/api/v1/auth/login").permitAll()
-                        .requestMatchers("/api/v1/auth/refresh").permitAll()
-                        .requestMatchers("/api/v1/auth/logout").permitAll()
-                        .requestMatchers("/api/v1/auth/signup").permitAll()
-                        .requestMatchers("/health").permitAll()
-                        .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers("/swagger-ui/**").permitAll()
-                        .requestMatchers("/v3/api-docs/**").permitAll()
+                        .requestMatchers(
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/signup",
+                                "/api/v1/auth/google",
+                                "/api/v1/auth/refresh-token",
+                                "/api/v1/auth/forgot-password",
+                                "/api/v1/auth/reset-password",
+                                "/api/v1/auth/verify-email",
+                                "/api/v1/auth/resend-verification-email",
+                                "/health",
+                                "/actuator/**",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt
-                                .decoder(jwtDecoder())
                                 .jwtAuthenticationConverter(jwtAuthenticationConverter())
                         )
                 );
 
         return http.build();
-    }
-
-    @Bean
-    public JwtDecoder jwtDecoder() {
-        return NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
     }
 
     @Bean
@@ -86,9 +81,28 @@ public class SecurityConfig {
                 Object roles = realmAccess.get("roles");
                 if (roles instanceof Collection<?> roleList) {
                     for (Object role : roleList) {
-                        authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
+                        authorities.add(new SimpleGrantedAuthority(
+                                "ROLE_" + role.toString().toUpperCase().replace("-", "_")
+                        ));
                     }
                 }
+            }
+
+            Map<String, Object> resourceAccess = jwt.getClaim("resource_access");
+            if (resourceAccess != null) {
+                resourceAccess.forEach((clientId, value) -> {
+                    if (value instanceof Map<?, ?> clientMap) {
+                        Object roles = clientMap.get("roles");
+                        if (roles instanceof Collection<?> roleList) {
+                            for (Object role : roleList) {
+                                authorities.add(new SimpleGrantedAuthority(
+                                        "ROLE_" + clientId.toUpperCase().replace("-", "_")
+                                                + "_" + role.toString().toUpperCase().replace(".", "_").replace("-", "_")
+                                ));
+                            }
+                        }
+                    }
+                });
             }
 
             return authorities;
@@ -112,7 +126,7 @@ public class SecurityConfig {
         }
 
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        config.setAllowedHeaders(Arrays.asList("*"));
+        config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(Arrays.asList("Authorization", "Content-Type"));
         config.setMaxAge(3600L);
 

@@ -13,4 +13,6 @@ import java.util.Optional;
 public interface EmployeeRepository extends MongoRepository<Employee,String> {
     Page<Employee> findByIsDeletedIsFalse(Pageable pageable);
     Optional<Employee> findByIdAndIsDeletedIsFalse(String  id);
+    boolean existsEmployeeByEmailAndIsDeletedIsFalse(String email);
+    boolean existsEmployeeByFirstNameAndFatherNameAndLastName(String firstName, String fatherName, String lastName);
 }

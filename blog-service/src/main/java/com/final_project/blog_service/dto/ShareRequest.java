@@ -1,5 +1,6 @@
 package com.final_project.blog_service.dto;
 
+import com.final_project.blog_service.model.SharedPlatform;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -30,7 +31,7 @@ public class ShareRequest {
             example = "TWITTER",
             allowableValues = {"TWITTER", "FACEBOOK", "LINKEDIN", "COPY_LINK", "EMAIL"}
     )
-    private String platform;
+    private SharedPlatform platform;
 
     @Size(max = 500, message = "Custom message must not exceed 500 characters")
     @Schema(

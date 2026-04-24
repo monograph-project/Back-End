@@ -1,7 +1,9 @@
 package com.final_project.blog_service.dto;
 
+import com.final_project.blog_service.model.ArticleVisiblity;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -28,5 +30,5 @@ public class PublishArticleRequest {
             example = "PUBLIC",
             allowableValues = {"PUBLIC", "PRIVATE", "UNLISTED"}
     )
-    private String visibility;
+    private ArticleVisiblity visibility;
 }

@@ -26,6 +26,7 @@ public class Teacher {
     @Indexed(unique = true)
     private String email;
     private String phone;
+    private String keycloakId;
     private EducationRank educationRank;
     @DBRef
     private Department department;

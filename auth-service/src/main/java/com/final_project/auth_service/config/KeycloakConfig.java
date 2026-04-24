@@ -1,70 +1,65 @@
 package com.final_project.auth_service.config;
 
+import org.keycloak.OAuth2Constants;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * Keycloak configuration for OAuth 2.0 authentication and authorization.
- *
- * Provides Keycloak admin client for:
- * - User management in Keycloak
- * - Role assignment
- * - Group management
- * - Client administration
- */
 @Configuration
 public class KeycloakConfig {
 
     @Value("${keycloak.server-url}")
-    private String keycloakServerUrl;
-
+    private String serverUrl;
     @Value("${keycloak.realm}")
     private String realm;
 
-    @Value("${keycloak.client-id}")
-    private String clientId;
+    @Value("${keycloak.admin.client-id}")
+    private String adminClientId;
 
-    @Value("${keycloak.client-secret}")
-    private String clientSecret;
+    @Value("${keycloak.admin.client-secret}")
+    private String adminClientSecret;
 
+    @Value("${keycloak.public-client-id:frontend}")
+    private String publicClientId;
 
-    /**
-     * Creates Keycloak admin client for server-side operations.
-     *
-     * @return Configured Keycloak admin client
-     */
     @Bean
     public Keycloak keycloakAdminClient() {
         return KeycloakBuilder.builder()
-                .serverUrl(keycloakServerUrl)
+                .serverUrl(serverUrl)
                 .realm(realm)
-                .clientId(clientId)
-                .clientSecret(clientSecret)
-                .grantType("client_credentials")
+                .clientId(adminClientId)
+                .clientSecret(adminClientSecret)
+                .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
                 .build();
     }
 
-    /**
-     * @return Keycloak server URL
-     */
-    public String getKeycloakServerUrl() {
-        return keycloakServerUrl;
+    public String getServerUrl() {
+        return serverUrl;
     }
 
-    /**
-     * @return Keycloak realm name
-     */
     public String getRealm() {
         return realm;
     }
 
-    /**
-     * @return Keycloak client ID
-     */
-    public String getClientId() {
-        return clientId;
+    public String getAdminClientId() {
+        return adminClientId;
+    }
+
+    public String getAdminClientSecret() {
+        return adminClientSecret;
+    }
+
+    public String getPublicClientId() {
+        return publicClientId;
+    }
+
+    public String tokenUrl() {
+        return serverUrl + "/realms/" + realm + "/protocol/openid-connect/token";
+    }
+
+    public String logoutUrl() {
+        return serverUrl + "/realms/" + realm + "/protocol/openid-connect/logout";
     }
 }

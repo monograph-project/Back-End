@@ -8,6 +8,7 @@ import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -34,7 +35,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
+                .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/health", "/actuator/**").permitAll()
@@ -68,13 +69,10 @@ public class SecurityConfig {
                 authorities.addAll(scopeAuthorities);
             }
 
-            Map<String, Object> realmAccess = jwt.getClaim("realm_access");
-            if (realmAccess != null) {
-                Object roles = realmAccess.get("roles");
-                if (roles instanceof Collection<?> roleList) {
-                    for (Object role : roleList) {
-                        authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
-                    }
+            Object rolesClaim = jwt.getClaim("roles");
+            if (rolesClaim instanceof Collection<?> roleList) {
+                for (Object role : roleList) {
+                    authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
                 }
             }
 

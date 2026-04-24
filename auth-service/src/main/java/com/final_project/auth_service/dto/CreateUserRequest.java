@@ -1,7 +1,6 @@
 package com.final_project.auth_service.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.final_project.auth_service.model.User;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -48,13 +47,13 @@ public class CreateUserRequest {
     @Schema(description = "Phone number", example = "+1234567890")
     private String phoneNumber;
 
-    @JsonProperty("roles")
-    @Schema(description = "Initial user roles")
-    private Set<String> roles;
+    @JsonProperty("role_names")
+    @Schema(description = "Initial realm roles")
+    private Set<String> roleNames;
 
     @JsonProperty("user_type")
     @Schema(description = "user blongs to for instance teacher, student ... ")
-    private User.UserType userType;
+    private String userType;
 
     @JsonProperty("entity_id")
     @Schema(description = "Entity that belongs to this user", example = "teacher account with id: 8902323")

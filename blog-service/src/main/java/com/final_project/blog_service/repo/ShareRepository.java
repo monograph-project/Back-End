@@ -1,6 +1,7 @@
 package com.final_project.blog_service.repo;
 
 import com.final_project.blog_service.model.Share;
+import com.final_project.blog_service.model.SharedPlatform;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
@@ -24,9 +25,9 @@ public interface ShareRepository extends MongoRepository<Share, String> {
     Long countByArticleId(String articleId);
 
     // Count shares by platform
-    Long countByArticleIdAndPlatform(String articleId, String platform);
+    Long countByArticleIdAndPlatform(String articleId, SharedPlatform platform);
 
     // Get shares for article by platform
-    List<Share> findByArticleIdAndPlatformOrderByCreatedAtDesc(String articleId, String platform);
+    List<Share> findByArticleIdAndPlatformOrderByCreatedAtDesc(String articleId, SharedPlatform platform);
 }
 

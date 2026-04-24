@@ -1,6 +1,7 @@
 package com.final_project.blog_service.dto;
 
 
+import com.final_project.blog_service.model.SharedPlatform;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -43,7 +44,7 @@ public class ShareResponse {
             title = "Platform",
             example = "TWITTER"
     )
-    private String platform;
+    private SharedPlatform platform;
 
     @Schema(
             title = "Created At",

@@ -30,8 +30,8 @@ public class Share {
     @Indexed
     private String articleId;
 
-    // TWITTER, FACEBOOK, LINKEDIN, COPY_LINK, EMAIL
-    private String platform;
+
+    private SharedPlatform platform;
 
     private Metadata metadata;
 

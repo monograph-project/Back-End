@@ -14,7 +14,9 @@ import com.final_project.faculty_service.models.Employee;
 import com.final_project.faculty_service.models.Faculty;
 import com.final_project.faculty_service.repository.EmployeeRepository;
 import com.final_project.faculty_service.repository.FacultyRepository;
+import com.final_project.faculty_service.services.exception.ResourceExist;
 import com.final_project.faculty_service.services.exception.ResourceNotFoundException;
+import com.final_project.faculty_service.services.exception.UserWithEmailExsit;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -58,31 +60,35 @@ public class EmployeeService {
 
 
     public EmployeeResponse createEmployee(EmployeeRequest request) {
+       boolean isExistByEmail =  employeeRepository.existsEmployeeByEmailAndIsDeletedIsFalse(request.getEmail())
+                ;
+       if (isExistByEmail){
+           throw new UserWithEmailExsit("User with this email exist");
+       }
+       boolean isExistByPersonalInformation =  employeeRepository.existsEmployeeByFirstNameAndFatherNameAndLastName(
+                request.getFirstName(),
+                request.getFatherName(),
+                request.getLastName()
+        );
+       if (isExistByPersonalInformation){
+           throw new ResourceExist("user exist with this information");
+       }
+
         Employee employee = employeeMapper.toEntity(request);
         Faculty faculty = facultyRepository.findByIdAndIsDeletedIsFalse(employee.getFaculty().getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Faculty not found"));
-
-        long seq = sequenceGeneratorService.generateSequence("sequence_employee");
-        String code = buildEmployeeCode(faculty, seq);
-        employee.setCode(code);
-        employee.setFaculty(faculty);
-
-
-        Employee result = employeeRepository.save(employee);
-
         SignupRequest signupRequest = mapToSignupRequest(request);
-        signupRequest.setEntityId(result.getId());
         UserDto response = authService.createUser(signupRequest);
         if(response.getId().isEmpty()){
             throw new ResourceNotFoundException("User couldn't save ");
         }
-
-        RoleDTO role = authService.getRole(request.getRole());
-
-        if (role.getId().isEmpty()){
-            throw new ResourceNotFoundException("Not Found Role");
-        }
-        authService.assignRoleToUser(response.getId(), role.getId());
+        authService.assignRoleToUser(response.getId(), "faculty-user");
+        long seq = sequenceGeneratorService.generateSequence("sequence_employee");
+        String code = buildEmployeeCode(faculty, seq);
+        employee.setCode(code);
+        employee.setFaculty(faculty);
+        employee.setKeycloakId(response.getId());
+        Employee result = employeeRepository.save(employee);
         return employeeMapper.toResponse(result);
     }
 
@@ -133,7 +139,6 @@ public class EmployeeService {
         signupRequest.setTermsAgreed(true);
         signupRequest.setEmail(request.getEmail());
         signupRequest.setPhoneNumber(request.getPhone());
-        signupRequest.setUserType("EMPLOYEE");
         return signupRequest;
     }
 

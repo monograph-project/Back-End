@@ -1,5 +1,7 @@
 package com.final_project.blog_service.dto;
 
+import com.final_project.blog_service.model.ArticleStatus;
+import com.final_project.blog_service.model.ArticleVisiblity;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -63,7 +65,7 @@ public class ArticleResponse {
             example = "PUBLISHED",
             allowableValues = {"DRAFT", "PUBLISHED", "ARCHIVED"}
     )
-    private String status;
+    private ArticleStatus status;
 
     @Schema(
             title = "Article Visibility",
@@ -71,7 +73,7 @@ public class ArticleResponse {
             example = "PUBLIC",
             allowableValues = {"PUBLIC", "PRIVATE", "UNLISTED"}
     )
-    private String visibility;
+    private ArticleVisiblity visibility;
 
     @Schema(
             title = "Article Statistics",

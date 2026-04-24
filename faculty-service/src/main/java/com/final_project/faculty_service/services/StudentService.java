@@ -17,7 +17,9 @@ import com.final_project.faculty_service.repository.BatchRepository;
 import com.final_project.faculty_service.repository.DepartmentRepository;
 import com.final_project.faculty_service.repository.SemesterRepository;
 import com.final_project.faculty_service.repository.StudentRepository;
+import com.final_project.faculty_service.services.exception.ResourceExist;
 import com.final_project.faculty_service.services.exception.ResourceNotFoundException;
+import com.final_project.faculty_service.services.exception.UserWithEmailExsit;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
@@ -80,6 +82,20 @@ public class StudentService {
     }
 
     public StudentResponse create(StudentRequest studentRequest){
+        boolean isExistByEmail =   studentRepository.existsStudentByEmailAndIsDeletedIsFalse(studentRequest.getEmail());
+        if (isExistByEmail){
+            throw new UserWithEmailExsit("User with this email Exist");
+        }
+
+        boolean isExistByPersonalInformation = studentRepository.existsStudentByFirstNameAndFatherNameAndLastName(
+                studentRequest.getFirstName(),
+                studentRequest.getFatherName(),
+                studentRequest.getLastName()
+                );
+        if (isExistByPersonalInformation){
+            throw new ResourceExist("User with this information exsit");
+        }
+
         Semester seme = semesterRepository.findByIdAndIsDeletedIsFalse(studentRequest.getSemester())
                 .orElseThrow(() -> new ResourceNotFoundException("Semester not found"));
         Department dep =  departmentRepository.findByIdAndIsDeletedIsFalse(studentRequest.getDepartment())
@@ -87,10 +103,15 @@ public class StudentService {
         Batch batch = batchRepository.findByIdAndIsDeletedIsFalse(studentRequest.getBatch())
                 .orElseThrow(() ->  new ResourceNotFoundException("Batch not found"));
         SignupRequest signupRequest = getSignupRequest(studentRequest);
+        UserDto response = authService.createUser(signupRequest);
+        if(response.getId().isEmpty()){
+            throw new ResourceNotFoundException("User couldn't save ");
+        }
+        authService.assignRoleToUser(response.getId(), "student-user");
 
         long seq = sequenceGeneratorService.generateSequence("sequence_student");
         Student student = studentMapper.toEntity(studentRequest);
-
+        student.setKeycloakId(response.getId());
         String abb = Helper.generateAbbreviation(dep.getFaculty().getName());
 
         student.setBatch(batch);
@@ -99,17 +120,6 @@ public class StudentService {
         student.setCode(abb +"-" + batch.getYear() +"-"+seme.getAcademicYear().getName().split("-")[0]+"-"+ seq);
 
         Student result = studentRepository.save(student);
-        signupRequest.setEntityId(result.getId());
-        UserDto response = authService.createUser(signupRequest);
-        if(response.getId().isEmpty()){
-            throw new ResourceNotFoundException("User couldn't save ");
-        }
-        RoleDTO role = authService.getRole(studentRequest.getRole());
-        if (role.getId().isEmpty()){
-            throw new ResourceNotFoundException("Not Found Role");
-        }
-        authService.assignRoleToUser(response.getId(), role.getId());
-
 
         return studentMapper.toResponse(result);
     }
@@ -125,8 +135,6 @@ public class StudentService {
         signupRequest.setUsername(studentRequest.getUsername());
         signupRequest.setPrivacyAgreed(true);
         signupRequest.setTermsAgreed(true);
-
-        signupRequest.setUserType("STUDENT");
         return signupRequest;
     }
 

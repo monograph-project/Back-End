@@ -41,18 +41,18 @@ public class UniversityController {
 
     @GetMapping("/logo/{id}")
     public ResponseEntity<String> getLogo(@PathVariable String id) throws IOException {
-        FileRecord file = fileRecordService.findByOwnerIdAndCategory(id, FileCategory.LOGO.name());
+        FileRecord file = fileRecordService.findByOwnerIdAndCategory(id, FileCategory.LOGO);
         return new ResponseEntity<>(fileStoragePort.generatePresignedUrl(file.getBucket(), file.getObjectKey()), HttpStatus.OK);
     }
     @DeleteMapping("/logo/{id}")
     public ResponseEntity<Void>   deleteLogo(@PathVariable String id) throws IOException {
-        FileRecord file = fileRecordService.findByOwnerIdAndCategory(id, FileCategory.LOGO.name());
+        FileRecord file = fileRecordService.findByOwnerIdAndCategory(id, FileCategory.LOGO);
         fileStoragePort.delete(file.getBucket(), file.getObjectKey());
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
     @GetMapping("/logo/{id}/download")
     public ResponseEntity<byte[]> downloadLogo(@PathVariable String id) throws IOException {
-        FileRecord file = fileRecordService.findByOwnerIdAndCategory(id, FileCategory.LOGO.name());
+        FileRecord file = fileRecordService.findByOwnerIdAndCategory(id, FileCategory.LOGO);
 
         InputStream stream = fileStoragePort.download(file.getBucket(), file.getObjectKey());
         byte[] content = stream.readAllBytes();

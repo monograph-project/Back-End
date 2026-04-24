@@ -27,6 +27,11 @@ public class CreatePermissionRequest {
     @Schema(description = "Permission description", example = "Permission to read user information")
     private String description;
 
+    @NotBlank(message = "Client ID is required")
+    @JsonProperty("client_id")
+    @Schema(description = "Keycloak client ID that owns this permission", example = "file-service")
+    private String clientId;
+
     @NotBlank(message = "Resource is required")
     @Size(min = 2, max = 50, message = "Resource must be between 2 and 50 characters")
     @JsonProperty("resource")
@@ -40,6 +45,6 @@ public class CreatePermissionRequest {
     private String action;
 
     @JsonProperty("is_system_permission")
-    @Schema(description = "Whether this is a system permission (cannot be deleted)", example = "false")
+    @Schema(description = "Kept for backward compatibility. Keycloak is the system of record.", example = "false")
     private Boolean isSystemPermission = false;
 }

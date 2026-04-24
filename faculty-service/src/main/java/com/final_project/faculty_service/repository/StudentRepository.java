@@ -14,4 +14,7 @@ public interface StudentRepository extends MongoRepository<Student,String> {
     Page<Student> findByIsDeletedIsFalse(Pageable pageable);
    Optional< Student> findByIdAndIsDeletedIsFalse(String  id);
     Optional<List<Student>> findAllByIdAndIsDeletedIsFalse(List<String> ids);
+
+    boolean existsStudentByEmailAndIsDeletedIsFalse(String email);
+    boolean existsStudentByFirstNameAndFatherNameAndLastName(String firstName, String fatherName, String lastName);
 }

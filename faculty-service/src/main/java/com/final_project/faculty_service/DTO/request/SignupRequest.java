@@ -33,11 +33,5 @@ public class SignupRequest {
     @JsonProperty("profile")
     private String profile;
 
-    @JsonProperty("entity_id")
-    private String entityId;
-
-    @JsonProperty("user_type")
-    private String userType;
-
 
 }

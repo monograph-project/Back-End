@@ -52,6 +52,7 @@ public class UniversalBucketStrategy implements BucketStrategy {
         return type == OwnerType.STUDENT ||
                 type == OwnerType.TEACHER ||
                 type == OwnerType.EMPLOYEE ||
-                type == OwnerType.ADMIN;
+                type == OwnerType.ADMIN ||
+                type == OwnerType.USER;
     }
 }

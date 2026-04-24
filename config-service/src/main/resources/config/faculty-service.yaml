@@ -10,6 +10,12 @@ spring:
     username: ${RABBIT_USERNAME}
     host: ${RABBIT_HOST}
     port: ${RABBIT_PORT}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_SERVER_URL}/realms/${KEYCLOAK_REALM}
+          jwk-set-uri: ${KEYCLOAK_SERVER_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/certs
 eureka:
   instance:
     prefer-ip-address: true

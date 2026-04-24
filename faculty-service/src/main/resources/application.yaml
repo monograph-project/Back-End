@@ -5,9 +5,14 @@ spring:
     active: native
   config:
     import: optional:configserver:http://localhost:8888
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: ${KEYCLOAK_SERVER_URL}/realms/${KEYCLOAK_REALM}
-          jwk-set-uri: ${KEYCLOAK_SERVER_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/certs
+#  security:
+#    oauth2:
+#      client:
+#        registration:
+#          client-id: faculty-service
+#          provider: keycloak
+#          client-secret:  ${FACULTY_SERVICE_CLIENT_SECRET}
+#          authorization-grant-type: client_credentials
+#        provider:
+#          keycloak:
+#            token-uri: ${KEYCLOAK_SERVER_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token

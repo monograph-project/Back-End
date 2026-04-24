@@ -15,7 +15,6 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class UserCacheService {
-
     private final UserServiceClient userServiceClient;
     private final RedisTemplate<String, UserProfileResponse> redisTemplate;
 

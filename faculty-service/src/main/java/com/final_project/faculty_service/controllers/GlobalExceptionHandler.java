@@ -4,6 +4,7 @@ import com.final_project.faculty_service.models.ErrorResponse;
 import com.final_project.faculty_service.services.exception.ResourceBadRequest;
 import com.final_project.faculty_service.services.exception.ResourceExist;
 import com.final_project.faculty_service.services.exception.ResourceNotFoundException;
+import com.final_project.faculty_service.services.exception.UserWithEmailExsit;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -53,6 +54,16 @@ public class GlobalExceptionHandler {
                 new ErrorResponse(
                         e.getMessage(),
                         HttpStatus.NOT_ACCEPTABLE.value(),
+                        LocalDateTime.now()
+                )
+        );
+    }
+    @ExceptionHandler(UserWithEmailExsit.class)
+    public ResponseEntity<?> handleUserWithEmail(UserWithEmailExsit e){
+        return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body(
+                new ErrorResponse(
+                        e.getMessage(),
+                        HttpStatus.CONFLICT.value(),
                         LocalDateTime.now()
                 )
         );

@@ -19,6 +19,7 @@ public class Employee {
     private String id;
     @DBRef
     private Faculty faculty;
+    private String keycloakId;
     private String firstName;
     private String lastName;
     private String fatherName;
