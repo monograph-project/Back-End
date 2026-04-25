@@ -901,9 +901,9 @@ public class BlogServiceApplication {
 `$lang
 package com.final_project.blog_service.client;
 
-import com.final_project.blog_service.dto.FileCdnUrlResponse;
-import com.final_project.blog_service.dto.FileMetadataResponse;
-import com.final_project.blog_service.dto.FileUploadResponse;
+import com.final_project.blog_service.dto.response.FileCdnUrlResponse;
+import com.final_project.blog_service.dto.response.FileMetadataResponse;
+import com.final_project.blog_service.dto.response.FileUploadResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -948,10 +948,10 @@ public interface FileServiceClient {
 package com.final_project.blog_service.client;
 
 import com.final_project.blog_service.config.UserServiceFeignConfig;
-import com.final_project.blog_service.dto.UserAuthorResponse;
-import com.final_project.blog_service.dto.UserExistsResponse;
-import com.final_project.blog_service.dto.UserPreferencesResponse;
-import com.final_project.blog_service.dto.UserProfileResponse;
+import com.final_project.blog_service.dto.response.UserAuthorResponse;
+import com.final_project.blog_service.dto.response.UserExistsResponse;
+import com.final_project.blog_service.dto.response.UserPreferencesResponse;
+import com.final_project.blog_service.dto.response.UserProfileResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -1177,7 +1177,7 @@ package com.final_project.blog_service.config;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.final_project.blog_service.dto.UserProfileResponse;
+import com.final_project.blog_service.dto.response.UserProfileResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -5447,7 +5447,7 @@ public class FileUploadException extends RuntimeException {
 package com.final_project.blog_service.exception;
 
 
-import com.final_project.blog_service.dto.ErrorResponse;
+import com.final_project.blog_service.dto.response.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -7496,9 +7496,9 @@ public class ArticleService {
 `$lang
 package com.final_project.blog_service.service;
 import com.final_project.blog_service.client.FileServiceClient;
-import com.final_project.blog_service.dto.FileUploadResponse;
-import com.final_project.blog_service.dto.ImageUploadResponse;
-import com.final_project.blog_service.dto.VideoUploadResponse;
+import com.final_project.blog_service.dto.response.FileUploadResponse;
+import com.final_project.blog_service.dto.response.ImageUploadResponse;
+import com.final_project.blog_service.dto.response.VideoUploadResponse;
 import com.final_project.blog_service.exception.FileUploadException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -7698,7 +7698,7 @@ public class FileUploadService {
 `$lang
 package com.final_project.blog_service.service;
 import com.final_project.blog_service.client.UserServiceClient;
-import com.final_project.blog_service.dto.UserProfileResponse;
+import com.final_project.blog_service.dto.response.UserProfileResponse;
 import com.final_project.blog_service.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -7923,7 +7923,7 @@ public class UserCacheService {
 package com.final_project.blog_service.utile;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.final_project.blog_service.dto.ContentBlockRequest;
+import com.final_project.blog_service.dto.request.ContentBlockRequest;
 
 import java.util.List;
 

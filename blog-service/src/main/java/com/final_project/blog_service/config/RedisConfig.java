@@ -2,7 +2,7 @@ package com.final_project.blog_service.config;
 
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.final_project.blog_service.dto.UserProfileResponse;
+import com.final_project.blog_service.dto.response.UserProfileResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;

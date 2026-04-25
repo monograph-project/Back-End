@@ -2,8 +2,11 @@ package com.final_project.blog_service.client;
 
 import com.final_project.blog_service.config.UserServiceFeignConfig;
 import com.final_project.blog_service.dto.*;
+import com.final_project.blog_service.dto.response.UserAuthorResponse;
+import com.final_project.blog_service.dto.response.UserExistsResponse;
+import com.final_project.blog_service.dto.response.UserPreferencesResponse;
+import com.final_project.blog_service.dto.response.UserProfileResponse;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;

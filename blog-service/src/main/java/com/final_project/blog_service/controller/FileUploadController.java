@@ -1,6 +1,8 @@
 package com.final_project.blog_service.controller;
 
-import com.final_project.blog_service.dto.*;
+import com.final_project.blog_service.dto.response.FileUploadResponse;
+import com.final_project.blog_service.dto.response.ImageUploadResponse;
+import com.final_project.blog_service.dto.response.VideoUploadResponse;
 import com.final_project.blog_service.service.FileUploadService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -10,7 +12,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,7 +42,7 @@ public class FileUploadController {
     /**
      * Upload an image file
      */
-    @PostMapping(value = "/upload/image/{userId}", consumes = "multipart/form-data")
+    @PostMapping(value = "/upload/image/{userId}/article/{articleId}", consumes = "multipart/form-data")
     @Operation(
             summary = "Upload image",
             description = "Uploads an image file for use in article content blocks. Supports JPEG, PNG, WebP, GIF.",
@@ -94,23 +95,24 @@ public class FileUploadController {
                     description = "Unsupported media type"
             )
     })
-    public ResponseEntity<ImageUploadResponse> uploadImage(
+    public ResponseEntity<FileUploadResponse> uploadImage(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(required = false) String alt,
-            @RequestParam(required = false) String caption,
-            @PathVariable String userId
+            @PathVariable String userId,
+            @PathVariable String articleId
+
     ) {
         log.info("POST /api/v1/files/upload/image - Upload image");
 
-        ImageUploadResponse response = fileUploadService.uploadImage(file, alt, caption, userId);
+        FileUploadResponse response = fileUploadService.uploadArticleImage(file,userId,articleId );
 
         return ResponseEntity.ok(response);
     }
 
     /**
      * Upload a video file
+     * not yet implemented!
      */
-    @PostMapping(value = "/upload/video/{userId}", consumes = "multipart/form-data")
+    @PostMapping(value = "/upload/video/{userId}/article/{articleId}", consumes = "multipart/form-data")
     @Operation(
             summary = "Upload video",
             description = "Uploads a video file for use in article content blocks. Supports MP4, WebM, Ogg, MOV.",
@@ -163,21 +165,19 @@ public class FileUploadController {
                     description = "Unsupported media type"
             )
     })
-    public ResponseEntity<VideoUploadResponse> uploadVideo(
+    public ResponseEntity<FileUploadResponse> uploadVideo(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(required = false) String title,
-            @RequestParam(required = false) String description,
-            @PathVariable String userId
+            @PathVariable String userId,
+            @PathVariable String articleId
     ) {
-
-        VideoUploadResponse response = fileUploadService.uploadVideo(file, title, description, userId);
+        FileUploadResponse response = fileUploadService.uploadArticleVideo(file,userId,articleId);
         return ResponseEntity.ok(response);
     }
 
     /**
      * Delete a file
      */
-    @DeleteMapping("/{fileId}")
+    @DeleteMapping("/{fileId}/author/{articleId}")
     @Operation(
             summary = "Delete file",
             description = "Deletes a file from storage. Only the uploader can delete their files.",
@@ -212,10 +212,9 @@ public class FileUploadController {
     })
     public ResponseEntity<Void> deleteFile(
             @PathVariable String fileId,
-            Authentication authentication
+            @PathVariable String articleId
     ) {
-        String userId = authentication.getName();
-        fileUploadService.deleteFile(fileId, userId);
+        fileUploadService.deleteFile(fileId, articleId);
         return ResponseEntity.noContent().build();
     }
 }

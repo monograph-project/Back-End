@@ -1,27 +1,37 @@
 package com.final_project.blog_service.utile;
 
 
+import com.final_project.blog_service.dto.request.ArticleBlockRequest;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+
+@Component
 public class ReadTimeCalculator {
 
     private static final int WORDS_PER_MINUTE = 200;
 
-    public static int calculateReadTime(String content) {
-        if (content == null || content.isEmpty()) {
+    public int calculateFromBlocks(List<ArticleBlockRequest> blocks) {
+        if (blocks == null || blocks.isEmpty()) {
             return 1;
         }
 
-        String[] words = content.split("\\s+");
-        int wordCount = words.length;
+        int words = 0;
 
-        int readTime = (wordCount + WORDS_PER_MINUTE - 1) / WORDS_PER_MINUTE;
+        for (ArticleBlockRequest block : blocks) {
+            if (block.getData() == null) continue;
 
-        return Math.max(1, readTime);
-    }
+            Object text = block.getData().get("text");
+            if (text instanceof String value && !value.isBlank()) {
+                words += value.trim().split("\s+").length;
+            }
 
-    public static String formatReadTime(int minutes) {
-        if (minutes <= 1) {
-            return "1 min read";
+            Object code = block.getData().get("code");
+            if (code instanceof String value && !value.isBlank()) {
+                words += value.trim().split("\s+").length / 2;
+            }
         }
-        return minutes + " min read";
+
+        return Math.max(1, (int) Math.ceil(words / 200.0));
     }
 }

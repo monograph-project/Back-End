@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class UniversalBucketStrategy implements BucketStrategy {
+
     @Override
     public String resolveBucket(FileMetadata m) {
         if (m.getCategory() == FileCategory.BLOG) return "blogs";

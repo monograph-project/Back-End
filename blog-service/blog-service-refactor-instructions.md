@@ -218,6 +218,7 @@ src/main/java/com/final_project/blog_service/dto/CreateArticleRequest.java
 ```java
 package com.final_project.blog_service.dto;
 
+import com.final_project.blog_service.dto.request.ArticleBlockRequest;
 import com.final_project.blog_service.model.ArticleVisiblity;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
@@ -277,6 +278,7 @@ src/main/java/com/final_project/blog_service/dto/UpdateArticleRequest.java
 ```java
 package com.final_project.blog_service.dto;
 
+import com.final_project.blog_service.dto.request.ArticleBlockRequest;
 import com.final_project.blog_service.model.ArticleVisiblity;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
@@ -353,7 +355,6 @@ src/main/java/com/final_project/blog_service/utile/ContentBlockValidator.java
 ```java
 package com.final_project.blog_service.utile;
 
-import com.final_project.blog_service.dto.ArticleBlockRequest;
 import com.final_project.blog_service.model.ArticleBlockType;
 import org.springframework.stereotype.Component;
 
@@ -363,17 +364,17 @@ import java.util.Map;
 @Component
 public class ContentBlockValidator {
 
-    public void validate(List<ArticleBlockRequest> blocks) {
+    public void validate(List<com.final_project.blog_service.dto.request.ArticleBlockRequest> blocks) {
         if (blocks == null || blocks.isEmpty()) {
             throw new IllegalArgumentException("Article must contain at least one content block");
         }
 
-        for (ArticleBlockRequest block : blocks) {
+        for (com.final_project.blog_service.dto.request.ArticleBlockRequest block : blocks) {
             validateBlock(block);
         }
     }
 
-    private void validateBlock(ArticleBlockRequest block) {
+    private void validateBlock(com.final_project.blog_service.dto.request.ArticleBlockRequest block) {
         if (block.getType() == null) {
             throw new IllegalArgumentException("Block type is required");
         }
@@ -472,9 +473,9 @@ src/main/java/com/final_project/blog_service/client/FileServiceClient.java
 ```java
 package com.final_project.blog_service.client;
 
-import com.final_project.blog_service.dto.FileCdnUrlResponse;
-import com.final_project.blog_service.dto.FileMetadataResponse;
-import com.final_project.blog_service.dto.FileUploadResponse;
+import com.final_project.blog_service.dto.response.FileCdnUrlResponse;
+import com.final_project.blog_service.dto.response.FileMetadataResponse;
+import com.final_project.blog_service.dto.response.FileUploadResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -521,7 +522,7 @@ src/main/java/com/final_project/blog_service/service/FileUploadService.java
 package com.final_project.blog_service.service;
 
 import com.final_project.blog_service.client.FileServiceClient;
-import com.final_project.blog_service.dto.FileUploadResponse;
+import com.final_project.blog_service.dto.response.FileUploadResponse;
 import com.final_project.blog_service.exception.FileUploadException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -595,9 +596,9 @@ public class FileUploadService {
 
         String filename = file.getOriginalFilename();
         if (filename == null || filename.contains("..") || filename.contains("/") || filename.contains("\")) {
-            throw new FileUploadException("Invalid filename");
-        }
+        throw new FileUploadException("Invalid filename");
     }
+}
 }
 ```
 

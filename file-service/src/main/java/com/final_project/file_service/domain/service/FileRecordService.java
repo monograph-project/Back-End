@@ -6,6 +6,8 @@ import com.final_project.file_service.domain.repo.FileRecordRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @AllArgsConstructor
 public class FileRecordService {
@@ -28,5 +30,16 @@ public class FileRecordService {
         file.setFileName(fileName);
         fileRecordRepository.save(file);
         return file;
+    }
+
+    public List<FileRecord> findAllByOwnerIdAndSubFolder(String ownerId, String subFolder){
+
+        return fileRecordRepository.findAllByOwnerIdAndSubFolder(ownerId, subFolder)
+                .orElseThrow(() -> new FileNotFound("File Not Found"));
+    }
+
+    public FileRecord findOneByOwnerIdAndSubFolder(String ownerId, String subFolder){
+        return fileRecordRepository.findFirstByOwnerIdAndSubFolder(ownerId, subFolder)
+                .orElseThrow(() -> new FileNotFound("File Not Found"));
     }
 }

@@ -1,13 +1,15 @@
 package com.final_project.blog_service.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.final_project.blog_service.dto.*;
+import com.final_project.blog_service.dto.request.*;
+import com.final_project.blog_service.dto.response.*;
 import com.final_project.blog_service.service.ArticleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.tags.Tags;
 import jakarta.validation.Valid;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.List;
 
 @Slf4j
 @RestController
@@ -38,56 +41,29 @@ public class ArticleController {
     private final ArticleService articleService;
     private final ObjectMapper objectMapper;
 
-    /**
-     * Create article with multipart/form-data.
-     *
-     * Endpoint:
-     * POST /api/v1/articles
-     */
-    @PostMapping( value = "/{userId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/with-files/author/{author}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
             summary = "Create article with files",
-            description = "Creates a new article using multipart/form-data. The article JSON is sent as a request part named 'article'.",
-            tags = {"Articles"},
-            operationId = "createArticleWithFiles"
+            description = "Creates a flexible article and uploads cover/inline files through file-service"
     )
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "201",
-                    description = "Article created successfully",
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = ArticleResponse.class)
-                    )
-            ),
-            @ApiResponse(responseCode = "400", description = "Invalid request - validation failed or malformed JSON"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token missing or invalid"),
-            @ApiResponse(responseCode = "413", description = "Payload too large"),
-            @ApiResponse(responseCode = "500", description = "Internal server error")
-    })
     public ResponseEntity<ArticleResponse> createArticleWithFiles(
-            @RequestPart("article") String articleJsonString,
+            @RequestPart("title") String title,
+            @RequestPart(value = "description", required = false) String description,
+            @RequestPart("blocks") String blocksJson,
             @RequestPart(value = "coverImage", required = false) MultipartFile coverImage,
-            @RequestPart(value = "files", required = false) MultipartFile[] additionalFiles,
-            @PathVariable String userId
+            @RequestPart(value = "inlineFiles", required = false) List<MultipartFile> inlineFiles,
+            @PathVariable String author
     ) {
+        ArticleResponse response = articleService.createArticleWithFiles(
+                title,
+                description,
+                blocksJson,
+                coverImage,
+                inlineFiles,
+                author
+        );
 
-
-        try {
-            CreateArticleWithFilesRequest request = objectMapper.readValue(
-                    articleJsonString,
-                    CreateArticleWithFilesRequest.class
-            );
-
-            request = processAndMapFiles(request, coverImage, additionalFiles, userId);
-
-            ArticleResponse response = articleService.createArticleWithFiles(userId, request);
-
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (IOException e) {
-            log.error("Failed to parse article JSON: {}", e.getMessage());
-            throw new IllegalArgumentException("Invalid article JSON format", e);
-        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
@@ -107,7 +83,7 @@ public class ArticleController {
             @Valid @RequestBody CreateArticleRequest request,
             @PathVariable String userId
     ) {
-        ArticleResponse response = articleService.createArticle(userId, request);
+        ArticleResponse response = articleService.createArticle(request, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -141,7 +117,7 @@ public class ArticleController {
             @Valid @RequestBody CreateArticleRequest request,
             @PathVariable String userId
     ) {
-        ArticleResponse response = articleService.createArticle(userId, request);
+        ArticleResponse response = articleService.createArticle(request, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
