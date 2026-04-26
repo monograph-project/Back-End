@@ -40,6 +40,7 @@ public class FileUploadService {
                     authorId,
                     articleId != null ? articleId : "drafts"
             );
+
         } catch (Exception ex) {
             log.error("File-service upload failed", ex);
             throw new FileUploadException("Failed to upload " + subFolder + " file");

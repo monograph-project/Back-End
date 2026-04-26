@@ -59,6 +59,8 @@ public class AppProperties {
             private String blogCommented     = "blog.commented";
             private String commentReplied    = "comment.replied";
             private String notificationDlq   = "notification.dlq";
+            private String repositoryOperation = "repository.operations";
+            private String articleOperations = "article.operations";
         }
     }
 }

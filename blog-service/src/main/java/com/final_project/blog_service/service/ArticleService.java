@@ -86,13 +86,25 @@ public class ArticleService {
 
     @Transactional
     public ArticleResponse createArticle(CreateArticleRequest request, String authorId) {
+           UserAuthorResponse author =  userServiceClient.getUserAuthor(authorId);
+           log.info(author.getEmail());
+////        fix this and it might cause errors
         contentBlockValidator.validate(request.getBlocks());
-        validateFileReferences(request.getBlocks());
+        validateFileReferences(request.getBlocks(), author.getId());
 
         Article article = Article.builder()
-                .authorId(authorId)
+                .authorId(author.getId())
                 .title(request.getTitle())
                 .slug(generateUniqueSlug(request.getTitle()))
+                .metadata(
+                        Metadata
+                                .builder()
+                                .tags(request.getTags())
+                                .coverImageUrl(request.getCoverImageUrl())
+                                .description(request.getDescription())
+                                .keywords(request.getKeywords())
+                                .build()
+                )
                 .content(
                         Content
                                 .builder()
@@ -112,6 +124,15 @@ public class ArticleService {
                                 )
                                 .build()
                 )
+                .stats(
+                        Stats.builder()
+                                .reads(0L)
+                                .views(0L)
+                                .likes(0L)
+                                .commentCount(0L)
+                                .shareCount(0L)
+                                .build()
+                )
                 .coverImageFileId(request.getCoverImageFileId())
                 .coverImageUrl(request.getCoverImageUrl())
                 .visibility(request.getVisibility())
@@ -122,6 +143,71 @@ public class ArticleService {
 
         Article saved = articleRepository.save(article);
         return mapToResponse(saved);
+    }
+
+
+    @Transactional
+    public ArticleResponse createArticleWithFiles(
+            String title,
+            String description,
+            String tags,
+            String blocksJson,
+            MultipartFile coverImage,
+            List<MultipartFile> inlineFiles,
+            String authorId
+    ) {
+        try {
+            List<ArticleBlockRequest> blocks = objectMapper.readValue(
+                    blocksJson,
+                    new com.fasterxml.jackson.core.type.TypeReference<List<ArticleBlockRequest>>() {}
+            );
+
+            List<String> mappedTags = objectMapper.readValue(tags, new com.fasterxml.jackson.core.type.TypeReference<List<String>>(){});
+
+            String coverFileId = null;
+            String coverUrl = null;
+
+            if (!coverImage.isEmpty()) {
+                FileUploadResponse cover = fileUploadService.uploadArticleImage(coverImage, authorId, "drafts");
+                coverFileId = cover.getFileId();
+                coverUrl = cover.getCdnUrl();
+            }
+
+            if (!inlineFiles.isEmpty()) {
+                for (ArticleBlockRequest block : blocks) {
+                    if ((block.getType() == ArticleBlockType.IMAGE || block.getType() == ArticleBlockType.VIDEO)
+                            && block.getData().containsKey("uploadIndex")) {
+
+                        int index = ((Number) block.getData().get("uploadIndex")).intValue();
+                        MultipartFile file = inlineFiles.get(index);
+
+                        FileUploadResponse uploaded = block.getType() == ArticleBlockType.IMAGE
+                                ? fileUploadService.uploadArticleImage(file, authorId, "drafts")
+                                : fileUploadService.uploadArticleVideo(file, authorId, "drafts");
+
+
+                        block.getData().put("fileId", uploaded.getFileId());
+                        block.getData().put("url", uploaded.getCdnUrl());
+                        block.getData().remove("uploadIndex");
+                    }
+                }
+            }
+
+            CreateArticleRequest request = CreateArticleRequest.builder()
+                    .title(title)
+                    .description(description)
+                    .keywords(extractKeywords(title, description))
+                    .tags(mappedTags)
+                    .blocks(blocks)
+                    .coverImageFileId(coverFileId)
+                    .coverImageUrl(coverUrl)
+                    .build();
+
+            return createArticle(request, authorId);
+
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Invalid multipart article request: " + ex.getMessage(), ex);
+        }
     }
 
     /**
@@ -165,6 +251,11 @@ public class ArticleService {
     @Transactional
     public ArticleResponse publishArticle(String articleId, String authorId, PublishArticleRequest request) {
         Article article = getArticleByIdOrThrow(articleId);
+        UserAuthorResponse author = userServiceClient.getUserAuthor(authorId);
+        if(author == null) {
+            throw new ResourceNotFoundException("Author Not Exist");
+        }
+
         validateAuthor(article, authorId);
         if (!ArticleStatus.DRAFT.equals(article.getStatus())) {
             throw new IllegalStateException("Only draft articles can be published");
@@ -227,6 +318,21 @@ public class ArticleService {
     public PaginatedResponse<ArticlePreviewResponse> getUserArticles(String authorId, int page, int pageSize) {
         Pageable pageable = PageRequest.of(page, pageSize);
 
+        Page<Article> articles = articleRepository.findByAuthorId(
+                authorId,
+                pageable
+        );
+
+        return mapToPaginatedResponse(articles, page, pageSize);
+    }
+
+    /**
+     * Get user's articles with pagination
+     */
+    @Transactional(readOnly = true)
+    public PaginatedResponse<ArticlePreviewResponse> getPublishedUserArticles(String authorId, int page, int pageSize) {
+        Pageable pageable = PageRequest.of(page, pageSize);
+
         Page<Article> articles = articleRepository.findByAuthorIdAndStatusOrderByPublishedAtDesc(
                 authorId,
                 ArticleStatus.PUBLISHED,
@@ -235,6 +341,7 @@ public class ArticleService {
 
         return mapToPaginatedResponse(articles, page, pageSize);
     }
+
 
     /**
      * Get published articles feed (paginated)
@@ -389,7 +496,6 @@ public class ArticleService {
         commentRepository.save(comment);
     }
 
-    // ============= ENGAGEMENT MANAGEMENT =============
 
     /**
      * Like an article
@@ -573,6 +679,7 @@ public class ArticleService {
                 .orElseThrow(() -> new ResourceNotFoundException("Comment not found: " + id));
     }
     private ArticleResponse mapToResponse(Article article) {
+
         return ArticleResponse.builder()
                 .id(article.getId())
                 .slug(article.getSlug())
@@ -587,13 +694,13 @@ public class ArticleService {
                 )
                 .status(article.getStatus())
                 .visibility(article.getVisibility())
-                .stats(StatsResponse.builder()
+                .stats(
+                        StatsResponse.builder()
                         .views(article.getStats().getViews())
                         .reads(article.getStats().getReads())
                         .likes(article.getStats().getLikes())
                         .commentCount(article.getStats().getCommentCount())
                         .shareCount(article.getStats().getShareCount())
-                        .lastEngagedAt(article.getStats().getLastEngagedAt())
                         .build()
                 )
                 .publishedAt(article.getPublishedAt())
@@ -677,91 +784,34 @@ public class ArticleService {
                 .build();
     }
     public ArticleResponse getArticleByAuthorAndId(String authorId, String articleId) {
-        Article article = articleRepository.findArticleByIdAndAuthorId(authorId, articleId)
+        Article article = articleRepository.findArticleByIdAndAuthorId(articleId, authorId)
                 .orElseThrow(() -> new  ResourceNotFoundException("This Article by this user"));
         return mapToResponse(article);
 
 
     }
 
-    @Transactional
-    public ArticleResponse createArticleWithFiles(
-            String title,
-            String description,
-            String blocksJson,
-            MultipartFile coverImage,
-            List<MultipartFile> inlineFiles,
-            String authorId
-    ) {
-        try {
-            List<ArticleBlockRequest> blocks = objectMapper.readValue(
-                    blocksJson,
-                    new com.fasterxml.jackson.core.type.TypeReference<List<ArticleBlockRequest>>() {}
-            );
-
-            String coverFileId = null;
-            String coverUrl = null;
-
-            if (coverImage != null && !coverImage.isEmpty()) {
-                FileUploadResponse cover = fileUploadService.uploadArticleImage(coverImage, authorId, "drafts");
-                coverFileId = cover.getFileId();
-                coverUrl = cover.getCdnUrl();
-            }
-
-            if (inlineFiles != null && !inlineFiles.isEmpty()) {
-                for (ArticleBlockRequest block : blocks) {
-                    if ((block.getType() == ArticleBlockType.IMAGE || block.getType() == ArticleBlockType.VIDEO)
-                            && block.getData().containsKey("uploadIndex")) {
-
-                        int index = ((Number) block.getData().get("uploadIndex")).intValue();
-                        MultipartFile file = inlineFiles.get(index);
-
-                        FileUploadResponse uploaded = block.getType() == ArticleBlockType.IMAGE
-                                ? fileUploadService.uploadArticleImage(file, authorId, "drafts")
-                                : fileUploadService.uploadArticleVideo(file, authorId, "drafts");
-
-                        block.getData().put("fileId", uploaded.getFileId());
-                        block.getData().put("url", uploaded.getCdnUrl());
-                        block.getData().remove("uploadIndex");
-                    }
-                }
-            }
-
-            CreateArticleRequest request = CreateArticleRequest.builder()
-                    .title(title)
-                    .description(description)
-                    .blocks(blocks)
-                    .coverImageFileId(coverFileId)
-                    .coverImageUrl(coverUrl)
-                    .build();
-
-            return createArticle(request, authorId);
-
-        } catch (Exception ex) {
-            throw new IllegalArgumentException("Invalid multipart article request: " + ex.getMessage(), ex);
-        }
-    }
     /**
      * Process content blocks and validate file references
      */
-    private List<ContentBlock> processContentBlocks(List<FlexibleContentBlockRequest> blocks) {
-        return blocks.stream()
-                .map(block -> {
-                    // Validate block data based on type
-                    validateBlock(block);
-                    // For image/video blocks, validate file exists
-                    if ("image".equalsIgnoreCase(block.getType().getType()) || "video".equalsIgnoreCase(block.getType().getType())) {
-                        validateFileReference(block.getFileId());
-                    }
-                    // Convert to entity
-                    return
-                            ContentBlock
-                            .builder()
-                            .type(block.getType())
-                            .build();
-                })
-                .collect(toList());
-    }
+//    private List<ContentBlock> processContentBlocks(List<FlexibleContentBlockRequest> blocks) {
+//        return blocks.stream()
+//                .map(block -> {
+//                    // Validate block data based on type
+//                    validateBlock(block);
+//                    // For image/video blocks, validate file exists
+//                    if ("image".equalsIgnoreCase(block.getType().getType()) || "video".equalsIgnoreCase(block.getType().getType())) {
+//                        validateFileReference(block.getFileId());
+//                    }
+//                    // Convert to entity
+//                    return
+//                            ContentBlock
+//                            .builder()
+//                            .type(block.getType())
+//                            .build();
+//                })
+//                .collect(toList());
+//    }
 
     /**
      * Validate individual content block
@@ -815,31 +865,31 @@ public class ArticleService {
     }
 
 
-    private ContentBlock convertFlexibleBlockToEntity(
-            FlexibleContentBlockRequest blockRequest
-    ) {
-        if (blockRequest == null) {
-            throw new IllegalArgumentException("Content block cannot be null");
-        }
-
-
-        // Validate block
-        validateFlexibleContentBlock(blockRequest);
-
-        // For image/video blocks, validate file exists in File Service
-        if ("image".equalsIgnoreCase(blockRequest.getType().getType()) || "video".equals(blockRequest.getType().getType().toLowerCase())) {
-            validateFileReference(blockRequest.getFileId());
-        }
-
-        // Convert DTO to JsonNode for flexible MongoDB storage
-        JsonNode blockData = objectMapper.valueToTree(blockRequest);
-        Map<String, Object> data = objectMapper.convertValue(blockData,new  com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>(){});
-        // Create and return entity
-        return ContentBlock.builder()
-                .type(blockRequest.getType())
-                .data(data)
-                .build();
-    }
+//    private ContentBlock convertFlexibleBlockToEntity(
+//            FlexibleContentBlockRequest blockRequest
+//    ) {
+//        if (blockRequest == null) {
+//            throw new IllegalArgumentException("Content block cannot be null");
+//        }
+//
+//
+//        // Validate block
+//        validateFlexibleContentBlock(blockRequest);
+//
+//        // For image/video blocks, validate file exists in File Service
+//        if ("image".equalsIgnoreCase(blockRequest.getType().getType()) || "video".equals(blockRequest.getType().getType().toLowerCase())) {
+//            validateFileReference(blockRequest.getFileId());
+//        }
+//
+//        // Convert DTO to JsonNode for flexible MongoDB storage
+//        JsonNode blockData = objectMapper.valueToTree(blockRequest);
+//        Map<String, Object> data = objectMapper.convertValue(blockData,new  com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>(){});
+//        // Create and return entity
+//        return ContentBlock.builder()
+//                .type(blockRequest.getType())
+//                .data(data)
+//                .build();
+//    }
 
     private ContentBlock convertContentBlockRequestToEntity(
             ContentBlockRequest blockRequest
@@ -943,21 +993,21 @@ public class ArticleService {
     /**
      * Validate file reference exists in File Service
      */
-    private void validateFileReference(String fileId) {
-        if (fileId == null || fileId.isBlank()) {
-            throw new IllegalArgumentException("File ID cannot be null");
-        }
-        try {
-            // Call File Service to verify file exists
-            fileServiceClient.getFileMetadata(fileId);
-            log.debug("File validated: {}", fileId);
-        } catch (Exception e) {
-            log.error("File validation failed: {} - {}", fileId, e.getMessage());
-            throw new IllegalArgumentException(
-                    "File not found or inaccessible: " + fileId + ". Upload file first."
-            );
-        }
-    }
+//    private void validateFileReference(String fileId) {
+//        if (fileId == null || fileId.isBlank()) {
+//            throw new IllegalArgumentException("File ID cannot be null");
+//        }
+//        try {
+//            // Call File Service to verify file exists
+//            fileServiceClient.getFileMetadata(fileId);
+//            log.debug("File validated: {}", fileId);
+//        } catch (Exception e) {
+//            log.error("File validation failed: {} - {}", fileId, e.getMessage());
+//            throw new IllegalArgumentException(
+//                    "File not found or inaccessible: " + fileId + ". Upload file first."
+//            );
+//        }
+//    }
 
     private List<ContentBlock> mapBlocks(List<ArticleBlockRequest> requests) {
         return requests.stream()
@@ -969,14 +1019,15 @@ public class ArticleService {
                 .toList();
     }
 
-    private void validateFileReferences(List<ArticleBlockRequest> blocks) {
+    private void validateFileReferences(List<ArticleBlockRequest> blocks, String authorId) {
         for (ArticleBlockRequest block : blocks) {
             if (block.getType() == ArticleBlockType.IMAGE || block.getType() == ArticleBlockType.VIDEO) {
                 Object fileId = block.getData().get("fileId");
                 if (fileId == null || fileId.toString().isBlank()) {
                     throw new IllegalArgumentException(block.getType() + " block requires fileId");
                 }
-                fileServiceClient.getFileMetadata(fileId.toString());
+               FileMetadataResponse fileMetadataResponse =  fileServiceClient.getFileMetadata(fileId.toString(), authorId);
+
             }
         }
     }
@@ -997,7 +1048,6 @@ public class ArticleService {
                 .collect(toList());
     }
 
-    // ============= RESPONSE MAPPING =============
 
     /**
      * Map Article entity to ArticleResponse DTO

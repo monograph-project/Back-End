@@ -18,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -47,16 +48,18 @@ public class ArticleController {
             description = "Creates a flexible article and uploads cover/inline files through file-service"
     )
     public ResponseEntity<ArticleResponse> createArticleWithFiles(
-            @RequestPart("title") String title,
-            @RequestPart(value = "description", required = false) String description,
-            @RequestPart("blocks") String blocksJson,
+            @RequestParam("title") String title,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam("blocks") String blocksJson,
             @RequestPart(value = "coverImage", required = false) MultipartFile coverImage,
             @RequestPart(value = "inlineFiles", required = false) List<MultipartFile> inlineFiles,
+            @RequestParam(value = "tags") String tags,
             @PathVariable String author
     ) {
         ArticleResponse response = articleService.createArticleWithFiles(
                 title,
                 description,
+                tags,
                 blocksJson,
                 coverImage,
                 inlineFiles,
@@ -161,34 +164,13 @@ public class ArticleController {
         ArticleResponse response = articleService.getArticleById(articleId);
         return ResponseEntity.ok(response);
     }
-
-    /**
-     * Get article by slug.
-     *
-     * Endpoint:
-     * GET /api/v1/articles/slug/{slug}
-     */
-    @GetMapping("/slug/{slug}")
-    @Operation(
-            summary = "Get article by slug",
-            description = "Retrieves an article using its URL-friendly slug.",
-            tags = {"Articles"},
-            operationId = "getArticleBySlug"
-    )
-    public ResponseEntity<ArticleResponse> getArticleBySlug(
-            @PathVariable String slug
-    ) {
-        ArticleResponse response = articleService.getArticleBySlug(slug);
-        return ResponseEntity.ok(response);
-    }
-
     /**
      * Update article with multipart/form-data.
      *
      * Endpoint:
      * PUT /api/v1/articles/{articleId}
      */
-    @PutMapping(value = "/{articleId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PutMapping(value = "/with-file/{articleId}/author/{authorId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
             summary = "Update article with files",
             description = "Updates an article using multipart/form-data.",
@@ -198,11 +180,9 @@ public class ArticleController {
     public ResponseEntity<ArticleResponse> updateArticleWithFiles(
             @PathVariable String articleId,
             @RequestPart("article") String articleJsonString,
-            @RequestPart(value = "coverImage", required = false) MultipartFile coverImage,
-            @RequestPart(value = "files", required = false) MultipartFile[] additionalFiles,
-            @AuthenticationPrincipal Jwt jwt
+            @PathVariable String authorId
+
     ) {
-        String userId = jwt.getSubject();
 
         try {
             UpdateArticleRequest request = objectMapper.readValue(
@@ -210,7 +190,7 @@ public class ArticleController {
                     UpdateArticleRequest.class
             );
 
-            ArticleResponse response = articleService.updateArticle(articleId, userId, request);
+            ArticleResponse response = articleService.updateArticle(articleId, authorId, request);
             return ResponseEntity.ok(response);
         } catch (IOException e) {
             throw new IllegalArgumentException("Invalid article JSON format", e);
@@ -223,7 +203,7 @@ public class ArticleController {
      * Endpoint:
      * PUT /api/v1/articles/{articleId}
      */
-    @PutMapping(value = "/{articleId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PutMapping(value = "/{articleId}/author/{authorId}", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
             summary = "Update article with JSON",
             description = "Updates an existing article using application/json.",
@@ -233,10 +213,10 @@ public class ArticleController {
     public ResponseEntity<ArticleResponse> updateArticleJson(
             @PathVariable String articleId,
             @Valid @RequestBody UpdateArticleRequest request,
-            @AuthenticationPrincipal Jwt jwt
+            @PathVariable String authorId
     ) {
-        String userId = jwt.getSubject();
-        ArticleResponse response = articleService.updateArticle(articleId, userId, request);
+
+        ArticleResponse response = articleService.updateArticle(articleId, authorId, request);
         return ResponseEntity.ok(response);
     }
 
@@ -246,20 +226,20 @@ public class ArticleController {
      * Endpoint:
      * PATCH /api/v1/articles/{articleId}/publish
      */
-    @PatchMapping("/{articleId}/publish")
+    @PatchMapping("/publish/{articleId}/author/{authorId}")
     @Operation(
             summary = "Publish article",
             description = "Publishes a draft article.",
             tags = {"Articles"},
             operationId = "publishArticle"
     )
+
     public ResponseEntity<ArticleResponse> publishArticle(
             @PathVariable String articleId,
             @Valid @RequestBody PublishArticleRequest request,
-            @AuthenticationPrincipal Jwt jwt
+            @PathVariable String authorId
     ) {
-        String userId = jwt.getSubject();
-        ArticleResponse response = articleService.publishArticle(articleId, userId, request);
+        ArticleResponse response = articleService.publishArticle(articleId, authorId, request);
         return ResponseEntity.ok(response);
     }
 
@@ -269,7 +249,7 @@ public class ArticleController {
      * Endpoint:
      * DELETE /api/v1/articles/{articleId}
      */
-    @DeleteMapping("/{articleId}")
+    @DeleteMapping("/{articleId}/author/{authorId}")
     @Operation(
             summary = "Delete article",
             description = "Soft deletes or archives an article.",
@@ -278,15 +258,15 @@ public class ArticleController {
     )
     public ResponseEntity<Void> deleteArticle(
             @PathVariable String articleId,
-            @AuthenticationPrincipal Jwt jwt
+            @PathVariable String authorId
     ) {
-        String userId = jwt.getSubject();
-        articleService.deleteArticle(articleId, userId);
+        articleService.deleteArticle(articleId, authorId);
         return ResponseEntity.noContent().build();
     }
 
     /**
      * Get author's articles.
+     * by viewer
      *
      * Endpoint:
      * GET /api/v1/articles/authors/{authorId}?page=0&pageSize=20
@@ -304,6 +284,22 @@ public class ArticleController {
             @RequestParam(defaultValue = "20") int pageSize
     ) {
         PaginatedResponse<ArticlePreviewResponse> response = articleService.getUserArticles(authorId, page, pageSize);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/authors/{authorId}/published")
+    @Operation(
+            summary = "Get author's articles",
+            description = "Retrieves all published articles by a specific author.",
+            tags = {"Articles"},
+            operationId = "getAuthorArticles"
+    )
+    public ResponseEntity<PaginatedResponse<ArticlePreviewResponse>> getAuthorsPublishedArticle(
+            @PathVariable String authorId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int pageSize
+    ) {
+        PaginatedResponse<ArticlePreviewResponse> response = articleService.getPublishedUserArticles(authorId, page, pageSize);
         return ResponseEntity.ok(response);
     }
 

@@ -3,6 +3,7 @@ package com.final_project.blog_service.dto.response;
 import com.final_project.blog_service.model.SharedPlatform;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -20,11 +21,7 @@ import lombok.NoArgsConstructor;
 )
 public class ShareRequest {
 
-    @NotBlank(message = "Platform is required")
-    @Pattern(
-            regexp = "^(TWITTER|FACEBOOK|LINKEDIN|COPY_LINK|EMAIL)$",
-            message = "Platform must be one of: TWITTER, FACEBOOK, LINKEDIN, COPY_LINK, EMAIL"
-    )
+    @NotNull(message = "Platform is required")
     @Schema(
             title = "Platform",
             description = "The platform where the article was shared",

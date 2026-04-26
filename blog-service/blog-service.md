@@ -1,151 +1,133 @@
-# Blog Service
+# blog-service
 
-## 1. Folder Structure
+Complete project snapshot for the `blog-service` folder.
 
-```text
-blog-service/
-  .env
-  .gitattributes
-  .gitignore
-  .mvn/
-    wrapper/
-      maven-wrapper.properties
-  HELP.md
-  mvnw
-  mvnw.cmd
-  pom.xml
-  src/
-    main/
-      java/
-        com/
-          final_project/
-            blog_service/
-              BlogServiceApplication.java
-              client/
-                FileServiceClient.java
-                UserServiceClient.java
-              config/
-                OpenApiConfig.java
-                RedisConfig.java
-                SecurityConfig.java
-                UserServiceFeignConfig.java
-              controller/
-                ArticleController.java
-                FileUploadController.java
-              dto/
-                ArticlePreviewResponse.java
-                ArticleResponse.java
-                AuthorResponse.java
-                CodeBlockDTO.java
-                CommentEngagementResponse.java
-                CommentResponse.java
-                CommentThreadResponse.java
-                ContentBlockDTO.java
-                ContentBlockRequest.java
-                ContentBlockResponse.java
-                ContentResponse.java
-                CreateArticleRequest.java
-                CreateArticleWithFilesRequest.java
-                CreateCommentRequest.java
-                DividerBlockDTO.java
-                EmbedBlockDTO.java
-                ErrorResponse.java
-                FileCdnUrlResponse.java
-                FileMetadataResponse.java
-                FileUploadResponse.java
-                FlexibleContentBlockRequest.java
-                HeadingBlockDTO.java
-                ImageBlockDTO.java
-                ImageUploadResponse.java
-                LikeResponse.java
-                MetadataResponse.java
-                PaginatedResponse.java
-                PublishArticleRequest.java
-                QuoteBlockDTO.java
-                SearchArticleRequest.java
-                ShareRequest.java
-                ShareResponse.java
-                StatsResponse.java
-                SuccessResponse.java
-                TextBlockDTO.java
-                UpdateArticleRequest.java
-                UserAuthorResponse.java
-                UserExistsResponse.java
-                UserPreferencesResponse.java
-                UserProfileResponse.java
-                VideoBlockDTO.java
-                VideoUploadResponse.java
-              exception/
-                FileNotFound.java
-                FileServiceException.java
-                FileUploadException.java
-                GlobalExceptionHandler.java
-                ResourceNotFoundException.java
-                UnauthorizedException.java
-                UserNotFoundException.java
-                UserServiceException.java
-                UserServiceUnavailableException.java
-              model/
-                Article.java
-                ArticleStatus.java
-                ArticleVisiblity.java
-                Comment.java
-                CommentStatus.java
-                Like.java
-                ReadingHistory.java
-                Share.java
-                SharedPlatform.java
-              repo/
-                ArticleRepository.java
-                CommentRepository.java
-                LikeRepository.java
-                ReadingHistoryRepository.java
-                ShareRepository.java
-              service/
-                ArticleService.java
-                FileUploadService.java
-                UserCacheService.java
-              utile/
-                ContentBlockValidator.java
-                ReadTimeCalculator.java
-                SlugUtil.java
-      resources/
-        application.yaml
-        static/
-        templates/
-    test/
-      java/
-        com/
-          final_project/
-            blog_service/
-              BlogServiceApplicationTests.java
-```
+## Project Files
 
-## 2. File Contents
+- `.env`
+- `.gitattributes`
+- `.gitignore`
+- `.mvn/wrapper/maven-wrapper.properties`
+- `HELP.md`
+- `mvnw`
+- `mvnw.cmd`
+- `pom.xml`
+- `src/main/java/com/final_project/blog_service/BlogServiceApplication.java`
+- `src/main/java/com/final_project/blog_service/client/FileServiceClient.java`
+- `src/main/java/com/final_project/blog_service/client/UserServiceClient.java`
+- `src/main/java/com/final_project/blog_service/config/OpenApiConfig.java`
+- `src/main/java/com/final_project/blog_service/config/RedisConfig.java`
+- `src/main/java/com/final_project/blog_service/config/SecurityConfig.java`
+- `src/main/java/com/final_project/blog_service/config/UserServiceFeignConfig.java`
+- `src/main/java/com/final_project/blog_service/controller/ArticleController.java`
+- `src/main/java/com/final_project/blog_service/controller/FileUploadController.java`
+- `src/main/java/com/final_project/blog_service/dto/ArticleBlockType.java`
+- `src/main/java/com/final_project/blog_service/dto/CodeBlockDTO.java`
+- `src/main/java/com/final_project/blog_service/dto/ContentBlock.java`
+- `src/main/java/com/final_project/blog_service/dto/ContentBlockDTO.java`
+- `src/main/java/com/final_project/blog_service/dto/DividerBlockDTO.java`
+- `src/main/java/com/final_project/blog_service/dto/EmbedBlockDTO.java`
+- `src/main/java/com/final_project/blog_service/dto/HeadingBlockDTO.java`
+- `src/main/java/com/final_project/blog_service/dto/ImageBlockDTO.java`
+- `src/main/java/com/final_project/blog_service/dto/QuoteBlockDTO.java`
+- `src/main/java/com/final_project/blog_service/dto/request/ArticleBlockRequest.java`
+- `src/main/java/com/final_project/blog_service/dto/request/ContentBlockRequest.java`
+- `src/main/java/com/final_project/blog_service/dto/request/CreateArticleRequest.java`
+- `src/main/java/com/final_project/blog_service/dto/request/CreateArticleWithFilesRequest.java`
+- `src/main/java/com/final_project/blog_service/dto/request/CreateCommentRequest.java`
+- `src/main/java/com/final_project/blog_service/dto/request/FlexibleContentBlockRequest.java`
+- `src/main/java/com/final_project/blog_service/dto/request/PublishArticleRequest.java`
+- `src/main/java/com/final_project/blog_service/dto/request/SearchArticleRequest.java`
+- `src/main/java/com/final_project/blog_service/dto/request/UpdateArticleRequest.java`
+- `src/main/java/com/final_project/blog_service/dto/response/ArticleBlockResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/ArticlePreviewResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/ArticleResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/AuthorResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/CommentEngagementResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/CommentResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/CommentThreadResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/ContentBlockResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/ContentResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/ErrorResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/FileCdnUrlResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/FileMetadataResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/FileUploadResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/ImageUploadResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/LikeResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/MetadataResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/PaginatedResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/ShareRequest.java`
+- `src/main/java/com/final_project/blog_service/dto/response/ShareResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/StatsResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/SuccessResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/UserAuthorResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/UserExistsResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/UserPreferencesResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/UserProfileResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/response/VideoUploadResponse.java`
+- `src/main/java/com/final_project/blog_service/dto/TextBlockDTO.java`
+- `src/main/java/com/final_project/blog_service/dto/UserDTO.java`
+- `src/main/java/com/final_project/blog_service/dto/VideoBlockDTO.java`
+- `src/main/java/com/final_project/blog_service/exception/FileNotFound.java`
+- `src/main/java/com/final_project/blog_service/exception/FileServiceException.java`
+- `src/main/java/com/final_project/blog_service/exception/FileUploadException.java`
+- `src/main/java/com/final_project/blog_service/exception/GlobalExceptionHandler.java`
+- `src/main/java/com/final_project/blog_service/exception/ResourceNotFoundException.java`
+- `src/main/java/com/final_project/blog_service/exception/UnauthorizedException.java`
+- `src/main/java/com/final_project/blog_service/exception/UserNotFoundException.java`
+- `src/main/java/com/final_project/blog_service/exception/UserServiceException.java`
+- `src/main/java/com/final_project/blog_service/exception/UserServiceUnavailableException.java`
+- `src/main/java/com/final_project/blog_service/model/Article.java`
+- `src/main/java/com/final_project/blog_service/model/ArticleStatus.java`
+- `src/main/java/com/final_project/blog_service/model/ArticleVisiblity.java`
+- `src/main/java/com/final_project/blog_service/model/Comment.java`
+- `src/main/java/com/final_project/blog_service/model/CommentStatus.java`
+- `src/main/java/com/final_project/blog_service/model/Content.java`
+- `src/main/java/com/final_project/blog_service/model/EditHistory.java`
+- `src/main/java/com/final_project/blog_service/model/Like.java`
+- `src/main/java/com/final_project/blog_service/model/Metadata.java`
+- `src/main/java/com/final_project/blog_service/model/ReadingHistory.java`
+- `src/main/java/com/final_project/blog_service/model/Seo.java`
+- `src/main/java/com/final_project/blog_service/model/Share.java`
+- `src/main/java/com/final_project/blog_service/model/SharedPlatform.java`
+- `src/main/java/com/final_project/blog_service/model/Stats.java`
+- `src/main/java/com/final_project/blog_service/repo/ArticleRepository.java`
+- `src/main/java/com/final_project/blog_service/repo/CommentRepository.java`
+- `src/main/java/com/final_project/blog_service/repo/LikeRepository.java`
+- `src/main/java/com/final_project/blog_service/repo/ReadingHistoryRepository.java`
+- `src/main/java/com/final_project/blog_service/repo/ShareRepository.java`
+- `src/main/java/com/final_project/blog_service/service/ArticleService.java`
+- `src/main/java/com/final_project/blog_service/service/FileUploadService.java`
+- `src/main/java/com/final_project/blog_service/service/UserCacheService.java`
+- `src/main/java/com/final_project/blog_service/utile/ContentBlockValidator.java`
+- `src/main/java/com/final_project/blog_service/utile/ReadTimeCalculator.java`
+- `src/main/java/com/final_project/blog_service/utile/SlugUtil.java`
+- `src/main/resources/application.yaml`
+- `src/test/java/com/final_project/blog_service/BlogServiceApplicationTests.java`
 
-The sections below embed the current file contents from the blog-service microservice. Generated build output under target/ is excluded.
+---
 
-### .env
+## `.env`
 
-`$lang
-KEYCLOAK_SERVER_URL=localhost:8444
-KEYCLOAK_REALM=fina_project
+```env
+KEYCLOAK_SERVER_URL=http://localhost:8444
+KEYCLOAK_REALM=final-project
 RABBIT_PASSWORD=guest
 RABBIT_USERNAME=guest
 RABBIT_PORT=5672
 RABBIT_HOST=localhost
 ```
 
-### .gitattributes
+## `.gitattributes`
 
-`$lang
+```gitattributes
 /mvnw text eol=lf
 *.cmd text eol=crlf
 ```
 
-### .gitignore
+## `.gitignore`
 
-`$lang
+```gitignore
 HELP.md
 target/
 .mvn/wrapper/maven-wrapper.jar
@@ -181,17 +163,17 @@ build/
 .vscode/
 ```
 
-### .mvn/wrapper/maven-wrapper.properties
+## `.mvn/wrapper/maven-wrapper.properties`
 
-`$lang
+```properties
 wrapperVersion=3.3.4
 distributionType=only-script
 distributionUrl=https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.14/apache-maven-3.9.14-bin.zip
 ```
 
-### HELP.md
+## `HELP.md`
 
-`$lang
+```md
 # Read Me First
 The following was discovered as part of building this project:
 
@@ -229,9 +211,9 @@ If you manually switch to a different parent and actually want the inheritance, 
 
 ```
 
-### mvnw
+## `mvnw`
 
-`$lang
+```text
 #!/bin/sh
 # ----------------------------------------------------------------------------
 # Licensed to the Apache Software Foundation (ASF) under one
@@ -529,9 +511,9 @@ clean || :
 exec_maven "$@"
 ```
 
-### mvnw.cmd
+## `mvnw.cmd`
 
-`$lang
+```cmd
 <# : batch portion
 @REM ----------------------------------------------------------------------------
 @REM Licensed to the Apache Software Foundation (ASF) under one
@@ -723,9 +705,9 @@ try {
 Write-Output "MVN_CMD=$MAVEN_HOME/bin/$MVN_CMD"
 ```
 
-### pom.xml
+## `pom.xml`
 
-`$lang
+```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -815,12 +797,8 @@ Write-Output "MVN_CMD=$MAVEN_HOME/bin/$MVN_CMD"
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
-			<groupId>org.springframework.security</groupId>
-			<artifactId>spring-security-oauth2-jose</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.security</groupId>
-			<artifactId>spring-security-oauth2-resource-server</artifactId>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>io.github.resilience4j</groupId>
@@ -851,6 +829,10 @@ Write-Output "MVN_CMD=$MAVEN_HOME/bin/$MVN_CMD"
 			<groupId>org.springframework.cloud</groupId>
 			<artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
 	</dependencies>
 	<dependencyManagement>
 		<dependencies>
@@ -876,9 +858,9 @@ Write-Output "MVN_CMD=$MAVEN_HOME/bin/$MVN_CMD"
 </project>
 ```
 
-### src/main/java/com/final_project/blog_service/BlogServiceApplication.java
+## `src/main/java/com/final_project/blog_service/BlogServiceApplication.java`
 
-`$lang
+```java
 package com.final_project.blog_service;
 
 import org.springframework.boot.SpringApplication;
@@ -896,9 +878,9 @@ public class BlogServiceApplication {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/client/FileServiceClient.java
+## `src/main/java/com/final_project/blog_service/client/FileServiceClient.java`
 
-`$lang
+```java
 package com.final_project.blog_service.client;
 
 import com.final_project.blog_service.dto.response.FileCdnUrlResponse;
@@ -911,49 +893,39 @@ import org.springframework.web.multipart.MultipartFile;
 
 @FeignClient(
         name = "file-service",
-        url = "${app.service.file-url}"
+        url = "http://localhost:8084"
 )
 public interface FileServiceClient {
-
-    @GetMapping("/file/blog/post/{postId}")
-    String getPostBlog(@PathVariable("postId") String postId);
-
-    @PostMapping(value = "/file/blog/post/{postId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    String postPost(
-            @PathVariable("postId") String postId,
-            @RequestPart("file") MultipartFile file
-    );
-
     @PostMapping(value = "/file/blog/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    FileUploadResponse uploadFile(
+    FileUploadResponse uploadBlogFile(
             @RequestPart("file") MultipartFile file,
-            @RequestParam("fileType") String fileType,
-            @RequestParam(value = "metadata", required = false) String metadata
+            @RequestParam("ownerId") String ownerId,
+            @RequestParam("article") String article
     );
 
     @GetMapping("/file/blog/{fileId}")
     FileMetadataResponse getFileMetadata(@PathVariable("fileId") String fileId);
 
-    @DeleteMapping("/file/blog/{fileId}")
-    void deleteFile(@PathVariable("fileId") String fileId);
-
     @GetMapping("/file/blog/{fileId}/url")
     FileCdnUrlResponse getCdnUrl(@PathVariable("fileId") String fileId);
+
+    @DeleteMapping("/file/blog/{fileId}/article/{articleId}")
+    void deleteFile(@PathVariable("fileId") String fileId, @PathVariable String articleId);
 }
 ```
 
-### src/main/java/com/final_project/blog_service/client/UserServiceClient.java
+## `src/main/java/com/final_project/blog_service/client/UserServiceClient.java`
 
-`$lang
+```java
 package com.final_project.blog_service.client;
 
 import com.final_project.blog_service.config.UserServiceFeignConfig;
+import com.final_project.blog_service.dto.*;
 import com.final_project.blog_service.dto.response.UserAuthorResponse;
 import com.final_project.blog_service.dto.response.UserExistsResponse;
 import com.final_project.blog_service.dto.response.UserPreferencesResponse;
 import com.final_project.blog_service.dto.response.UserProfileResponse;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -962,8 +934,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import java.util.List;
 
 @FeignClient(
-        name = "auth-service",
-        url = "${app.service.auth-url}",
+        name = "AUTH-SERVICE",
+        url = "http://localhost:8085",
         configuration = UserServiceFeignConfig.class
 )
 public interface UserServiceClient {
@@ -974,6 +946,9 @@ public interface UserServiceClient {
      */
     @GetMapping("/api/v1/users/{userId}")
     UserProfileResponse getUserProfile(@PathVariable String userId);
+
+    @GetMapping("/api/v1/users/{id}/{roleName}")
+    UserDTO getUserByIdAndRoleName(@PathVariable String id, @PathVariable String roleName);
 
     /**
      * Get author by id
@@ -1018,9 +993,9 @@ public interface UserServiceClient {
 
 ```
 
-### src/main/java/com/final_project/blog_service/config/OpenApiConfig.java
+## `src/main/java/com/final_project/blog_service/config/OpenApiConfig.java`
 
-`$lang
+```java
 package com.final_project.blog_service.config;
 
 import io.swagger.v3.oas.models.Components;
@@ -1028,7 +1003,6 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.License;
-import io.swagger.v3.oas.models.servers.Server;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import org.springframework.context.annotation.Bean;
@@ -1170,9 +1144,9 @@ public class OpenApiConfig {
 
 ```
 
-### src/main/java/com/final_project/blog_service/config/RedisConfig.java
+## `src/main/java/com/final_project/blog_service/config/RedisConfig.java`
 
-`$lang
+```java
 package com.final_project.blog_service.config;
 
 
@@ -1223,9 +1197,9 @@ public class RedisConfig {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/config/SecurityConfig.java
+## `src/main/java/com/final_project/blog_service/config/SecurityConfig.java`
 
-`$lang
+```java
 package com.final_project.blog_service.config;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -1240,25 +1214,29 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
+import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
+import java.time.Duration;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity(prePostEnabled = true, securedEnabled = true, jsr250Enabled = true)
+@EnableMethodSecurity // Uncomment this to enable @PreAuthorize
 public class SecurityConfig {
 
     @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}")
     private String jwkSetUri;
+    @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}")
+    private String issuerUri;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -1266,8 +1244,8 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/health", "/actuator/**").permitAll()
-                        .anyRequest().authenticated()
+                        .requestMatchers("/health", "/actuator/**", "/swagger-ui/**").permitAll()
+                        .anyRequest().authenticated() // Ensure requests MUST be authenticated
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt
@@ -1275,60 +1253,87 @@ public class SecurityConfig {
                                 .jwtAuthenticationConverter(jwtAuthenticationConverter())
                         )
                 );
-
         return http.build();
     }
 
     @Bean
     public JwtDecoder jwtDecoder() {
-        return NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+        NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+
+        jwtDecoder.setJwtValidator(token -> {
+            try {
+                // This forces validation and helps us catch the error
+                System.out.println("Validating token from issuer: " + token.getIssuer());
+                return OAuth2TokenValidatorResult.success();
+            } catch (Exception e) {
+                System.err.println("JWT Validation Error: " + e.getMessage());
+                return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", e.getMessage(), null));
+            }
+        });
+
+        return jwtDecoder;
     }
 
     @Bean
-    public Converter<Jwt, ? extends AbstractAuthenticationToken> jwtAuthenticationConverter() {
-        JwtGrantedAuthoritiesConverter scopeConverter = new JwtGrantedAuthoritiesConverter();
+    public JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtGrantedAuthoritiesConverter defaultAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
 
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(jwt -> {
-            Set<GrantedAuthority> authorities = new HashSet<>();
+            // 1. Get default SCOPE_ authorities (e.g., SCOPE_profile)
+            Collection<GrantedAuthority> authorities = defaultAuthoritiesConverter.convert(jwt);
 
-            Collection<GrantedAuthority> scopeAuthorities = scopeConverter.convert(jwt);
-            if (scopeAuthorities != null) {
-                authorities.addAll(scopeAuthorities);
-            }
-
-            Object rolesClaim = jwt.getClaim("roles");
-            if (rolesClaim instanceof Collection<?> roleList) {
-                for (Object role : roleList) {
-                    authorities.add(new SimpleGrantedAuthority("ROLE_" + role));
-                }
+            // 2. Extract Realm Roles
+            Map<String, Object> realmAccess = jwt.getClaim("realm_access");
+            if (realmAccess != null && realmAccess.get("roles") instanceof Collection<?> roles) {
+                authorities.addAll(roles.stream()
+                        .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+                        .toList());
             }
 
             return authorities;
         });
-
         return converter;
     }
 }
 ```
 
-### src/main/java/com/final_project/blog_service/config/UserServiceFeignConfig.java
+## `src/main/java/com/final_project/blog_service/config/UserServiceFeignConfig.java`
 
-`$lang
+```java
 package com.final_project.blog_service.config;
 
 import com.final_project.blog_service.exception.UnauthorizedException;
 import com.final_project.blog_service.exception.UserNotFoundException;
 import com.final_project.blog_service.exception.UserServiceException;
 import com.final_project.blog_service.exception.UserServiceUnavailableException;
+import feign.RequestInterceptor;
 import feign.codec.ErrorDecoder;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 @Slf4j
 @Configuration
 public class UserServiceFeignConfig {
+    @Bean
+    public RequestInterceptor bearerRequestInterceptor() {
+        return template -> {
+            ServletRequestAttributes attributes =(ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes == null){
+                return ;
+            }
+            HttpServletRequest request = attributes.getRequest();
+            String authorizationHeader = request.getHeader("Authorization");
+            if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+                template.header("Authorization", authorizationHeader);
+            }
+        };
+    }
+
     @Bean
     public ErrorDecoder errorDecoder() {
         return (methodKey, response) -> {
@@ -1356,16 +1361,16 @@ public class UserServiceFeignConfig {
 
 ```
 
-### src/main/java/com/final_project/blog_service/controller/ArticleController.java
+## `src/main/java/com/final_project/blog_service/controller/ArticleController.java`
 
-`$lang
+```java
 package com.final_project.blog_service.controller;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.final_project.blog_service.dto.request.*;
+import com.final_project.blog_service.dto.response.*;
 import com.final_project.blog_service.service.ArticleService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.Parameters;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -1376,7 +1381,6 @@ import io.swagger.v3.oas.annotations.tags.Tags;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import com.final_project.blog_service.dto.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -1386,18 +1390,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.List;
 
-
-/**
- * Article Controller - REST API for Blog Articles
- *
- * All endpoints are documented with Swagger/OpenAPI annotations for:
- * - Automatic API documentation
- * - Interactive Swagger UI
- * - Request/response validation
- * - Security requirements
- * - Error handling
- */
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/articles")
@@ -1413,156 +1407,64 @@ public class ArticleController {
     private final ArticleService articleService;
     private final ObjectMapper objectMapper;
 
-    /**
-     * Create article with multipart support
-     *
-     * Flexible endpoint supporting:
-     * - Pure JSON article (no files)
-     * - Articles with embedded image/video files
-     * - Mixed content blocks
-     */
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/with-files/author/{author}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
-            summary = "Create article (with file upload support)",
-            description = """
-            Creates a new article with flexible content.
-            
-            Supports both:
-            1. Pure JSON articles (application/json) - for text-only content
-            2. Multipart articles with embedded files - for rich media content
-            
-            When using multipart:
-            - Send 'article' as JSON with file references
-            - Send image/video files separately
-            - Reference files by their multipart field name in JSON
-            
-            Example flow:
-            1. Use file upload endpoints first to get fileIds
-            2. Create article JSON referencing those fileIds
-            3. Send as multipart with optional additional files
-            """,
-            tags = {"Articles"},
-            operationId = "createArticleWithFiles"
+            summary = "Create article with files",
+            description = "Creates a flexible article and uploads cover/inline files through file-service"
     )
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "201",
-                    description = "Article created successfully",
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = ArticleResponse.class)
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Invalid request - validation failed or malformed JSON"
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Unauthorized - JWT token missing or invalid"
-            ),
-            @ApiResponse(
-                    responseCode = "413",
-                    description = "Payload too large"
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "Internal server error"
-            )
-    })
-    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ArticleResponse> createArticleWithFiles(
-            @RequestPart("article") String articleJsonString,
+            @RequestPart("title") String title,
+            @RequestPart(value = "description", required = false) String description,
+            @RequestPart("blocks") String blocksJson,
             @RequestPart(value = "coverImage", required = false) MultipartFile coverImage,
-            @RequestPart(value = "files", required = false) MultipartFile[] additionalFiles,
-            @AuthenticationPrincipal Jwt jwt
+            @RequestPart(value = "inlineFiles", required = false) List<MultipartFile> inlineFiles,
+            @PathVariable String author
     ) {
-        String userId = jwt.getSubject();
-        try {
-            // Parse article JSON
-            CreateArticleWithFilesRequest request = objectMapper.readValue(
-                    articleJsonString,
-                    CreateArticleWithFilesRequest.class
-            );
+        ArticleResponse response = articleService.createArticleWithFiles(
+                title,
+                description,
+                blocksJson,
+                coverImage,
+                inlineFiles,
+                author
+        );
 
-            // Process files and update file references in content blocks
-            request = processAndMapFiles(request, coverImage, additionalFiles, userId);
-
-            // Create article
-            ArticleResponse response = articleService.createArticleWithFiles(userId, request);
-
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (IOException e) {
-            log.error("Failed to parse article JSON: {}", e.getMessage());
-            throw new IllegalArgumentException("Invalid article JSON format", e);
-        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
-     * Update article with new files
+     * Create article with JSON only.
+     *
+     * Endpoint:
+     * POST /api/v1/articles
      */
-    @PutMapping(value = "/{articleId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/{userId}", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
-            summary = "Update article (with file support)",
-            description = "Updates an article and optionally uploads new files",
-            tags = {"Articles"},
-            operationId = "updateArticleWithFiles"
-    )
-    @SecurityRequirement(name = "bearerAuth")
-    public ResponseEntity<ArticleResponse> updateArticleWithFiles(
-            @PathVariable String articleId,
-            @RequestPart("article") String articleJsonString,
-            @RequestPart(value = "coverImage", required = false) MultipartFile coverImage,
-            @RequestPart(value = "files", required = false) MultipartFile[] additionalFiles,
-            @AuthenticationPrincipal Jwt jwt
-    ) {
-        String userId = jwt.getSubject();
-        try {
-            UpdateArticleRequest request = objectMapper.readValue(
-                    articleJsonString,
-                    UpdateArticleRequest.class
-            );
-
-            ArticleResponse response = articleService.updateArticle(articleId, userId, request);
-
-            return ResponseEntity.ok(response);
-        } catch (IOException e) {
-            throw new IllegalArgumentException("Invalid article JSON format", e);
-        }
-    }
-    /**
-     * Alternative: Create article with pure JSON (without files)
-     * For backward compatibility and text-only articles
-     */
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    @Operation(
-            summary = "Create article (JSON only)",
-            description = "Creates an article using pure JSON. Use file upload endpoints separately for files.",
+            summary = "Create article with JSON",
+            description = "Creates an article using application/json.",
             tags = {"Articles"},
             operationId = "createArticleJson"
     )
-    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ArticleResponse> createArticleJson(
             @Valid @RequestBody CreateArticleRequest request,
-            @AuthenticationPrincipal Jwt jwt
+            @PathVariable String userId
     ) {
-
-        String userId = jwt.getSubject();
-        ArticleResponse response = articleService.createArticle(userId, request);
+        ArticleResponse response = articleService.createArticle(request, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-
-
     /**
-     * Create a new draft article
+     * Create draft article for a specific user.
+     *
+     * Endpoint:
+     * POST /api/v1/articles/drafts/users/{userId}
      */
-    @PostMapping("/{userId}")
+    @PostMapping("/drafts/users/{userId}")
     @Operation(
-            summary = "Create a new article (draft)",
-            description = "Creates a new draft article. Requires authentication (JWT token).",
+            summary = "Create draft article for user",
+            description = "Creates a new draft article for a specific user.",
             tags = {"Articles"},
-            operationId = "createArticle"
+            operationId = "createDraftArticleForUser"
     )
     @ApiResponses({
             @ApiResponse(
@@ -1573,122 +1475,72 @@ public class ArticleController {
                             schema = @Schema(implementation = ArticleResponse.class)
                     )
             ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Invalid request - validation failed",
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = ErrorResponse.class)
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Unauthorized - JWT token missing or invalid",
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = ErrorResponse.class)
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "Internal server error"
-            )
+            @ApiResponse(responseCode = "400", description = "Invalid request - validation failed"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - JWT token missing or invalid"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    public ResponseEntity<ArticleResponse> createArticle(
+    public ResponseEntity<ArticleResponse> createDraftArticleForUser(
             @Valid @RequestBody CreateArticleRequest request,
             @PathVariable String userId
     ) {
-
-        ArticleResponse response = articleService.createArticle(userId, request);
-
+        ArticleResponse response = articleService.createArticle(request, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
-     * Get article by ID
+     * Get published articles feed.
+     *
+     * Endpoint:
+     * GET /api/v1/articles?page=0&pageSize=20
+     */
+    @GetMapping
+    @Operation(
+            summary = "Get published articles",
+            description = "Retrieves a paginated list of all published articles.",
+            tags = {"Articles"},
+            operationId = "getPublishedArticles"
+    )
+    public ResponseEntity<PaginatedResponse<ArticlePreviewResponse>> getPublishedArticles(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int pageSize
+    ) {
+        PaginatedResponse<ArticlePreviewResponse> response = articleService.getPublishedArticles(page, pageSize);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Get article by ID.
+     *
+     * Endpoint:
+     * GET /api/v1/articles/{articleId}
      */
     @GetMapping("/{articleId}")
     @Operation(
             summary = "Get article by ID",
-            description = "Retrieves a single article by its ID. Public endpoint.",
+            description = "Retrieves a single article by its ID.",
             tags = {"Articles"},
-            operationId = "getArticle"
+            operationId = "getArticleById"
     )
-    @Parameters({
-            @Parameter(
-                    name = "articleId",
-                    description = "The unique identifier of the article (MongoDB ObjectId)",
-                    example = "6507a1b2c3d4e5f6g7h8i9j0",
-                    required = true,
-                    in = ParameterIn.PATH,
-                    schema = @Schema(type = "string")
-            )
-    })
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Article retrieved successfully",
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = ArticleResponse.class)
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Article not found",
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = ErrorResponse.class)
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "500",
-                    description = "Internal server error"
-            )
-    })
-    public ResponseEntity<ArticleResponse> getArticle(
-            @PathVariable
-            @Parameter(description = "Article ID")
-            String articleId
+    public ResponseEntity<ArticleResponse> getArticleById(
+            @PathVariable String articleId
     ) {
         ArticleResponse response = articleService.getArticleById(articleId);
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Get article by slug.
+     *
+     * Endpoint:
+     * GET /api/v1/articles/slug/{slug}
+     */
     @GetMapping("/slug/{slug}")
     @Operation(
             summary = "Get article by slug",
-            description = "Retrieves an article using its URL-friendly slug. Public endpoint.",
+            description = "Retrieves an article using its URL-friendly slug.",
             tags = {"Articles"},
             operationId = "getArticleBySlug"
     )
-    @Parameters({
-            @Parameter(
-                    name = "slug",
-                    description = "The URL-friendly article identifier (e.g., 'my-first-blog-post')",
-                    example = "my-first-blog-post",
-                    required = true,
-                    in = ParameterIn.PATH
-            )
-    })
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Article retrieved successfully",
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = ArticleResponse.class)
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Article not found",
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = ErrorResponse.class)
-                    )
-            )
-    })
     public ResponseEntity<ArticleResponse> getArticleBySlug(
             @PathVariable String slug
     ) {
@@ -1697,148 +1549,99 @@ public class ArticleController {
     }
 
     /**
-     * Update article
+     * Update article with multipart/form-data.
+     *
+     * Endpoint:
+     * PUT /api/v1/articles/{articleId}
      */
-    @PutMapping("/{articleId}")
+    @PutMapping(value = "/{articleId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
-            summary = "Update article",
-            description = "Updates an existing article. Only the author can update. Article can be in DRAFT or PUBLISHED status.",
+            summary = "Update article with files",
+            description = "Updates an article using multipart/form-data.",
             tags = {"Articles"},
-            operationId = "updateArticle"
+            operationId = "updateArticleWithFiles"
     )
-    @Parameters({
-            @Parameter(
-                    name = "articleId",
-                    description = "The article ID",
-                    example = "6507a1b2c3d4e5f6g7h8i9j0",
-                    required = true,
-                    in = ParameterIn.PATH
-            )
-    })
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Article updated successfully",
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = ArticleResponse.class)
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Unauthorized - JWT missing"
-            ),
-            @ApiResponse(
-                    responseCode = "403",
-                    description = "Forbidden - Not the article author"
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Article not found"
-            )
-    })
-    @SecurityRequirement(name = "bearerAuth")
-    public ResponseEntity<ArticleResponse> updateArticle(
+    public ResponseEntity<ArticleResponse> updateArticleWithFiles(
+            @PathVariable String articleId,
+            @RequestPart("article") String articleJsonString,
+            @RequestPart(value = "coverImage", required = false) MultipartFile coverImage,
+            @RequestPart(value = "files", required = false) MultipartFile[] additionalFiles,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        String userId = jwt.getSubject();
+
+        try {
+            UpdateArticleRequest request = objectMapper.readValue(
+                    articleJsonString,
+                    UpdateArticleRequest.class
+            );
+
+            ArticleResponse response = articleService.updateArticle(articleId, userId, request);
+            return ResponseEntity.ok(response);
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Invalid article JSON format", e);
+        }
+    }
+
+    /**
+     * Update article with JSON only.
+     *
+     * Endpoint:
+     * PUT /api/v1/articles/{articleId}
+     */
+    @PutMapping(value = "/{articleId}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(
+            summary = "Update article with JSON",
+            description = "Updates an existing article using application/json.",
+            tags = {"Articles"},
+            operationId = "updateArticleJson"
+    )
+    public ResponseEntity<ArticleResponse> updateArticleJson(
             @PathVariable String articleId,
             @Valid @RequestBody UpdateArticleRequest request,
             @AuthenticationPrincipal Jwt jwt
-            ) {
-
+    ) {
         String userId = jwt.getSubject();
         ArticleResponse response = articleService.updateArticle(articleId, userId, request);
         return ResponseEntity.ok(response);
     }
 
     /**
-     * Publish article (transition from DRAFT to PUBLISHED)
+     * Publish article.
+     *
+     * Endpoint:
+     * PATCH /api/v1/articles/{articleId}/publish
      */
     @PatchMapping("/{articleId}/publish")
     @Operation(
             summary = "Publish article",
-            description = "Publishes a draft article. Transitions status from DRAFT to PUBLISHED. Only author can publish.",
+            description = "Publishes a draft article.",
             tags = {"Articles"},
             operationId = "publishArticle"
     )
-    @Parameters({
-            @Parameter(
-                    name = "articleId",
-                    description = "The article ID",
-                    required = true,
-                    in = ParameterIn.PATH
-            )
-    })
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Article published successfully",
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = ArticleResponse.class)
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Bad request - article not in DRAFT status"
-            ),
-            @ApiResponse(
-                    responseCode = "403",
-                    description = "Forbidden - not the author"
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Article not found"
-            )
-    })
-    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ArticleResponse> publishArticle(
             @PathVariable String articleId,
             @Valid @RequestBody PublishArticleRequest request,
             @AuthenticationPrincipal Jwt jwt
     ) {
-
         String userId = jwt.getSubject();
         ArticleResponse response = articleService.publishArticle(articleId, userId, request);
         return ResponseEntity.ok(response);
     }
 
-
     /**
-     * Delete/Archive article
+     * Delete/archive article.
+     *
+     * Endpoint:
+     * DELETE /api/v1/articles/{articleId}
      */
     @DeleteMapping("/{articleId}")
     @Operation(
-            summary = "Delete/Archive article",
-            description = "Soft deletes (archives) an article. Only the author can delete. Data is retained for GDPR compliance.",
+            summary = "Delete article",
+            description = "Soft deletes or archives an article.",
             tags = {"Articles"},
             operationId = "deleteArticle"
     )
-    @Parameters({
-            @Parameter(
-                    name = "articleId",
-                    description = "The article ID",
-                    required = true,
-                    in = ParameterIn.PATH
-            )
-    })
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "204",
-                    description = "Article deleted successfully"
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Unauthorized - JWT missing"
-            ),
-            @ApiResponse(
-                    responseCode = "403",
-                    description = "Forbidden - not the author"
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Article not found"
-            )
-    })
-    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<Void> deleteArticle(
             @PathVariable String articleId,
             @AuthenticationPrincipal Jwt jwt
@@ -1849,248 +1652,84 @@ public class ArticleController {
     }
 
     /**
-     * Get published articles (feed)
+     * Get author's articles.
+     *
+     * Endpoint:
+     * GET /api/v1/articles/authors/{authorId}?page=0&pageSize=20
      */
-    @GetMapping
-    @Operation(
-            summary = "Get published articles (feed)",
-            description = "Retrieves a paginated list of all published articles. Perfect for the main feed. Public endpoint.",
-            tags = {"Articles"},
-            operationId = "getPublishedArticles"
-    )
-    @Parameters({
-            @Parameter(
-                    name = "page",
-                    description = "Page number (zero-indexed). Default is 0.",
-                    example = "0",
-                    required = false,
-                    in = ParameterIn.QUERY,
-                    schema = @Schema(type = "integer", minimum = "0")
-            ),
-            @Parameter(
-                    name = "pageSize",
-                    description = "Number of articles per page. Default is 20, max 100.",
-                    example = "20",
-                    required = false,
-                    in = ParameterIn.QUERY,
-                    schema = @Schema(type = "integer", minimum = "1", maximum = "100")
-            )
-    })
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Articles retrieved successfully",
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = PaginatedResponse.class)
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "400",
-                    description = "Invalid pagination parameters"
-            )
-    })
-    public ResponseEntity<PaginatedResponse<ArticlePreviewResponse>> getPublishedArticles(
-            @RequestParam(defaultValue = "0")
-            @Parameter(description = "Page number")
-            int page,
-
-            @RequestParam(defaultValue = "20")
-            @Parameter(description = "Page size")
-            int pageSize
-    ) {
-        PaginatedResponse<ArticlePreviewResponse> response = articleService.getPublishedArticles(page, pageSize);
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Get author's articles
-     */
-    @GetMapping("/author/{authorId}")
+    @GetMapping("/authors/{authorId}")
     @Operation(
             summary = "Get author's articles",
-            description = "Retrieves all published articles by a specific author. Public endpoint.",
+            description = "Retrieves all published articles by a specific author.",
             tags = {"Articles"},
             operationId = "getAuthorArticles"
     )
-    @Parameters({
-            @Parameter(
-                    name = "authorId",
-                    description = "The author's user ID",
-                    example = "user_123",
-                    required = true,
-                    in = ParameterIn.PATH
-            ),
-            @Parameter(
-                    name = "page",
-                    description = "Page number (zero-indexed)",
-                    example = "0",
-                    required = false,
-                    in = ParameterIn.QUERY
-            ),
-            @Parameter(
-                    name = "pageSize",
-                    description = "Number of articles per page",
-                    example = "20",
-                    required = false,
-                    in = ParameterIn.QUERY
-            )
-    })
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Articles retrieved successfully"
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Author not found"
-            )
-    })
     public ResponseEntity<PaginatedResponse<ArticlePreviewResponse>> getAuthorArticles(
             @PathVariable String authorId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int pageSize
     ) {
-
         PaginatedResponse<ArticlePreviewResponse> response = articleService.getUserArticles(authorId, page, pageSize);
         return ResponseEntity.ok(response);
     }
 
-
-    @GetMapping("/author/{authorId}/{articleId}")
+    /**
+     * Get author's specific article.
+     *
+     * Endpoint:
+     * GET /api/v1/articles/authors/{authorId}/articles/{articleId}
+     */
+    @GetMapping("/authors/{authorId}/articles/{articleId}")
     @Operation(
-            summary = "Get author's specific  article",
-            description = "Retrieves a specific published article by a specific author and article id. Public endpoint.",
+            summary = "Get author's specific article",
+            description = "Retrieves a specific article by author ID and article ID.",
             tags = {"Articles"},
-            operationId = "getAuthorArticles"
+            operationId = "getAuthorArticleById"
     )
-    @Parameters({
-            @Parameter(
-                    name = "authorId",
-                    description = "The author's user ID",
-                    example = "user_123",
-                    required = true,
-                    in = ParameterIn.PATH
-            ),
-            @Parameter(
-                    name = "articleId",
-                    description = "the article Id",
-                    example = "0",
-                    required = false,
-                    in = ParameterIn.PATH
-            )
-
-    })
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Articles retrieved successfully"
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Author not found"
-            )
-    })
-    public ResponseEntity<ArticleResponse> getArticleAuthor(
+    public ResponseEntity<ArticleResponse> getAuthorArticleById(
             @PathVariable String authorId,
             @PathVariable String articleId
-    ){
+    ) {
         ArticleResponse response = articleService.getArticleByAuthorAndId(authorId, articleId);
         return ResponseEntity.ok(response);
     }
 
-
-
     /**
-     * Post a comment on an article
+     * Post comment.
+     *
+     * Endpoint:
+     * POST /api/v1/articles/{articleId}/comments
      */
     @PostMapping("/{articleId}/comments")
     @Operation(
-            summary = "Post a comment",
-            description = "Posts a top-level comment on an article. Requires authentication.",
+            summary = "Post comment",
+            description = "Posts a top-level comment on an article.",
             tags = {"Comments"},
             operationId = "postComment"
     )
-    @Parameters({
-            @Parameter(
-                    name = "articleId",
-                    description = "The article to comment on",
-                    required = true,
-                    in = ParameterIn.PATH
-            )
-    })
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "201",
-                    description = "Comment posted successfully",
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = CommentResponse.class)
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Unauthorized - JWT missing"
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Article not found"
-            )
-    })
     public ResponseEntity<CommentResponse> postComment(
             @PathVariable String articleId,
             @Valid @RequestBody CreateCommentRequest request,
             @AuthenticationPrincipal Jwt jwt
     ) {
-
         String userId = jwt.getSubject();
         CommentResponse response = articleService.postComment(articleId, userId, request);
-
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
-     * Get comments on an article (threaded)
+     * Get article comments.
+     *
+     * Endpoint:
+     * GET /api/v1/articles/{articleId}/comments?page=0&pageSize=10
      */
     @GetMapping("/{articleId}/comments")
     @Operation(
-            summary = "Get article comments (threaded)",
-            description = "Retrieves all comments on an article in a threaded structure. Public endpoint.",
+            summary = "Get article comments",
+            description = "Retrieves all comments on an article.",
             tags = {"Comments"},
             operationId = "getArticleComments"
     )
-    @Parameters({
-            @Parameter(
-                    name = "articleId",
-                    description = "The article ID",
-                    required = true,
-                    in = ParameterIn.PATH
-            ),
-            @Parameter(
-                    name = "page",
-                    description = "Page number",
-                    example = "0",
-                    required = false,
-                    in = ParameterIn.QUERY
-            ),
-            @Parameter(
-                    name = "pageSize",
-                    description = "Comments per page",
-                    example = "10",
-                    required = false,
-                    in = ParameterIn.QUERY
-            )
-    })
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "200",
-                    description = "Comments retrieved successfully"
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Article not found"
-            )
-    })
     public ResponseEntity<PaginatedResponse<CommentThreadResponse>> getArticleComments(
             @PathVariable String articleId,
             @RequestParam(defaultValue = "0") int page,
@@ -2101,144 +1740,64 @@ public class ArticleController {
     }
 
     /**
-     * Reply to a comment
+     * Reply to comment.
+     *
+     * Endpoint:
+     * POST /api/v1/articles/{articleId}/comments/{parentCommentId}/replies
      */
-    @PostMapping("/{articleId}/comments/{parentCommentId}/reply")
+    @PostMapping("/{articleId}/comments/{parentCommentId}/replies")
     @Operation(
-            summary = "Reply to a comment",
-            description = "Posts a reply to an existing comment. Creates a threaded discussion.",
+            summary = "Reply to comment",
+            description = "Posts a reply to an existing comment.",
             tags = {"Comments"},
             operationId = "replyToComment"
     )
-    @Parameters({
-            @Parameter(
-                    name = "articleId",
-                    description = "The article ID",
-                    required = true,
-                    in = ParameterIn.PATH
-            ),
-            @Parameter(
-                    name = "parentCommentId",
-                    description = "The comment ID to reply to",
-                    required = true,
-                    in = ParameterIn.PATH
-            )
-    })
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "201",
-                    description = "Reply posted successfully"
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Unauthorized"
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Article or comment not found"
-            )
-    })
-    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<CommentResponse> replyToComment(
             @PathVariable String articleId,
             @PathVariable String parentCommentId,
             @Valid @RequestBody CreateCommentRequest request,
             @AuthenticationPrincipal Jwt jwt
     ) {
-
         String userId = jwt.getSubject();
         CommentResponse response = articleService.replyToComment(articleId, parentCommentId, userId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
-     * Delete a comment
+     * Delete comment.
+     *
+     * Endpoint:
+     * DELETE /api/v1/articles/comments/{commentId}
      */
     @DeleteMapping("/comments/{commentId}")
     @Operation(
-            summary = "Delete a comment",
-            description = "Deletes (soft delete) a comment. Only the author can delete.",
+            summary = "Delete comment",
+            description = "Soft deletes a comment.",
             tags = {"Comments"},
             operationId = "deleteComment"
     )
-    @Parameters({
-            @Parameter(
-                    name = "commentId",
-                    description = "The comment ID",
-                    required = true,
-                    in = ParameterIn.PATH
-            )
-    })
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "204",
-                    description = "Comment deleted successfully"
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Unauthorized"
-            ),
-            @ApiResponse(
-                    responseCode = "403",
-                    description = "Forbidden - not the author"
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Comment not found"
-            )
-    })
-    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<Void> deleteComment(
             @PathVariable String commentId,
             @AuthenticationPrincipal Jwt jwt
     ) {
-
-
         String userId = jwt.getSubject();
         articleService.deleteComment(commentId, userId);
         return ResponseEntity.noContent().build();
     }
+
     /**
-     * Like an article
+     * Like article.
+     *
+     * Endpoint:
+     * POST /api/v1/articles/{articleId}/likes
      */
-    @PostMapping("/{articleId}/like")
+    @PostMapping("/{articleId}/likes")
     @Operation(
-            summary = "Like an article",
-            description = "Adds a like to an article. Each user can like each article only once.",
+            summary = "Like article",
+            description = "Adds a like to an article.",
             tags = {"Engagement"},
             operationId = "likeArticle"
     )
-    @Parameters({
-            @Parameter(
-                    name = "articleId",
-                    description = "The article to like",
-                    required = true,
-                    in = ParameterIn.PATH
-            )
-    })
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "201",
-                    description = "Article liked successfully",
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = LikeResponse.class)
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Unauthorized"
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Article not found"
-            ),
-            @ApiResponse(
-                    responseCode = "409",
-                    description = "Article already liked by this user"
-            )
-    })
-    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<LikeResponse> likeArticle(
             @PathVariable String articleId,
             @AuthenticationPrincipal Jwt jwt
@@ -2249,123 +1808,73 @@ public class ArticleController {
     }
 
     /**
-     * Unlike an article
+     * Unlike article.
+     *
+     * Endpoint:
+     * DELETE /api/v1/articles/{articleId}/likes
      */
-    @DeleteMapping("/{articleId}/like")
+    @DeleteMapping("/{articleId}/likes")
     @Operation(
-            summary = "Unlike an article",
+            summary = "Unlike article",
             description = "Removes a like from an article.",
             tags = {"Engagement"},
             operationId = "unlikeArticle"
     )
-    @Parameters({
-            @Parameter(
-                    name = "articleId",
-                    description = "The article to unlike",
-                    required = true,
-                    in = ParameterIn.PATH
-            )
-    })
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "204",
-                    description = "Article unliked successfully"
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Unauthorized"
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Article not found"
-            )
-    })
-    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<Void> unlikeArticle(
             @PathVariable String articleId,
             @AuthenticationPrincipal Jwt jwt
     ) {
-
         String userId = jwt.getSubject();
         articleService.unlikeArticle(articleId, userId);
         return ResponseEntity.noContent().build();
     }
 
     /**
-     * Share an article
+     * Share article.
+     *
+     * Endpoint:
+     * POST /api/v1/articles/{articleId}/shares
      */
-    @PostMapping("/{articleId}/share")
+    @PostMapping("/{articleId}/shares")
     @Operation(
-            summary = "Share an article",
-            description = "Tracks the sharing of an article on various platforms (Twitter, Facebook, LinkedIn, email, etc.)",
+            summary = "Share article",
+            description = "Tracks sharing of an article.",
             tags = {"Engagement"},
             operationId = "shareArticle"
     )
-    @Parameters({
-            @Parameter(
-                    name = "articleId",
-                    description = "The article to share",
-                    required = true,
-                    in = ParameterIn.PATH
-            )
-    })
-    @ApiResponses({
-            @ApiResponse(
-                    responseCode = "201",
-                    description = "Share tracked successfully",
-                    content = @Content(
-                            mediaType = "application/json",
-                            schema = @Schema(implementation = ShareResponse.class)
-                    )
-            ),
-            @ApiResponse(
-                    responseCode = "401",
-                    description = "Unauthorized"
-            ),
-            @ApiResponse(
-                    responseCode = "404",
-                    description = "Article not found"
-            )
-    })
-    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ShareResponse> shareArticle(
             @PathVariable String articleId,
             @Valid @RequestBody ShareRequest request,
-            @AuthenticationPrincipal  Jwt jwt
+            @AuthenticationPrincipal Jwt jwt
     ) {
         String userId = jwt.getSubject();
-
         ShareResponse response = articleService.shareArticle(articleId, userId, request);
-
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
+
     private CreateArticleWithFilesRequest processAndMapFiles(
             CreateArticleWithFilesRequest request,
             MultipartFile coverImage,
             MultipartFile[] additionalFiles,
             String userId
     ) {
-        // Process cover image if provided
         if (coverImage != null && !coverImage.isEmpty()) {
-            // Upload cover image would be done here
-            // This is handled by separate file upload endpoints
             log.debug("Cover image provided but should be uploaded separately");
         }
-
-        // Additional files are processed by their references in content blocks
-        // The content blocks should reference files by fileId from prior uploads
 
         return request;
     }
 }
 ```
 
-### src/main/java/com/final_project/blog_service/controller/FileUploadController.java
+## `src/main/java/com/final_project/blog_service/controller/FileUploadController.java`
 
-`$lang
+```java
 package com.final_project.blog_service.controller;
 
-import com.final_project.blog_service.dto.*;
+import com.final_project.blog_service.dto.response.FileUploadResponse;
+import com.final_project.blog_service.dto.response.ImageUploadResponse;
+import com.final_project.blog_service.dto.response.VideoUploadResponse;
 import com.final_project.blog_service.service.FileUploadService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -2375,7 +1884,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -2406,7 +1914,7 @@ public class FileUploadController {
     /**
      * Upload an image file
      */
-    @PostMapping(value = "/upload/image", consumes = "multipart/form-data")
+    @PostMapping(value = "/upload/image/{userId}/article/{articleId}", consumes = "multipart/form-data")
     @Operation(
             summary = "Upload image",
             description = "Uploads an image file for use in article content blocks. Supports JPEG, PNG, WebP, GIF.",
@@ -2459,25 +1967,24 @@ public class FileUploadController {
                     description = "Unsupported media type"
             )
     })
-    @SecurityRequirement(name = "bearerAuth")
-    public ResponseEntity<ImageUploadResponse> uploadImage(
+    public ResponseEntity<FileUploadResponse> uploadImage(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(required = false) String alt,
-            @RequestParam(required = false) String caption,
-            Authentication authentication
+            @PathVariable String userId,
+            @PathVariable String articleId
+
     ) {
         log.info("POST /api/v1/files/upload/image - Upload image");
 
-        String userId = authentication.getName();
-        ImageUploadResponse response = fileUploadService.uploadImage(file, alt, caption, userId);
+        FileUploadResponse response = fileUploadService.uploadArticleImage(file,userId,articleId );
 
         return ResponseEntity.ok(response);
     }
 
     /**
      * Upload a video file
+     * not yet implemented!
      */
-    @PostMapping(value = "/upload/video", consumes = "multipart/form-data")
+    @PostMapping(value = "/upload/video/{userId}/article/{articleId}", consumes = "multipart/form-data")
     @Operation(
             summary = "Upload video",
             description = "Uploads a video file for use in article content blocks. Supports MP4, WebM, Ogg, MOV.",
@@ -2530,22 +2037,19 @@ public class FileUploadController {
                     description = "Unsupported media type"
             )
     })
-    @SecurityRequirement(name = "bearerAuth")
-    public ResponseEntity<VideoUploadResponse> uploadVideo(
+    public ResponseEntity<FileUploadResponse> uploadVideo(
             @RequestParam("file") MultipartFile file,
-            @RequestParam(required = false) String title,
-            @RequestParam(required = false) String description,
-            Authentication authentication
+            @PathVariable String userId,
+            @PathVariable String articleId
     ) {
-        String userId = authentication.getName();
-        VideoUploadResponse response = fileUploadService.uploadVideo(file, title, description, userId);
+        FileUploadResponse response = fileUploadService.uploadArticleVideo(file,userId,articleId);
         return ResponseEntity.ok(response);
     }
 
     /**
      * Delete a file
      */
-    @DeleteMapping("/{fileId}")
+    @DeleteMapping("/{fileId}/author/{articleId}")
     @Operation(
             summary = "Delete file",
             description = "Deletes a file from storage. Only the uploader can delete their files.",
@@ -2578,284 +2082,44 @@ public class FileUploadController {
                     description = "File not found"
             )
     })
-    @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<Void> deleteFile(
             @PathVariable String fileId,
-            Authentication authentication
+            @PathVariable String articleId
     ) {
-        String userId = authentication.getName();
-        fileUploadService.deleteFile(fileId, userId);
+        fileUploadService.deleteFile(fileId, articleId);
         return ResponseEntity.noContent().build();
     }
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/ArticlePreviewResponse.java
+## `src/main/java/com/final_project/blog_service/dto/ArticleBlockType.java`
 
-`$lang
+```java
 package com.final_project.blog_service.dto;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+public enum ArticleBlockType {
+    TEXT("text"),
+    HEADING("heading"),
+    IMAGE("image"),
+    VIDEO("video"),
+    CODE("code"),
+    QUOTE("quote"),
+    EMBED("embed"),
+    DIVIDER("divider");
+    private final String type;
+    ArticleBlockType(String type){
+        this.type=type.toLowerCase();
+    }
+    public String getType(){
+        return type.toUpperCase();
+    }
 
-import java.time.LocalDateTime;
-import java.util.List;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Schema(
-        title = "Article Preview Response",
-        description = "Summary view of an article for lists and feeds"
-)
-public class ArticlePreviewResponse {
-
-    @Schema(
-            title = "Article ID",
-            example = "6507a1b2c3d4e5f6g7h8i9j0"
-    )
-    private String id;
-    @Schema(
-            title = "Article Slug",
-            example = "my-first-blog-post"
-    )
-    private String slug;
-    @Schema(
-            title = "Article Title",
-            example = "My First Blog Post"
-    )
-    private String title;
-    @Schema(
-            title = "Article Subtitle",
-            example = "An exciting journey"
-    )
-    private String subtitle;
-    @Schema(
-            title = "Cover Image URL",
-            example = "https://cdn.example.com/cover.jpg"
-    )
-    private String coverImageUrl;
-    @Schema(
-            title = "Article Description",
-            description = "Short description or excerpt"
-    )
-    private String description;
-    @Schema(
-            title = "Article Statistics",
-            description = "Engagement metrics"
-    )
-    private StatsResponse stats;
-    @Schema(
-            title = "Article Author",
-            description = "Author information"
-    )
-    private AuthorResponse author;
-    @Schema(
-            title = "Published Date",
-            example = "2024-01-15T10:30:00",
-            type = "string",
-            format = "date-time"
-    )
-    private LocalDateTime publishedAt;
-    @Schema(
-            title = "Estimated Read Time",
-            description = "Minutes to read",
-            example = "5"
-    )
-    private Integer estimatedReadTime;
-    @Schema(
-            title = "Tags",
-            example = "[\"javascript\", \"web-dev\"]"
-    )
-    private List<String> tags;
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/ArticleResponse.java
+## `src/main/java/com/final_project/blog_service/dto/CodeBlockDTO.java`
 
-`$lang
-package com.final_project.blog_service.dto;
-
-import com.final_project.blog_service.model.ArticleStatus;
-import com.final_project.blog_service.model.ArticleVisiblity;
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Schema(
-        title = "Article Response",
-        description = "Complete article details with content, metadata, and engagement stats"
-)
-public class ArticleResponse {
-
-    @Schema(
-            title = "Article ID",
-            description = "Unique identifier for the article (MongoDB ObjectId)",
-            example = "6507a1b2c3d4e5f6g7h8i9j0"
-    )
-    private String id;
-
-    @Schema(
-            title = "Article Slug",
-            description = "URL-friendly identifier for the article",
-            example = "my-first-blog-post",
-            pattern = "^[a-z0-9]+(-[a-z0-9]+)*$"
-    )
-    private String slug;
-
-    @Schema(
-            title = "Article Title",
-            example = "My First Blog Post"
-    )
-    private String title;
-
-    @Schema(
-            title = "Article Subtitle",
-            example = "An exciting journey into blogging"
-    )
-    private String subtitle;
-
-    @Schema(
-            title = "Article Content",
-            description = "Structured content blocks"
-    )
-    private ContentResponse content;
-
-    @Schema(
-            title = "Article Metadata",
-            description = "Tags, category, SEO information"
-    )
-    private MetadataResponse metadata;
-
-    @Schema(
-            title = "Article Status",
-            description = "Current status of the article",
-            example = "PUBLISHED",
-            allowableValues = {"DRAFT", "PUBLISHED", "ARCHIVED"}
-    )
-    private ArticleStatus status;
-
-    @Schema(
-            title = "Article Visibility",
-            description = "Who can access this article",
-            example = "PUBLIC",
-            allowableValues = {"PUBLIC", "PRIVATE", "UNLISTED"}
-    )
-    private ArticleVisiblity visibility;
-
-    @Schema(
-            title = "Article Statistics",
-            description = "Engagement and view statistics"
-    )
-    private StatsResponse stats;
-
-    @Schema(
-            title = "Article Author",
-            description = "Author profile information"
-    )
-    private AuthorResponse author;
-
-    @Schema(
-            title = "Published Date",
-            description = "When the article was published",
-            example = "2024-01-15T10:30:00",
-            type = "string",
-            format = "date-time"
-    )
-    private LocalDateTime publishedAt;
-
-    @Schema(
-            title = "Updated Date",
-            description = "When the article was last updated",
-            example = "2024-01-15T15:45:00",
-            type = "string",
-            format = "date-time"
-    )
-    private LocalDateTime updatedAt;
-
-    @Schema(
-            title = "Created Date",
-            description = "When the article was created",
-            example = "2024-01-15T10:00:00",
-            type = "string",
-            format = "date-time"
-    )
-    private LocalDateTime createdAt;
-
-    @Schema(
-            title = "Estimated Read Time",
-            description = "Estimated time to read the article in minutes",
-            example = "5",
-            minimum = "1"
-    )
-    private Integer estimatedReadTime;
-}
-```
-
-### src/main/java/com/final_project/blog_service/dto/AuthorResponse.java
-
-`$lang
-package com.final_project.blog_service.dto;
-
-
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Schema(
-        title = "Author Response",
-        description = "Author profile information"
-)
-public class AuthorResponse {
-
-    @Schema(
-            title = "Author ID",
-            example = "user_123"
-    )
-    private String id;
-
-    @Schema(
-            title = "Author Display Name",
-            example = "John Doe"
-    )
-    private String displayName;
-
-    @Schema(
-            title = "Author Profile Image",
-            example = "https://cdn.example.com/profiles/john.jpg"
-    )
-    private String profileImageUrl;
-
-    @Schema(
-            title = "Total Articles",
-            description = "Number of articles written by this author",
-            example = "15"
-    )
-    private Long totalArticles;
-}
-```
-
-### src/main/java/com/final_project/blog_service/dto/CodeBlockDTO.java
-
-`$lang
+```java
 package com.final_project.blog_service.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -2917,174 +2181,33 @@ public class CodeBlockDTO extends ContentBlockDTO {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/CommentEngagementResponse.java
+## `src/main/java/com/final_project/blog_service/dto/ContentBlock.java`
 
-`$lang
+```java
 package com.final_project.blog_service.dto;
 
-import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Data
+import java.util.Map;
+
+
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Schema(
-        title = "Comment Engagement Response",
-        description = "Engagement metrics for a comment"
-)
-public class CommentEngagementResponse {
-
-    @Schema(
-            title = "Likes",
-            description = "Number of likes on this comment",
-            example = "5"
-    )
-    private Long likes;
-
-    @Schema(
-            title = "Reply Count",
-            description = "Number of replies to this comment",
-            example = "2"
-    )
-    private Long replyCount;
-}
-```
-
-### src/main/java/com/final_project/blog_service/dto/CommentResponse.java
-
-`$lang
-package com.final_project.blog_service.dto;
-
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import java.time.LocalDateTime;
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Schema(
-        title = "Comment Response",
-        description = "Complete comment details"
-)
-public class CommentResponse {
-
-    @Schema(
-            title = "Comment ID",
-            example = "comment_123"
-    )
-    private String id;
-
-    @Schema(
-            title = "Article ID",
-            description = "The article this comment belongs to",
-            example = "article_123"
-    )
-    private String articleId;
-
-    @Schema(
-            title = "Parent Comment ID",
-            description = "If this is a reply, the ID of the parent comment",
-            example = "comment_122",
-            nullable = true
-    )
-    private String parentCommentId;
-
-    @Schema(
-            title = "Comment Body",
-            example = "Great article!"
-    )
-    private String body;
-
-    @Schema(
-            title = "Comment Author",
-            description = "Author profile information"
-    )
-    private AuthorResponse author;
-
-    @Schema(
-            title = "Comment Engagement",
-            description = "Likes and reply count"
-    )
-    private CommentEngagementResponse engagement;
-
-    @Schema(
-            title = "Created At",
-            example = "2024-01-15T10:35:00",
-            type = "string",
-            format = "date-time"
-    )
-    private LocalDateTime createdAt;
-
-    @Schema(
-            title = "Edited At",
-            description = "When the comment was last edited",
-            example = "2024-01-15T11:00:00",
-            type = "string",
-            format = "date-time",
-            nullable = true
-    )
-    private LocalDateTime editedAt;
-
-    @Schema(
-            title = "Reply Count",
-            description = "Number of direct replies to this comment",
-            example = "3"
-    )
-    private Integer replyCount;
+public class ContentBlock {
+    private ArticleBlockType type;
+    private Integer order;
+    private Map<String, Object> data;
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/CommentThreadResponse.java
+## `src/main/java/com/final_project/blog_service/dto/ContentBlockDTO.java`
 
-`$lang
-package com.final_project.blog_service.dto;
-
-import io.swagger.v3.oas.annotations.media.ArraySchema;
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.util.List;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Schema(
-        title = "Comment Thread Response",
-        description = "A comment with its nested replies (threaded structure)"
-)
-public class CommentThreadResponse {
-
-    @Schema(
-            title = "Comment",
-            description = "The main comment"
-    )
-    private CommentResponse comment;
-
-    @ArraySchema(
-            schema = @Schema(implementation = CommentThreadResponse.class),
-            arraySchema = @Schema(
-                    title = "Replies",
-                    description = "Nested replies to this comment"
-            )
-    )
-    private List<CommentThreadResponse> replies;
-}
-```
-
-### src/main/java/com/final_project/blog_service/dto/ContentBlockDTO.java
-
-`$lang
+```java
 package com.final_project.blog_service.dto;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
@@ -3151,13 +2274,349 @@ public class ContentBlockDTO {
 
 ```
 
-### src/main/java/com/final_project/blog_service/dto/ContentBlockRequest.java
+## `src/main/java/com/final_project/blog_service/dto/DividerBlockDTO.java`
 
-`$lang
+```java
 package com.final_project.blog_service.dto;
 
 
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.*;
+import lombok.experimental.SuperBuilder;
+
+/**
+ * Divider Block - Visual separator
+ */
+@Data
+@EqualsAndHashCode(callSuper = true)
+@SuperBuilder
+@Schema(
+        title = "Divider Block",
+        description = "Visual divider/separator",
+        example = "{\"type\": \"divider\", \"data\": {}}"
+)
+public class DividerBlockDTO extends ContentBlockDTO {
+
+    public DividerBlockDTO(String type) {
+        this.type = type;
+    }
+}
+```
+
+## `src/main/java/com/final_project/blog_service/dto/EmbedBlockDTO.java`
+
+```java
+package com.final_project.blog_service.dto;
+
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.Builder;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
+
+/**
+ * Embed Block - External embeds (YouTube, Twitter, etc.)
+ */
+@Data
+@NoArgsConstructor
+@EqualsAndHashCode(callSuper = true)
+@SuperBuilder
+@Schema(
+        title = "Embed Block",
+        description = "External content embed",
+        example = "{\"type\": \"embed\", \"data\": {\"provider\": \"youtube\", \"embedUrl\": \"https://www.youtube.com/embed/dQw4w9WgXcQ\"}}"
+)
+public class EmbedBlockDTO extends ContentBlockDTO {
+
+    @NotBlank(message = "Provider is required")
+    @Pattern(
+            regexp = "^(youtube|twitter|vimeo|codepen|gist|instagram)$",
+            message = "Invalid provider"
+    )
+    @Schema(
+            title = "Provider",
+            description = "Embed service provider",
+            example = "youtube",
+            allowableValues = {"youtube", "twitter", "vimeo", "codepen", "gist", "instagram"}
+    )
+    private String provider;
+
+    @NotBlank(message = "Embed URL is required")
+    @Schema(
+            title = "Embed URL",
+            description = "URL to embed content",
+            example = "https://www.youtube.com/embed/dQw4w9WgXcQ"
+    )
+    private String embedUrl;
+
+    @Size(max = 500, message = "Title must not exceed 500 characters")
+    @Schema(
+            title = "Title",
+            description = "Embed title",
+            example = "Tutorial video"
+    )
+    private String title;
+
+    public EmbedBlockDTO(String type, String provider, String embedUrl) {
+        this.type = type;
+        this.provider = provider;
+        this.embedUrl = embedUrl;
+    }
+}
+```
+
+## `src/main/java/com/final_project/blog_service/dto/HeadingBlockDTO.java`
+
+```java
+package com.final_project.blog_service.dto;
+
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.*;
+import lombok.*;
+import lombok.experimental.SuperBuilder;
+
+/**
+ * Heading Block - Section headers
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(callSuper = true)
+@SuperBuilder
+@Schema(
+        title = "Heading Block",
+        description = "Section heading (h1-h6)",
+        example = "{\"type\": \"heading\", \"data\": {\"level\": 2, \"text\": \"Section Title\"}}"
+)
+public class HeadingBlockDTO extends ContentBlockDTO {
+
+    @NotNull(message = "Heading level is required")
+    @Min(value = 1, message = "Heading level must be 1-6")
+    @Max(value = 6, message = "Heading level must be 1-6")
+    @Schema(
+            title = "Heading Level",
+            description = "h1 to h6",
+            example = "2",
+            minimum = "1",
+            maximum = "6"
+    )
+    private Integer level;
+
+    @NotBlank(message = "Heading text is required")
+    @Size(max = 500, message = "Heading must not exceed 500 characters")
+    @Schema(
+            title = "Heading Text",
+            example = "Section Title"
+    )
+    private String text;
+
+    public HeadingBlockDTO(String type, Integer level, String text) {
+        this.type = type;
+        this.level = level;
+        this.text = text;
+    }
+}
+```
+
+## `src/main/java/com/final_project/blog_service/dto/ImageBlockDTO.java`
+
+```java
+package com.final_project.blog_service.dto;
+
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import lombok.*;
+import lombok.experimental.SuperBuilder;
+
+/**
+ * Image Block - Images with metadata
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(callSuper = true)
+@SuperBuilder
+@Schema(
+        title = "Image Block",
+        description = "Image content with metadata",
+        example = "{\"type\": \"image\", \"data\": {\"fileId\": \"image_123\", \"fileUrl\": \"https://cdn.../image.jpg\", \"alt\": \"Description\"}}"
+)
+public class ImageBlockDTO extends ContentBlockDTO {
+
+    @NotBlank(message = "File ID is required")
+    @Schema(
+            title = "File ID",
+            description = "ID returned from file upload endpoint",
+            example = "image_12345"
+    )
+    private String fileId;
+
+    @NotBlank(message = "File URL is required")
+    @Schema(
+            title = "File URL",
+            description = "CDN URL from file upload response",
+            example = "https://cdn.example.com/files/image_12345.jpg"
+    )
+    private String fileUrl;
+
+    @Size(max = 500, message = "Alt text must not exceed 500 characters")
+    @Schema(
+            title = "Alt Text",
+            description = "Alternative text for accessibility",
+            example = "Article cover image"
+    )
+    private String alt;
+
+    @Size(max = 1000, message = "Caption must not exceed 1000 characters")
+    @Schema(
+            title = "Caption",
+            description = "Image caption",
+            example = "Figure 1: Example image"
+    )
+    private String caption;
+
+    @Schema(
+            title = "Thumbnail URL",
+            description = "URL to thumbnail version",
+            example = "https://cdn.example.com/files/image_12345_thumb.jpg"
+    )
+    private String thumbnailUrl;
+
+    @Min(value = 1, message = "Width must be positive")
+    @Schema(
+            title = "Width",
+            description = "Image width in pixels",
+            example = "1920",
+            minimum = "1"
+    )
+    private Integer width;
+
+    @Min(value = 1, message = "Height must be positive")
+    @Schema(
+            title = "Height",
+            description = "Image height in pixels",
+            example = "1080",
+            minimum = "1"
+    )
+    private Integer height;
+
+    public ImageBlockDTO(String type, String fileId, String fileUrl, String alt) {
+        this.type = type;
+        this.fileId = fileId;
+        this.fileUrl = fileUrl;
+        this.alt = alt;
+    }
+}
+```
+
+## `src/main/java/com/final_project/blog_service/dto/QuoteBlockDTO.java`
+
+```java
+package com.final_project.blog_service.dto;
+
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import lombok.*;
+import lombok.experimental.SuperBuilder;
+
+/**
+ * Quote Block - Quoted text with attribution
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(callSuper = true)
+@SuperBuilder
+@Schema(
+        title = "Quote Block",
+        description = "Quoted text with optional attribution",
+        example = "{\"type\": \"quote\", \"data\": {\"text\": \"Life is 10% what happens and 90% how you react\", \"attribution\": \"Charles Swindoll\"}}"
+)
+public class QuoteBlockDTO extends ContentBlockDTO {
+
+    @NotBlank(message = "Quote text is required")
+    @Size(max = 2000, message = "Quote must not exceed 2000 characters")
+    @Schema(
+            title = "Quote Text",
+            example = "Life is 10% what happens to you and 90% how you react to it"
+    )
+    private String text;
+
+    @Size(max = 500, message = "Attribution must not exceed 500 characters")
+    @Schema(
+            title = "Attribution",
+            description = "Quote author or source",
+            example = "Charles R. Swindoll"
+    )
+    private String attribution;
+
+    public QuoteBlockDTO(String type, String text, String attribution) {
+        this.type = type;
+        this.text = text;
+        this.attribution = attribution;
+    }
+}
+```
+
+## `src/main/java/com/final_project/blog_service/dto/request/ArticleBlockRequest.java`
+
+```java
+package com.final_project.blog_service.dto.request;
+
+import com.final_project.blog_service.dto.ArticleBlockType;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.Map;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Schema(description = "Flexible article content block")
+public class ArticleBlockRequest {
+    @NotNull
+    @Schema(
+            description = "Block type",
+            example = "TEXT",
+            allowableValues = {"TEXT", "HEADING", "IMAGE", "VIDEO", "CODE", "QUOTE", "EMBED", "DIVIDER"}
+    )
+    private ArticleBlockType type;
+
+    @PositiveOrZero
+    @Schema(description = "Block order in article", example = "0")
+    private Integer order;
+
+    @NotNull
+    @Schema(description = "Flexible block payload. Required fields depend on block type.")
+    private Map<String, Object> data;
+}
+```
+
+## `src/main/java/com/final_project/blog_service/dto/request/ContentBlockRequest.java`
+
+```java
+package com.final_project.blog_service.dto.request;
+
+
 import com.fasterxml.jackson.databind.JsonNode;
+import com.final_project.blog_service.dto.ArticleBlockType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -3189,7 +2648,7 @@ public class ContentBlockRequest {
             allowableValues = {"text", "heading", "image", "video", "code", "quote", "embed", "divider"},
             type = "string"
     )
-    private String type;
+    private ArticleBlockType type;
 
     @Schema(
             title = "Block Data",
@@ -3200,97 +2659,22 @@ public class ContentBlockRequest {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/ContentBlockResponse.java
+## `src/main/java/com/final_project/blog_service/dto/request/CreateArticleRequest.java`
 
-`$lang
-package com.final_project.blog_service.dto;
+```java
+package com.final_project.blog_service.dto.request;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Schema(
-        title = "Content Block Response",
-        description = "A single content block in response"
-)
-public class ContentBlockResponse {
-
-    @Schema(
-            title = "Block Type",
-            example = "text"
-    )
-    private String type;
-
-    @Schema(
-            title = "Block Data",
-            example = "{\"text\": \"Content here\"}"
-    )
-    private JsonNode data;
-}
-```
-
-### src/main/java/com/final_project/blog_service/dto/ContentResponse.java
-
-`$lang
-package com.final_project.blog_service.dto;
-
-import io.swagger.v3.oas.annotations.media.ArraySchema;
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.util.List;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Schema(
-        title = "Content Response",
-        description = "Article content with blocks and metadata"
-)
-public class ContentResponse {
-
-    @ArraySchema(
-            schema = @Schema(implementation = ContentBlockResponse.class),
-            minItems = 1
-    )
-    private List<ContentBlockResponse> blocks;
-
-    @Schema(
-            title = "Estimated Read Time",
-            description = "Time to read in minutes",
-            example = "5"
-    )
-    private Integer estimatedReadTime;
-}
-```
-
-### src/main/java/com/final_project/blog_service/dto/CreateArticleRequest.java
-
-`$lang
-package com.final_project.blog_service.dto;
-
-import io.swagger.v3.oas.annotations.media.ArraySchema;
+import com.final_project.blog_service.model.ArticleVisiblity;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -3304,70 +2688,39 @@ import java.util.List;
 )
 public class CreateArticleRequest {
 
-    @NotBlank(message = "Title is required")
-    @Size(min = 3, max = 200, message = "Title must be between 3 and 200 characters")
-    @Schema(
-            title = "Article Title",
-            description = "The main title of the article",
-            example = "Getting Started with Spring Boot 3",
-            minLength = 3,
-            maxLength = 200
-    )
+    @NotBlank
+    @Size(max = 180)
+    @Schema(example = "How to use microservices in university systems")
     private String title;
 
-    @Size(max = 500, message = "Subtitle must not exceed 500 characters")
-    @Schema(
-            title = "Article Subtitle",
-            description = "A brief subtitle or summary of the article",
-            example = "A comprehensive guide to building modern web applications",
-            maxLength = 500
-    )
-    private String subtitle;
-
-    @NotEmpty(message = "Article must have at least one content block")
-    @Valid
-    @ArraySchema(
-            schema = @Schema(implementation = ContentBlockRequest.class),
-            minItems = 1,
-            arraySchema = @Schema(
-                    title = "Content Blocks",
-                    description = "Array of content blocks (text, images, videos, code, etc.)"
-            )
-    )
-    private List<ContentBlockRequest> blocks;
-
-    @Size(max = 100, message = "Category must not exceed 100 characters")
-    @Schema(
-            title = "Article Category",
-            description = "The category or topic of the article",
-            example = "Technology",
-            maxLength = 100
-    )
-    private String category;
-
-    @Schema(
-            title = "Article Tags",
-            description = "List of tags for categorization and search",
-            example = "[\"javascript\", \"web-development\", \"spring-boot\"]"
-
-    )
-    private List<String> tags;
-
-    @Size(max = 500, message = "Description must not exceed 500 characters")
-    @Schema(
-            title = "Article Description",
-            description = "SEO meta description for the article",
-            example = "Learn how to build modern web applications using Spring Boot 3 and MongoDB",
-            maxLength = 500
-    )
+    @Size(max = 500)
+    @Schema(example = "A practical article about Spring Boot microservices.")
     private String description;
+
+    @Builder.Default
+    @Valid
+    @Schema(description = "Flexible content blocks: text, image, video, code, quote, embed, divider")
+    private List<ArticleBlockRequest> blocks = new ArrayList<>();
+
+    @Builder.Default
+    private List<String> tags = new ArrayList<>();
+
+    @Builder.Default
+    private ArticleVisiblity visibility = ArticleVisiblity.PUBLIC;
+
+    @Schema(description = "Optional cover image file id from file-service")
+    private String coverImageFileId;
+
+    @Schema(description = "Optional cover image URL returned by file-service")
+    private String coverImageUrl;
+
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/CreateArticleWithFilesRequest.java
+## `src/main/java/com/final_project/blog_service/dto/request/CreateArticleWithFilesRequest.java`
 
-`$lang
-package com.final_project.blog_service.dto;
+```java
+package com.final_project.blog_service.dto.request;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -3480,10 +2833,10 @@ public class CreateArticleWithFilesRequest {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/CreateCommentRequest.java
+## `src/main/java/com/final_project/blog_service/dto/request/CreateCommentRequest.java`
 
-`$lang
-package com.final_project.blog_service.dto;
+```java
+package com.final_project.blog_service.dto.request;
 
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -3517,398 +2870,11 @@ public class CreateCommentRequest {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/DividerBlockDTO.java
-
-`$lang
-package com.final_project.blog_service.dto;
-
-
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.*;
-import lombok.experimental.SuperBuilder;
-
-/**
- * Divider Block - Visual separator
- */
-@Data
-@EqualsAndHashCode(callSuper = true)
-@SuperBuilder
-@Schema(
-        title = "Divider Block",
-        description = "Visual divider/separator",
-        example = "{\"type\": \"divider\", \"data\": {}}"
-)
-public class DividerBlockDTO extends ContentBlockDTO {
-
-    public DividerBlockDTO(String type) {
-        this.type = type;
-    }
-}
-```
-
-### src/main/java/com/final_project/blog_service/dto/EmbedBlockDTO.java
-
-`$lang
-package com.final_project.blog_service.dto;
-
-
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import jakarta.validation.constraints.Size;
-import lombok.Builder;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.experimental.SuperBuilder;
-
-/**
- * Embed Block - External embeds (YouTube, Twitter, etc.)
- */
-@Data
-@NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
-@SuperBuilder
-@Schema(
-        title = "Embed Block",
-        description = "External content embed",
-        example = "{\"type\": \"embed\", \"data\": {\"provider\": \"youtube\", \"embedUrl\": \"https://www.youtube.com/embed/dQw4w9WgXcQ\"}}"
-)
-public class EmbedBlockDTO extends ContentBlockDTO {
-
-    @NotBlank(message = "Provider is required")
-    @Pattern(
-            regexp = "^(youtube|twitter|vimeo|codepen|gist|instagram)$",
-            message = "Invalid provider"
-    )
-    @Schema(
-            title = "Provider",
-            description = "Embed service provider",
-            example = "youtube",
-            allowableValues = {"youtube", "twitter", "vimeo", "codepen", "gist", "instagram"}
-    )
-    private String provider;
-
-    @NotBlank(message = "Embed URL is required")
-    @Schema(
-            title = "Embed URL",
-            description = "URL to embed content",
-            example = "https://www.youtube.com/embed/dQw4w9WgXcQ"
-    )
-    private String embedUrl;
-
-    @Size(max = 500, message = "Title must not exceed 500 characters")
-    @Schema(
-            title = "Title",
-            description = "Embed title",
-            example = "Tutorial video"
-    )
-    private String title;
-
-    public EmbedBlockDTO(String type, String provider, String embedUrl) {
-        this.type = type;
-        this.provider = provider;
-        this.embedUrl = embedUrl;
-    }
-}
-```
-
-### src/main/java/com/final_project/blog_service/dto/ErrorResponse.java
-
-`$lang
-package com.final_project.blog_service.dto;
-
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Schema(
-        title = "Error Response",
-        description = "Standard error response format"
-)
-public class ErrorResponse {
-
-    @Schema(
-            title = "Error Code",
-            description = "Error type/code",
-            example = "RESOURCE_NOT_FOUND"
-    )
-    private String error;
-
-    @Schema(
-            title = "Error Message",
-            description = "Human-readable error message",
-            example = "Article not found with ID: article_123"
-    )
-    private String message;
-
-    @Schema(
-            title = "Timestamp",
-            description = "When the error occurred",
-            example = "2024-01-15T10:50:00",
-            type = "string",
-            format = "date-time"
-    )
-    private LocalDateTime timestamp;
-
-    @Schema(
-            title = "Request Path",
-            description = "The API path that caused the error",
-            example = "/api/v1/articles/article_123"
-    )
-    private String path;
-
-    @Schema(
-            title = "HTTP Status Code",
-            description = "HTTP status code",
-            example = "404"
-    )
-    private Integer status;
-
-    @Schema(
-            title = "Details",
-            description = "Additional error details (for validation errors)",
-            example = "{\"title\": \"Title is required\"}",
-            nullable = true
-    )
-    private Object details;
-}
-```
-
-### src/main/java/com/final_project/blog_service/dto/FileCdnUrlResponse.java
-
-`$lang
-package com.final_project.blog_service.dto;
-
-
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.experimental.SuperBuilder;
-
-import java.time.LocalDateTime;
-
-/**
- * File CDN URL Response
- */
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@SuperBuilder
-@Schema(
-        title = "File CDN URL Response",
-        description = "CDN URL and metadata for a file"
-)
-public class FileCdnUrlResponse {
-
-    @Schema(title = "File ID")
-    private String fileId;
-
-    @Schema(
-            title = "CDN URL",
-            description = "Public CDN URL to access the file"
-    )
-    private String cdnUrl;
-
-    @Schema(
-            title = "Thumbnail URL",
-            description = "Thumbnail URL (if available)"
-    )
-    private String thumbnailUrl;
-
-    @Schema(
-            title = "URL Expiration",
-            description = "When the URL expires (if applicable)",
-            example = "2024-01-15T10:30:00"
-    )
-    private LocalDateTime expiresAt;
-}
-```
-
-### src/main/java/com/final_project/blog_service/dto/FileMetadataResponse.java
-
-`$lang
-package com.final_project.blog_service.dto;
-
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.experimental.SuperBuilder;
-
-import java.time.LocalDateTime;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@SuperBuilder
-@Schema(
-        title = "File Metadata Response",
-        description = "Metadata information about a file"
-)
-public class FileMetadataResponse {
-
-    @Schema(title = "File ID")
-    private String fileId;
-
-    @Schema(title = "Original Filename")
-    private String originalFilename;
-
-    @Schema(title = "File Size")
-    private Long fileSize;
-
-    @Schema(title = "MIME Type")
-    private String mimeType;
-
-    @Schema(title = "CDN URL")
-    private String cdnUrl;
-
-    @Schema(title = "Thumbnail URL")
-    private String thumbnailUrl;
-
-    @Schema(title = "Upload Timestamp")
-    private LocalDateTime uploadedAt;
-
-    @Schema(title = "Image Width")
-    private Integer imageWidth;
-
-    @Schema(title = "Image Height")
-    private Integer imageHeight;
-
-    @Schema(title = "Video Duration")
-    private Integer videoDurationSeconds;
-}
-```
-
-### src/main/java/com/final_project/blog_service/dto/FileUploadResponse.java
-
-`$lang
-package com.final_project.blog_service.dto;
-
-import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.experimental.SuperBuilder;
-
-import java.time.LocalDateTime;
-
-/**
- * File Upload Response DTO
- */
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@SuperBuilder
-@Schema(
-        title = "File Upload Response",
-        description = "Response after successfully uploading a file"
-)
-public class FileUploadResponse {
-
-    @Schema(
-            title = "File ID",
-            description = "Unique identifier for the uploaded file",
-            example = "file_12345"
-    )
-    private String fileId;
-
-    @Schema(
-            title = "Original Filename",
-            example = "article-cover.jpg"
-    )
-    private String originalFilename;
-
-    @Schema(
-            title = "File Size",
-            description = "Size in bytes",
-            example = "2048576"
-    )
-    private Long fileSize;
-
-    @Schema(
-            title = "MIME Type",
-            example = "image/jpeg"
-    )
-    private String mimeType;
-
-    @Schema(
-            title = "CDN URL",
-            description = "Public CDN URL to access the file",
-            example = "https://cdn.example.com/files/file_12345.jpg"
-    )
-    private String cdnUrl;
-
-    @Schema(
-            title = "File Type",
-            description = "Type of file: image, video, document",
-            example = "image",
-            allowableValues = {"image", "video", "document"}
-    )
-    private String fileType;
-
-    @Schema(
-            title = "Upload Timestamp",
-            example = "2024-01-15T10:30:00"
-    )
-    private LocalDateTime uploadedAt;
-
-    // For images
-    @Schema(
-            title = "Image Width",
-            description = "Only for image files",
-            example = "1920"
-    )
-    private Integer imageWidth;
-
-    @Schema(
-            title = "Image Height",
-            description = "Only for image files",
-            example = "1080"
-    )
-    private Integer imageHeight;
-
-    @Schema(
-            title = "Thumbnail URL",
-            description = "URL to thumbnail image (if available)",
-            example = "https://cdn.example.com/files/file_12345_thumb.jpg"
-    )
-    private String thumbnailUrl;
-
-    // For videos
-    @Schema(
-            title = "Video Duration",
-            description = "Duration in seconds (only for video files)",
-            example = "120"
-    )
-    private Integer videoDurationSeconds;
-
-    @Schema(
-            title = "Processing Status",
-            description = "Video processing status",
-            example = "COMPLETED",
-            allowableValues = {"PENDING", "PROCESSING", "COMPLETED", "FAILED"}
-    )
-    private String processingStatus;
-}
-```
-
-### src/main/java/com/final_project/blog_service/dto/FlexibleContentBlockRequest.java
-
-`$lang
-package com.final_project.blog_service.dto;
+## `src/main/java/com/final_project/blog_service/dto/request/FlexibleContentBlockRequest.java`
+
+```java
+package com.final_project.blog_service.dto.request;
+import com.final_project.blog_service.dto.ArticleBlockType;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
@@ -3940,7 +2906,7 @@ public class FlexibleContentBlockRequest {
             example = "text",
             allowableValues = {"text", "heading", "image", "video", "code", "quote", "embed", "divider"}
     )
-    private String type;
+    private ArticleBlockType type;
 
     // Text Block Fields
     @Schema(
@@ -4068,158 +3034,1033 @@ public class FlexibleContentBlockRequest {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/HeadingBlockDTO.java
+## `src/main/java/com/final_project/blog_service/dto/request/PublishArticleRequest.java`
 
-`$lang
-package com.final_project.blog_service.dto;
+```java
+package com.final_project.blog_service.dto.request;
 
-
+import com.final_project.blog_service.model.ArticleVisiblity;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.*;
-import lombok.*;
-import lombok.experimental.SuperBuilder;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-/**
- * Heading Block - Section headers
- */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
-@SuperBuilder
+@Builder
 @Schema(
-        title = "Heading Block",
-        description = "Section heading (h1-h6)",
-        example = "{\"type\": \"heading\", \"data\": {\"level\": 2, \"text\": \"Section Title\"}}"
+        title = "Publish Article Request",
+        description = "Request to publish an article"
 )
-public class HeadingBlockDTO extends ContentBlockDTO {
+public class PublishArticleRequest {
 
-    @NotNull(message = "Heading level is required")
-    @Min(value = 1, message = "Heading level must be 1-6")
-    @Max(value = 6, message = "Heading level must be 1-6")
-    @Schema(
-            title = "Heading Level",
-            description = "h1 to h6",
-            example = "2",
-            minimum = "1",
-            maximum = "6"
+    @NotBlank(message = "Visibility is required")
+    @Pattern(
+            regexp = "^(PUBLIC|PRIVATE|UNLISTED)$",
+            message = "Visibility must be one of: PUBLIC, PRIVATE, UNLISTED"
     )
-    private Integer level;
-
-    @NotBlank(message = "Heading text is required")
-    @Size(max = 500, message = "Heading must not exceed 500 characters")
     @Schema(
-            title = "Heading Text",
-            example = "Section Title"
+            title = "Visibility",
+            description = "Who can see this article",
+            example = "PUBLIC",
+            allowableValues = {"PUBLIC", "PRIVATE", "UNLISTED"}
     )
-    private String text;
-
-    public HeadingBlockDTO(String type, Integer level, String text) {
-        this.type = type;
-        this.level = level;
-        this.text = text;
-    }
+    private ArticleVisiblity visibility;
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/ImageBlockDTO.java
+## `src/main/java/com/final_project/blog_service/dto/request/SearchArticleRequest.java`
 
-`$lang
-package com.final_project.blog_service.dto;
+```java
+package com.final_project.blog_service.dto.request;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Schema(
+        title = "Search Article Request",
+        description = "Request for full-text search on articles"
+)
+public class SearchArticleRequest {
+
+    @NotBlank(message = "Search query is required")
+    @Schema(
+            title = "Query",
+            description = "The search query string",
+            example = "spring boot mongodb",
+            minLength = 1
+    )
+    private String query;
+
+    @Schema(
+            title = "Tags",
+            description = "Filter by specific tags",
+            example = "[\"java\", \"spring\"]"
+    )
+    private List<String> tags;
+
+    @Schema(
+            title = "Category",
+            description = "Filter by category",
+            example = "Technology"
+    )
+    private String category;
+
+    @Min(value = 0, message = "Page must be >= 0")
+    @Schema(
+            title = "Page",
+            description = "Page number (zero-indexed)",
+            example = "0",
+            minimum = "0"
+    )
+    private Integer page;
+
+    @Min(value = 1, message = "Page size must be >= 1")
+    @Max(value = 100, message = "Page size must be <= 100")
+    @Builder.Default
+    @Schema(
+            title = "Page Size",
+            description = "Number of results per page",
+            example = "20",
+            minimum = "1",
+            maximum = "100"
+    )
+    private Integer pageSize = 20;
+
+    @Pattern(
+            regexp = "^(relevance|recent|trending)$",
+            message = "Sort by must be one of: relevance, recent, trending"
+    )
+    @Builder.Default
+    @Schema(
+            title = "Sort By",
+            description = "Sort order for results",
+            example = "relevance",
+            allowableValues = {"relevance", "recent", "trending"}
+    )
+    private String sortBy = "relevance";
+}
+```
+
+## `src/main/java/com/final_project/blog_service/dto/request/UpdateArticleRequest.java`
+
+```java
+package com.final_project.blog_service.dto.request;
+import com.final_project.blog_service.model.ArticleVisiblity;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
+import lombok.*;
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Schema(
+        title = "Update Article Request",
+        description = "Request body for updating an existing blog article"
+)
+public class UpdateArticleRequest {
+
+    @Size(max = 180)
+    private String title;
+
+    @Size(max = 500)
+    private String description;
+
+    @Valid
+    private List<ArticleBlockRequest> blocks;
+
+    private List<String> tags;
+
+    private ArticleVisiblity visibility;
+
+    private String coverImageFileId;
+
+    private String coverImageUrl;
+}
+
+
+/**
+ * ============= RESPONSE DTOs =============
+ */
+
+
+
+
+
+
+
+
+
+/**
+ * ============= COMMENT DTOs =============
+ */
+
+
+
+
+
+
+/**
+ * ============= ENGAGEMENT DTOs =============
+ */
+
+
+
+
+/**
+ * ============= PAGINATION RESPONSE =============
+ */
+
+
+/**
+ * ============= SEARCH DTOs =============
+ */
+
+
+/**
+ * ============= ERROR RESPONSE =============
+ */
+
+
+
+/**
+ * ============= SUCCESS RESPONSE =============
+ */
+```
+
+## `src/main/java/com/final_project/blog_service/dto/response/ArticleBlockResponse.java`
+
+```java
+package com.final_project.blog_service.dto.response;
+
+import com.final_project.blog_service.dto.ArticleBlockType;
+
+import java.util.Map;
+
+public class ArticleBlockResponse {
+    private ArticleBlockType type;
+    private Integer order;
+    private Map<String, Object> data;
+}
+```
+
+## `src/main/java/com/final_project/blog_service/dto/response/ArticlePreviewResponse.java`
+
+```java
+package com.final_project.blog_service.dto.response;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Schema(
+        title = "Article Preview Response",
+        description = "Summary view of an article for lists and feeds"
+)
+public class ArticlePreviewResponse {
+
+    @Schema(
+            title = "Article ID",
+            example = "6507a1b2c3d4e5f6g7h8i9j0"
+    )
+    private String id;
+    @Schema(
+            title = "Article Slug",
+            example = "my-first-blog-post"
+    )
+    private String slug;
+    @Schema(
+            title = "Article Title",
+            example = "My First Blog Post"
+    )
+    private String title;
+    @Schema(
+            title = "Article Subtitle",
+            example = "An exciting journey"
+    )
+    private String subtitle;
+    @Schema(
+            title = "Cover Image URL",
+            example = "https://cdn.example.com/cover.jpg"
+    )
+    private String coverImageUrl;
+    @Schema(
+            title = "Article Description",
+            description = "Short description or excerpt"
+    )
+    private String description;
+    @Schema(
+            title = "Article Statistics",
+            description = "Engagement metrics"
+    )
+    private StatsResponse stats;
+    @Schema(
+            title = "Article Author",
+            description = "Author information"
+    )
+    private AuthorResponse author;
+    @Schema(
+            title = "Published Date",
+            example = "2024-01-15T10:30:00",
+            type = "string",
+            format = "date-time"
+    )
+    private LocalDateTime publishedAt;
+    @Schema(
+            title = "Estimated Read Time",
+            description = "Minutes to read",
+            example = "5"
+    )
+    private Integer estimatedReadTime;
+    @Schema(
+            title = "Tags",
+            example = "[\"javascript\", \"web-dev\"]"
+    )
+    private List<String> tags;
+}
+```
+
+## `src/main/java/com/final_project/blog_service/dto/response/ArticleResponse.java`
+
+```java
+package com.final_project.blog_service.dto.response;
+
+import com.final_project.blog_service.model.ArticleStatus;
+import com.final_project.blog_service.model.ArticleVisiblity;
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Schema(
+        title = "Article Response",
+        description = "Complete article details with content, metadata, and engagement stats"
+)
+public class ArticleResponse {
+
+    @Schema(
+            title = "Article ID",
+            description = "Unique identifier for the article (MongoDB ObjectId)",
+            example = "6507a1b2c3d4e5f6g7h8i9j0"
+    )
+    private String id;
+
+    @Schema(
+            title = "Article Slug",
+            description = "URL-friendly identifier for the article",
+            example = "my-first-blog-post",
+            pattern = "^[a-z0-9]+(-[a-z0-9]+)*$"
+    )
+    private String slug;
+
+    @Schema(
+            title = "Article Title",
+            example = "My First Blog Post"
+    )
+    private String title;
+
+    @Schema(
+            title = "Article Subtitle",
+            example = "An exciting journey into blogging"
+    )
+    private String subtitle;
+
+    @Schema(
+            title = "Article Content",
+            description = "Structured content blocks"
+    )
+    private ContentResponse content;
+
+    @Schema(
+            title = "Article Metadata",
+            description = "Tags, category, SEO information"
+    )
+    private MetadataResponse metadata;
+
+    @Schema(
+            title = "Article Status",
+            description = "Current status of the article",
+            example = "PUBLISHED",
+            allowableValues = {"DRAFT", "PUBLISHED", "ARCHIVED"}
+    )
+    private ArticleStatus status;
+
+    @Schema(
+            title = "Article Visibility",
+            description = "Who can access this article",
+            example = "PUBLIC",
+            allowableValues = {"PUBLIC", "PRIVATE", "UNLISTED"}
+    )
+    private ArticleVisiblity visibility;
+
+    @Schema(
+            title = "Article Statistics",
+            description = "Engagement and view statistics"
+    )
+    private StatsResponse stats;
+
+    @Schema(
+            title = "Article Author",
+            description = "Author profile information"
+    )
+    private AuthorResponse author;
+
+    @Schema(
+            title = "Published Date",
+            description = "When the article was published",
+            example = "2024-01-15T10:30:00",
+            type = "string",
+            format = "date-time"
+    )
+    private LocalDateTime publishedAt;
+
+    @Schema(
+            title = "Updated Date",
+            description = "When the article was last updated",
+            example = "2024-01-15T15:45:00",
+            type = "string",
+            format = "date-time"
+    )
+    private LocalDateTime updatedAt;
+
+    @Schema(
+            title = "Created Date",
+            description = "When the article was created",
+            example = "2024-01-15T10:00:00",
+            type = "string",
+            format = "date-time"
+    )
+    private LocalDateTime createdAt;
+
+    @Schema(
+            title = "Estimated Read Time",
+            description = "Estimated time to read the article in minutes",
+            example = "5",
+            minimum = "1"
+    )
+    private Integer estimatedReadTime;
+}
+```
+
+## `src/main/java/com/final_project/blog_service/dto/response/AuthorResponse.java`
+
+```java
+package com.final_project.blog_service.dto.response;
 
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Schema(
+        title = "Author Response",
+        description = "Author profile information"
+)
+public class AuthorResponse {
+
+    @Schema(
+            title = "Author ID",
+            example = "user_123"
+    )
+    private String id;
+
+    @Schema(
+            title = "Author Display Name",
+            example = "John Doe"
+    )
+    private String displayName;
+
+    @Schema(
+            title = "Author Profile Image",
+            example = "https://cdn.example.com/profiles/john.jpg"
+    )
+    private String profileImageUrl;
+
+    @Schema(
+            title = "Total Articles",
+            description = "Number of articles written by this author",
+            example = "15"
+    )
+    private Long totalArticles;
+}
+```
+
+## `src/main/java/com/final_project/blog_service/dto/response/CommentEngagementResponse.java`
+
+```java
+package com.final_project.blog_service.dto.response;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Schema(
+        title = "Comment Engagement Response",
+        description = "Engagement metrics for a comment"
+)
+public class CommentEngagementResponse {
+
+    @Schema(
+            title = "Likes",
+            description = "Number of likes on this comment",
+            example = "5"
+    )
+    private Long likes;
+
+    @Schema(
+            title = "Reply Count",
+            description = "Number of replies to this comment",
+            example = "2"
+    )
+    private Long replyCount;
+}
+```
+
+## `src/main/java/com/final_project/blog_service/dto/response/CommentResponse.java`
+
+```java
+package com.final_project.blog_service.dto.response;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import java.time.LocalDateTime;
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Schema(
+        title = "Comment Response",
+        description = "Complete comment details"
+)
+public class CommentResponse {
+
+    @Schema(
+            title = "Comment ID",
+            example = "comment_123"
+    )
+    private String id;
+
+    @Schema(
+            title = "Article ID",
+            description = "The article this comment belongs to",
+            example = "article_123"
+    )
+    private String articleId;
+
+    @Schema(
+            title = "Parent Comment ID",
+            description = "If this is a reply, the ID of the parent comment",
+            example = "comment_122",
+            nullable = true
+    )
+    private String parentCommentId;
+
+    @Schema(
+            title = "Comment Body",
+            example = "Great article!"
+    )
+    private String body;
+
+    @Schema(
+            title = "Comment Author",
+            description = "Author profile information"
+    )
+    private AuthorResponse author;
+
+    @Schema(
+            title = "Comment Engagement",
+            description = "Likes and reply count"
+    )
+    private CommentEngagementResponse engagement;
+
+    @Schema(
+            title = "Created At",
+            example = "2024-01-15T10:35:00",
+            type = "string",
+            format = "date-time"
+    )
+    private LocalDateTime createdAt;
+
+    @Schema(
+            title = "Edited At",
+            description = "When the comment was last edited",
+            example = "2024-01-15T11:00:00",
+            type = "string",
+            format = "date-time",
+            nullable = true
+    )
+    private LocalDateTime editedAt;
+
+    @Schema(
+            title = "Reply Count",
+            description = "Number of direct replies to this comment",
+            example = "3"
+    )
+    private Integer replyCount;
+}
+```
+
+## `src/main/java/com/final_project/blog_service/dto/response/CommentThreadResponse.java`
+
+```java
+package com.final_project.blog_service.dto.response;
+
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Schema(
+        title = "Comment Thread Response",
+        description = "A comment with its nested replies (threaded structure)"
+)
+public class CommentThreadResponse {
+
+    @Schema(
+            title = "Comment",
+            description = "The main comment"
+    )
+    private CommentResponse comment;
+
+    @ArraySchema(
+            schema = @Schema(implementation = CommentThreadResponse.class),
+            arraySchema = @Schema(
+                    title = "Replies",
+                    description = "Nested replies to this comment"
+            )
+    )
+    private List<CommentThreadResponse> replies;
+}
+```
+
+## `src/main/java/com/final_project/blog_service/dto/response/ContentBlockResponse.java`
+
+```java
+package com.final_project.blog_service.dto.response;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.final_project.blog_service.dto.ArticleBlockType;
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Schema(
+        title = "Content Block Response",
+        description = "A single content block in response"
+)
+public class ContentBlockResponse {
+
+    @Schema(
+            title = "Block Type",
+            example = "text"
+    )
+    private ArticleBlockType type;
+
+    @Schema(
+            title = "Block Data",
+            example = "{\"text\": \"Content here\"}"
+    )
+    private JsonNode data;
+}
+```
+
+## `src/main/java/com/final_project/blog_service/dto/response/ContentResponse.java`
+
+```java
+package com.final_project.blog_service.dto.response;
+
+import io.swagger.v3.oas.annotations.media.ArraySchema;
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Schema(
+        title = "Content Response",
+        description = "Article content with blocks and metadata"
+)
+public class ContentResponse {
+
+    @ArraySchema(
+            schema = @Schema(implementation = ContentBlockResponse.class),
+            minItems = 1
+    )
+    private List<ContentBlockResponse> blocks;
+
+    @Schema(
+            title = "Estimated Read Time",
+            description = "Time to read in minutes",
+            example = "5"
+    )
+    private Integer estimatedReadTime;
+}
+```
+
+## `src/main/java/com/final_project/blog_service/dto/response/ErrorResponse.java`
+
+```java
+package com.final_project.blog_service.dto.response;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Schema(
+        title = "Error Response",
+        description = "Standard error response format"
+)
+public class ErrorResponse {
+
+    @Schema(
+            title = "Error Code",
+            description = "Error type/code",
+            example = "RESOURCE_NOT_FOUND"
+    )
+    private String error;
+
+    @Schema(
+            title = "Error Message",
+            description = "Human-readable error message",
+            example = "Article not found with ID: article_123"
+    )
+    private String message;
+
+    @Schema(
+            title = "Timestamp",
+            description = "When the error occurred",
+            example = "2024-01-15T10:50:00",
+            type = "string",
+            format = "date-time"
+    )
+    private LocalDateTime timestamp;
+
+    @Schema(
+            title = "Request Path",
+            description = "The API path that caused the error",
+            example = "/api/v1/articles/article_123"
+    )
+    private String path;
+
+    @Schema(
+            title = "HTTP Status Code",
+            description = "HTTP status code",
+            example = "404"
+    )
+    private Integer status;
+
+    @Schema(
+            title = "Details",
+            description = "Additional error details (for validation errors)",
+            example = "{\"title\": \"Title is required\"}",
+            nullable = true
+    )
+    private Object details;
+}
+```
+
+## `src/main/java/com/final_project/blog_service/dto/response/FileCdnUrlResponse.java`
+
+```java
+package com.final_project.blog_service.dto.response;
+
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 
+import java.time.LocalDateTime;
+
 /**
- * Image Block - Images with metadata
+ * File CDN URL Response
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 @SuperBuilder
 @Schema(
-        title = "Image Block",
-        description = "Image content with metadata",
-        example = "{\"type\": \"image\", \"data\": {\"fileId\": \"image_123\", \"fileUrl\": \"https://cdn.../image.jpg\", \"alt\": \"Description\"}}"
+        title = "File CDN URL Response",
+        description = "CDN URL and metadata for a file"
 )
-public class ImageBlockDTO extends ContentBlockDTO {
+public class FileCdnUrlResponse {
 
-    @NotBlank(message = "File ID is required")
-    @Schema(
-            title = "File ID",
-            description = "ID returned from file upload endpoint",
-            example = "image_12345"
-    )
+    @Schema(title = "File ID")
     private String fileId;
 
-    @NotBlank(message = "File URL is required")
     @Schema(
-            title = "File URL",
-            description = "CDN URL from file upload response",
-            example = "https://cdn.example.com/files/image_12345.jpg"
+            title = "CDN URL",
+            description = "Public CDN URL to access the file"
     )
-    private String fileUrl;
-
-    @Size(max = 500, message = "Alt text must not exceed 500 characters")
-    @Schema(
-            title = "Alt Text",
-            description = "Alternative text for accessibility",
-            example = "Article cover image"
-    )
-    private String alt;
-
-    @Size(max = 1000, message = "Caption must not exceed 1000 characters")
-    @Schema(
-            title = "Caption",
-            description = "Image caption",
-            example = "Figure 1: Example image"
-    )
-    private String caption;
+    private String cdnUrl;
 
     @Schema(
             title = "Thumbnail URL",
-            description = "URL to thumbnail version",
-            example = "https://cdn.example.com/files/image_12345_thumb.jpg"
+            description = "Thumbnail URL (if available)"
     )
     private String thumbnailUrl;
 
-    @Min(value = 1, message = "Width must be positive")
     @Schema(
-            title = "Width",
-            description = "Image width in pixels",
-            example = "1920",
-            minimum = "1"
+            title = "URL Expiration",
+            description = "When the URL expires (if applicable)",
+            example = "2024-01-15T10:30:00"
     )
-    private Integer width;
-
-    @Min(value = 1, message = "Height must be positive")
-    @Schema(
-            title = "Height",
-            description = "Image height in pixels",
-            example = "1080",
-            minimum = "1"
-    )
-    private Integer height;
-
-    public ImageBlockDTO(String type, String fileId, String fileUrl, String alt) {
-        this.type = type;
-        this.fileId = fileId;
-        this.fileUrl = fileUrl;
-        this.alt = alt;
-    }
+    private LocalDateTime expiresAt;
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/ImageUploadResponse.java
+## `src/main/java/com/final_project/blog_service/dto/response/FileMetadataResponse.java`
 
-`$lang
-package com.final_project.blog_service.dto;
+```java
+package com.final_project.blog_service.dto.response;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
+
+import java.time.LocalDateTime;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@SuperBuilder
+@Schema(
+        title = "File Metadata Response",
+        description = "Metadata information about a file"
+)
+public class FileMetadataResponse {
+
+    @Schema(title = "File ID")
+    private String fileId;
+
+    @Schema(title = "Original Filename")
+    private String originalFilename;
+
+    @Schema(title = "File Size")
+    private Long fileSize;
+
+    @Schema(title = "MIME Type")
+    private String mimeType;
+
+    @Schema(title = "CDN URL")
+    private String cdnUrl;
+
+    @Schema(title = "Thumbnail URL")
+    private String thumbnailUrl;
+
+    @Schema(title = "Upload Timestamp")
+    private LocalDateTime uploadedAt;
+
+    @Schema(title = "Image Width")
+    private Integer imageWidth;
+
+    @Schema(title = "Image Height")
+    private Integer imageHeight;
+
+    @Schema(title = "Video Duration")
+    private Integer videoDurationSeconds;
+}
+```
+
+## `src/main/java/com/final_project/blog_service/dto/response/FileUploadResponse.java`
+
+```java
+package com.final_project.blog_service.dto.response;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
+
+import java.time.LocalDateTime;
+
+/**
+ * File Upload Response DTO
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@SuperBuilder
+@Schema(
+        title = "File Upload Response",
+        description = "Response after successfully uploading a file"
+)
+public class FileUploadResponse {
+
+    @Schema(
+            title = "File ID",
+            description = "Unique identifier for the uploaded file",
+            example = "file_12345"
+    )
+    private String fileId;
+
+    @Schema(
+            title = "Original Filename",
+            example = "article-cover.jpg"
+    )
+    private String originalFilename;
+
+    @Schema(
+            title = "File Size",
+            description = "Size in bytes",
+            example = "2048576"
+    )
+    private Long fileSize;
+
+    @Schema(
+            title = "MIME Type",
+            example = "image/jpeg"
+    )
+    private String mimeType;
+
+    @Schema(
+            title = "CDN URL",
+            description = "Public CDN URL to access the file",
+            example = "https://cdn.example.com/files/file_12345.jpg"
+    )
+    private String cdnUrl;
+
+    @Schema(
+            title = "File Type",
+            description = "Type of file: image, video, document",
+            example = "image",
+            allowableValues = {"image", "video", "document"}
+    )
+    private String fileType;
+
+    @Schema(
+            title = "Upload Timestamp",
+            example = "2024-01-15T10:30:00"
+    )
+    private LocalDateTime uploadedAt;
+
+    // For images
+    @Schema(
+            title = "Image Width",
+            description = "Only for image files",
+            example = "1920"
+    )
+    private Integer imageWidth;
+
+    @Schema(
+            title = "Image Height",
+            description = "Only for image files",
+            example = "1080"
+    )
+    private Integer imageHeight;
+
+    @Schema(
+            title = "Thumbnail URL",
+            description = "URL to thumbnail image (if available)",
+            example = "https://cdn.example.com/files/file_12345_thumb.jpg"
+    )
+    private String thumbnailUrl;
+
+    // For videos
+    @Schema(
+            title = "Video Duration",
+            description = "Duration in seconds (only for video files)",
+            example = "120"
+    )
+    private Integer videoDurationSeconds;
+
+    @Schema(
+            title = "Processing Status",
+            description = "Video processing status",
+            example = "COMPLETED",
+            allowableValues = {"PENDING", "PROCESSING", "COMPLETED", "FAILED"}
+    )
+    private String processingStatus;
+}
+```
+
+## `src/main/java/com/final_project/blog_service/dto/response/ImageUploadResponse.java`
+
+```java
+package com.final_project.blog_service.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -4308,10 +4149,10 @@ public class ImageUploadResponse {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/LikeResponse.java
+## `src/main/java/com/final_project/blog_service/dto/response/LikeResponse.java`
 
-`$lang
-package com.final_project.blog_service.dto;
+```java
+package com.final_project.blog_service.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -4361,10 +4202,10 @@ public class LikeResponse {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/MetadataResponse.java
+## `src/main/java/com/final_project/blog_service/dto/response/MetadataResponse.java`
 
-`$lang
-package com.final_project.blog_service.dto;
+```java
+package com.final_project.blog_service.dto.response;
 
 
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -4424,10 +4265,10 @@ public class MetadataResponse {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/PaginatedResponse.java
+## `src/main/java/com/final_project/blog_service/dto/response/PaginatedResponse.java`
 
-`$lang
-package com.final_project.blog_service.dto;
+```java
+package com.final_project.blog_service.dto.response;
 
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -4534,186 +4375,10 @@ public class PaginatedResponse<T> {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/PublishArticleRequest.java
+## `src/main/java/com/final_project/blog_service/dto/response/ShareRequest.java`
 
-`$lang
-package com.final_project.blog_service.dto;
-
-import com.final_project.blog_service.model.ArticleVisiblity;
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Schema(
-        title = "Publish Article Request",
-        description = "Request to publish an article"
-)
-public class PublishArticleRequest {
-
-    @NotBlank(message = "Visibility is required")
-    @Pattern(
-            regexp = "^(PUBLIC|PRIVATE|UNLISTED)$",
-            message = "Visibility must be one of: PUBLIC, PRIVATE, UNLISTED"
-    )
-    @Schema(
-            title = "Visibility",
-            description = "Who can see this article",
-            example = "PUBLIC",
-            allowableValues = {"PUBLIC", "PRIVATE", "UNLISTED"}
-    )
-    private ArticleVisiblity visibility;
-}
-```
-
-### src/main/java/com/final_project/blog_service/dto/QuoteBlockDTO.java
-
-`$lang
-package com.final_project.blog_service.dto;
-
-
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import lombok.*;
-import lombok.experimental.SuperBuilder;
-
-/**
- * Quote Block - Quoted text with attribution
- */
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
-@SuperBuilder
-@Schema(
-        title = "Quote Block",
-        description = "Quoted text with optional attribution",
-        example = "{\"type\": \"quote\", \"data\": {\"text\": \"Life is 10% what happens and 90% how you react\", \"attribution\": \"Charles Swindoll\"}}"
-)
-public class QuoteBlockDTO extends ContentBlockDTO {
-
-    @NotBlank(message = "Quote text is required")
-    @Size(max = 2000, message = "Quote must not exceed 2000 characters")
-    @Schema(
-            title = "Quote Text",
-            example = "Life is 10% what happens to you and 90% how you react to it"
-    )
-    private String text;
-
-    @Size(max = 500, message = "Attribution must not exceed 500 characters")
-    @Schema(
-            title = "Attribution",
-            description = "Quote author or source",
-            example = "Charles R. Swindoll"
-    )
-    private String attribution;
-
-    public QuoteBlockDTO(String type, String text, String attribution) {
-        this.type = type;
-        this.text = text;
-        this.attribution = attribution;
-    }
-}
-```
-
-### src/main/java/com/final_project/blog_service/dto/SearchArticleRequest.java
-
-`$lang
-package com.final_project.blog_service.dto;
-
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.util.List;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Schema(
-        title = "Search Article Request",
-        description = "Request for full-text search on articles"
-)
-public class SearchArticleRequest {
-
-    @NotBlank(message = "Search query is required")
-    @Schema(
-            title = "Query",
-            description = "The search query string",
-            example = "spring boot mongodb",
-            minLength = 1
-    )
-    private String query;
-
-    @Schema(
-            title = "Tags",
-            description = "Filter by specific tags",
-            example = "[\"java\", \"spring\"]"
-    )
-    private List<String> tags;
-
-    @Schema(
-            title = "Category",
-            description = "Filter by category",
-            example = "Technology"
-    )
-    private String category;
-
-    @Min(value = 0, message = "Page must be >= 0")
-    @Schema(
-            title = "Page",
-            description = "Page number (zero-indexed)",
-            example = "0",
-            minimum = "0"
-    )
-    private Integer page;
-
-    @Min(value = 1, message = "Page size must be >= 1")
-    @Max(value = 100, message = "Page size must be <= 100")
-    @Builder.Default
-    @Schema(
-            title = "Page Size",
-            description = "Number of results per page",
-            example = "20",
-            minimum = "1",
-            maximum = "100"
-    )
-    private Integer pageSize = 20;
-
-    @Pattern(
-            regexp = "^(relevance|recent|trending)$",
-            message = "Sort by must be one of: relevance, recent, trending"
-    )
-    @Builder.Default
-    @Schema(
-            title = "Sort By",
-            description = "Sort order for results",
-            example = "relevance",
-            allowableValues = {"relevance", "recent", "trending"}
-    )
-    private String sortBy = "relevance";
-}
-```
-
-### src/main/java/com/final_project/blog_service/dto/ShareRequest.java
-
-`$lang
-package com.final_project.blog_service.dto;
+```java
+package com.final_project.blog_service.dto.response;
 
 import com.final_project.blog_service.model.SharedPlatform;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -4759,10 +4424,10 @@ public class ShareRequest {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/ShareResponse.java
+## `src/main/java/com/final_project/blog_service/dto/response/ShareResponse.java`
 
-`$lang
-package com.final_project.blog_service.dto;
+```java
+package com.final_project.blog_service.dto.response;
 
 
 import com.final_project.blog_service.model.SharedPlatform;
@@ -4820,10 +4485,10 @@ public class ShareResponse {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/StatsResponse.java
+## `src/main/java/com/final_project/blog_service/dto/response/StatsResponse.java`
 
-`$lang
-package com.final_project.blog_service.dto;
+```java
+package com.final_project.blog_service.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -4894,10 +4559,10 @@ public class StatsResponse {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/SuccessResponse.java
+## `src/main/java/com/final_project/blog_service/dto/response/SuccessResponse.java`
 
-`$lang
-package com.final_project.blog_service.dto;
+```java
+package com.final_project.blog_service.dto.response;
 
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -4948,196 +4613,10 @@ public class SuccessResponse<T> {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/TextBlockDTO.java
+## `src/main/java/com/final_project/blog_service/dto/response/UserAuthorResponse.java`
 
-`$lang
-package com.final_project.blog_service.dto;
-
-
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import lombok.*;
-import lombok.experimental.SuperBuilder;
-
-
-/**
- * Text Block - Simple text content
- */
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
-@SuperBuilder
-@Schema(
-        title = "Text Block",
-        description = "Rich text content block",
-        example = "{\"type\": \"text\", \"data\": {\"text\": \"Paragraph text here\"}}"
-)
-public class TextBlockDTO extends ContentBlockDTO {
-
-    @NotBlank(message = "Text content is required")
-    @Size(max = 10000, message = "Text must not exceed 10000 characters")
-    @Schema(
-            title = "Text Content",
-            description = "The text content",
-            example = "This is a paragraph of article content"
-    )
-    private String text;
-
-    public TextBlockDTO(String type, String text) {
-        this.type = type;
-        this.text = text;
-    }
-}
-
-
-
-
-
-```
-
-### src/main/java/com/final_project/blog_service/dto/UpdateArticleRequest.java
-
-`$lang
-package com.final_project.blog_service.dto;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.media.ArraySchema;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.Size;
-import lombok.*;
-import java.util.List;
-
-/**
- * ============= CREATE/UPDATE REQUESTS =============
- */
-
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Schema(
-        title = "Update Article Request",
-        description = "Request body for updating an existing blog article"
-)
-public class UpdateArticleRequest {
-
-    @NotBlank(message = "Title is required")
-    @Size(min = 3, max = 200, message = "Title must be between 3 and 200 characters")
-    @Schema(
-            title = "Article Title",
-            example = "Updated Title",
-            minLength = 3,
-            maxLength = 200
-    )
-    private String title;
-
-    @Size(max = 500, message = "Subtitle must not exceed 500 characters")
-    @Schema(
-            title = "Article Subtitle",
-            example = "Updated subtitle",
-            maxLength = 500
-    )
-    private String subtitle;
-
-    @NotEmpty(message = "Article must have at least one content block")
-    @Valid
-    @ArraySchema(
-            schema = @Schema(implementation = ContentBlockRequest.class),
-            minItems = 1
-    )
-    private List<ContentBlockRequest> blocks;
-
-    @Size(max = 100, message = "Category must not exceed 100 characters")
-    @Schema(
-            title = "Article Category",
-            example = "Technology",
-            maxLength = 100
-    )
-    private String category;
-
-    @Schema(
-            title = "Article Tags",
-            example = "[\"javascript\", \"web-dev\"]"
-    )
-    private List<String> tags;
-
-    @Size(max = 500, message = "Description must not exceed 500 characters")
-    @Schema(
-            title = "Article Description",
-            example = "Updated description",
-            maxLength = 500
-    )
-    private String description;
-
-    @Schema(
-            title = "Cover Image URL",
-            description = "URL of the cover image from File Service",
-            example = "https://cdn.example.com/images/article-cover.jpg",
-            format = "url"
-    )
-    private String coverImageUrl;
-}
-
-
-/**
- * ============= RESPONSE DTOs =============
- */
-
-
-
-
-
-
-
-
-
-/**
- * ============= COMMENT DTOs =============
- */
-
-
-
-
-
-
-/**
- * ============= ENGAGEMENT DTOs =============
- */
-
-
-
-
-/**
- * ============= PAGINATION RESPONSE =============
- */
-
-
-/**
- * ============= SEARCH DTOs =============
- */
-
-
-/**
- * ============= ERROR RESPONSE =============
- */
-
-
-
-/**
- * ============= SUCCESS RESPONSE =============
- */
-```
-
-### src/main/java/com/final_project/blog_service/dto/UserAuthorResponse.java
-
-`$lang
-package com.final_project.blog_service.dto;
+```java
+package com.final_project.blog_service.dto.response;
 
 import lombok.Builder;
 import lombok.Data;
@@ -5154,10 +4633,10 @@ public class UserAuthorResponse  {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/UserExistsResponse.java
+## `src/main/java/com/final_project/blog_service/dto/response/UserExistsResponse.java`
 
-`$lang
-package com.final_project.blog_service.dto;
+```java
+package com.final_project.blog_service.dto.response;
 
 import lombok.*;
 
@@ -5171,10 +4650,10 @@ public class UserExistsResponse {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/UserPreferencesResponse.java
+## `src/main/java/com/final_project/blog_service/dto/response/UserPreferencesResponse.java`
 
-`$lang
-package com.final_project.blog_service.dto;
+```java
+package com.final_project.blog_service.dto.response;
 
 
 import lombok.AllArgsConstructor;
@@ -5194,10 +4673,10 @@ public class UserPreferencesResponse {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/UserProfileResponse.java
+## `src/main/java/com/final_project/blog_service/dto/response/UserProfileResponse.java`
 
-`$lang
-package com.final_project.blog_service.dto;
+```java
+package com.final_project.blog_service.dto.response;
 
 import lombok.*;
 
@@ -5219,97 +4698,10 @@ public  class UserProfileResponse {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/dto/VideoBlockDTO.java
+## `src/main/java/com/final_project/blog_service/dto/response/VideoUploadResponse.java`
 
-`$lang
-package com.final_project.blog_service.dto;
-
-
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import lombok.*;
-import lombok.experimental.SuperBuilder;
-
-/**
- * Video Block - Videos with metadata
- */
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@EqualsAndHashCode(callSuper = true)
-@SuperBuilder
-@Schema(
-        title = "Video Block",
-        description = "Video content with metadata",
-        example = "{\"type\": \"video\", \"data\": {\"fileId\": \"video_123\", \"fileUrl\": \"https://cdn.../video.mp4\", \"duration\": 120}}"
-)
-public class VideoBlockDTO extends ContentBlockDTO {
-
-    @NotBlank(message = "File ID is required")
-    @Schema(
-            title = "File ID",
-            description = "ID returned from file upload endpoint",
-            example = "video_12345"
-    )
-    private String fileId;
-
-    @NotBlank(message = "File URL is required")
-    @Schema(
-            title = "File URL",
-            description = "CDN URL from file upload response",
-            example = "https://cdn.example.com/files/video_12345.mp4"
-    )
-    private String fileUrl;
-
-    @Schema(
-            title = "Thumbnail URL",
-            description = "URL to video thumbnail",
-            example = "https://cdn.example.com/files/video_12345_thumb.jpg"
-    )
-    private String thumbnailUrl;
-
-    @Min(value = 1, message = "Duration must be positive")
-    @Schema(
-            title = "Duration",
-            description = "Video duration in seconds",
-            example = "120",
-            minimum = "1"
-    )
-    private Integer duration;
-
-    @Size(max = 500, message = "Title must not exceed 500 characters")
-    @Schema(
-            title = "Title",
-            description = "Video title",
-            example = "Tutorial video"
-    )
-    private String title;
-
-    @Size(max = 1000, message = "Description must not exceed 1000 characters")
-    @Schema(
-            title = "Description",
-            description = "Video description",
-            example = "A tutorial on how to do something"
-    )
-    private String description;
-
-    public VideoBlockDTO(String type, String fileId, String fileUrl, Integer duration) {
-        super();
-        this.type = type;
-        this.fileId = fileId;
-        this.fileUrl = fileUrl;
-        this.duration = duration;
-    }
-}
-
-```
-
-### src/main/java/com/final_project/blog_service/dto/VideoUploadResponse.java
-
-`$lang
-package com.final_project.blog_service.dto;
+```java
+package com.final_project.blog_service.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
@@ -5397,9 +4789,221 @@ public class VideoUploadResponse {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/exception/FileNotFound.java
+## `src/main/java/com/final_project/blog_service/dto/TextBlockDTO.java`
 
-`$lang
+```java
+package com.final_project.blog_service.dto;
+
+
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import lombok.*;
+import lombok.experimental.SuperBuilder;
+
+
+/**
+ * Text Block - Simple text content
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(callSuper = true)
+@SuperBuilder
+@Schema(
+        title = "Text Block",
+        description = "Rich text content block",
+        example = "{\"type\": \"text\", \"data\": {\"text\": \"Paragraph text here\"}}"
+)
+public class TextBlockDTO extends ContentBlockDTO {
+
+    @NotBlank(message = "Text content is required")
+    @Size(max = 10000, message = "Text must not exceed 10000 characters")
+    @Schema(
+            title = "Text Content",
+            description = "The text content",
+            example = "This is a paragraph of article content"
+    )
+    private String text;
+
+    public TextBlockDTO(String type, String text) {
+        this.type = type;
+        this.text = text;
+    }
+}
+
+
+
+
+
+```
+
+## `src/main/java/com/final_project/blog_service/dto/UserDTO.java`
+
+```java
+package com.final_project.blog_service.dto;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.Set;
+
+/**
+ * Data Transfer Objects for User API endpoints.
+ */
+
+/**
+ * UserDTO - Response DTO for user information.
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Schema(description = "User information response")
+public class UserDTO {
+
+    @JsonProperty("id")
+    @Schema(description = "User unique identifier", example = "550e8400-e29b-41d4-a716-446655440000")
+    private String id;
+
+    @JsonProperty("user_name")
+    @Schema(description = "User username", example = "john.doe")
+    private String username;
+
+    @JsonProperty("email")
+    @Schema(description = "User email address", example = "john.doe@example.com")
+    private String email;
+
+    @JsonProperty("first_name")
+    @Schema(description = "User first name", example = "John")
+    private String firstName;
+
+    @JsonProperty("last_name")
+    @Schema(description = "User last name", example = "Doe")
+    private String lastName;
+
+    @JsonProperty("phone_number")
+    @Schema(description = "User phone number", example = "+1234567890")
+    private String phoneNumber;
+
+    @JsonProperty("status")
+    @Schema(description = "User account status", example = "ACTIVE")
+    private String status;
+
+    @JsonProperty("email_verified")
+    @Schema(description = "Whether email is verified", example = "true")
+    private Boolean emailVerified;
+
+    @JsonProperty("two_factor_enabled")
+    @Schema(description = "Whether two-factor authentication is enabled", example = "false")
+    private Boolean twoFactorEnabled;
+
+    @JsonProperty("roles")
+    @Schema(description = "Realm roles")
+    private Set<String> roles;
+
+
+}
+
+```
+
+## `src/main/java/com/final_project/blog_service/dto/VideoBlockDTO.java`
+
+```java
+package com.final_project.blog_service.dto;
+
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import lombok.*;
+import lombok.experimental.SuperBuilder;
+
+/**
+ * Video Block - Videos with metadata
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(callSuper = true)
+@SuperBuilder
+@Schema(
+        title = "Video Block",
+        description = "Video content with metadata",
+        example = "{\"type\": \"video\", \"data\": {\"fileId\": \"video_123\", \"fileUrl\": \"https://cdn.../video.mp4\", \"duration\": 120}}"
+)
+public class VideoBlockDTO extends ContentBlockDTO {
+
+    @NotBlank(message = "File ID is required")
+    @Schema(
+            title = "File ID",
+            description = "ID returned from file upload endpoint",
+            example = "video_12345"
+    )
+    private String fileId;
+
+    @NotBlank(message = "File URL is required")
+    @Schema(
+            title = "File URL",
+            description = "CDN URL from file upload response",
+            example = "https://cdn.example.com/files/video_12345.mp4"
+    )
+    private String fileUrl;
+
+    @Schema(
+            title = "Thumbnail URL",
+            description = "URL to video thumbnail",
+            example = "https://cdn.example.com/files/video_12345_thumb.jpg"
+    )
+    private String thumbnailUrl;
+
+    @Min(value = 1, message = "Duration must be positive")
+    @Schema(
+            title = "Duration",
+            description = "Video duration in seconds",
+            example = "120",
+            minimum = "1"
+    )
+    private Integer duration;
+
+    @Size(max = 500, message = "Title must not exceed 500 characters")
+    @Schema(
+            title = "Title",
+            description = "Video title",
+            example = "Tutorial video"
+    )
+    private String title;
+
+    @Size(max = 1000, message = "Description must not exceed 1000 characters")
+    @Schema(
+            title = "Description",
+            description = "Video description",
+            example = "A tutorial on how to do something"
+    )
+    private String description;
+
+    public VideoBlockDTO(String type, String fileId, String fileUrl, Integer duration) {
+        super();
+        this.type = type;
+        this.fileId = fileId;
+        this.fileUrl = fileUrl;
+        this.duration = duration;
+    }
+}
+
+```
+
+## `src/main/java/com/final_project/blog_service/exception/FileNotFound.java`
+
+```java
 package com.final_project.blog_service.exception;
 
 public class FileNotFound extends RuntimeException {
@@ -5409,9 +5013,9 @@ public class FileNotFound extends RuntimeException {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/exception/FileServiceException.java
+## `src/main/java/com/final_project/blog_service/exception/FileServiceException.java`
 
-`$lang
+```java
 package com.final_project.blog_service.exception;
 
 public class FileServiceException extends RuntimeException {
@@ -5425,9 +5029,9 @@ public class FileServiceException extends RuntimeException {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/exception/FileUploadException.java
+## `src/main/java/com/final_project/blog_service/exception/FileUploadException.java`
 
-`$lang
+```java
 package com.final_project.blog_service.exception;
 
 public class FileUploadException extends RuntimeException {
@@ -5441,9 +5045,9 @@ public class FileUploadException extends RuntimeException {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/exception/GlobalExceptionHandler.java
+## `src/main/java/com/final_project/blog_service/exception/GlobalExceptionHandler.java`
 
-`$lang
+```java
 package com.final_project.blog_service.exception;
 
 
@@ -5563,9 +5167,9 @@ public class GlobalExceptionHandler {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/exception/ResourceNotFoundException.java
+## `src/main/java/com/final_project/blog_service/exception/ResourceNotFoundException.java`
 
-`$lang
+```java
 package com.final_project.blog_service.exception;
 
 
@@ -5581,9 +5185,9 @@ public class ResourceNotFoundException extends RuntimeException {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/exception/UnauthorizedException.java
+## `src/main/java/com/final_project/blog_service/exception/UnauthorizedException.java`
 
-`$lang
+```java
 package com.final_project.blog_service.exception;
 
 public class UnauthorizedException extends RuntimeException {
@@ -5598,9 +5202,9 @@ public class UnauthorizedException extends RuntimeException {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/exception/UserNotFoundException.java
+## `src/main/java/com/final_project/blog_service/exception/UserNotFoundException.java`
 
-`$lang
+```java
 package com.final_project.blog_service.exception;
 
 public class UserNotFoundException extends RuntimeException {
@@ -5614,9 +5218,9 @@ public class UserNotFoundException extends RuntimeException {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/exception/UserServiceException.java
+## `src/main/java/com/final_project/blog_service/exception/UserServiceException.java`
 
-`$lang
+```java
 package com.final_project.blog_service.exception;
 
 public class UserServiceException extends RuntimeException {
@@ -5630,9 +5234,9 @@ public class UserServiceException extends RuntimeException {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/exception/UserServiceUnavailableException.java
+## `src/main/java/com/final_project/blog_service/exception/UserServiceUnavailableException.java`
 
-`$lang
+```java
 package com.final_project.blog_service.exception;
 
 public class UserServiceUnavailableException extends RuntimeException {
@@ -5646,19 +5250,20 @@ public class UserServiceUnavailableException extends RuntimeException {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/model/Article.java
+## `src/main/java/com/final_project/blog_service/model/Article.java`
 
-`$lang
+```java
 package com.final_project.blog_service.model;
 
 
+import com.final_project.blog_service.dto.ContentBlock;
 import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
-import com.fasterxml.jackson.databind.JsonNode;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.ArrayList;
@@ -5714,36 +5319,13 @@ public class Article {
 
     private LocalDateTime archivedAt;
 
+    private String coverImageFileId;
+    private String coverImageUrl;
+
     /**
      * Flexible content block structure
      * Supports: text, heading, image, video, code, quote, embed, divider
      */
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class Content {
-
-        @Builder.Default
-        private List<ContentBlock> blocks = new ArrayList<>();
-
-        @Builder.Default
-        private Integer estimatedReadTime = 1;  // in minutes
-    }
-
-    /**
-     * Individual content block
-     * Data field is polymorphic - structure depends on block type
-     */
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class ContentBlock {
-        private String type;  // text, heading, image, video, code, quote, embed, divider
-        private JsonNode data;  // flexible JSON structure based on type
-    }
-
     /**
      * Block type definitions for reference:
      *
@@ -5793,73 +5375,12 @@ public class Article {
      * DIVIDER:
      * { type: "divider", data: {} }
      */
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class Metadata {
-
-        @Builder.Default
-        private List<String> tags = new ArrayList<>();
-
-        private String category;
-
-        private String description;  // SEO meta description
-
-        @Builder.Default
-        private List<String> keywords = new ArrayList<>();  // SEO keywords
-
-        private String coverImageUrl;  // from file service
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class Stats {
-
-        @Builder.Default
-        private Long views = 0L;  // page views
-
-        @Builder.Default
-        private Long reads = 0L;  // engaged reads (2+ minutes)
-
-        @Builder.Default
-        private Long likes = 0L;
-
-        @Builder.Default
-        private Long commentCount = 0L;
-
-        @Builder.Default
-        private Long shareCount = 0L;
-
-        private LocalDateTime lastEngagedAt;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class Seo {
-        private String publishedUrl;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class EditHistory {
-        private Integer version;
-        private LocalDateTime updatedAt;
-        private String editorId;
-        private String summary;
-    }
 }
 ```
 
-### src/main/java/com/final_project/blog_service/model/ArticleStatus.java
+## `src/main/java/com/final_project/blog_service/model/ArticleStatus.java`
 
-`$lang
+```java
 package com.final_project.blog_service.model;
 
 public enum ArticleStatus {
@@ -5875,9 +5396,9 @@ public enum ArticleStatus {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/model/ArticleVisiblity.java
+## `src/main/java/com/final_project/blog_service/model/ArticleVisiblity.java`
 
-`$lang
+```java
 package com.final_project.blog_service.model;
 
 public enum ArticleVisiblity {
@@ -5893,9 +5414,9 @@ public enum ArticleVisiblity {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/model/Comment.java
+## `src/main/java/com/final_project/blog_service/model/Comment.java`
 
-`$lang
+```java
 package com.final_project.blog_service.model;
 import lombok.*;
 import org.springframework.data.annotation.Id;
@@ -5977,9 +5498,9 @@ public class Comment {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/model/CommentStatus.java
+## `src/main/java/com/final_project/blog_service/model/CommentStatus.java`
 
-`$lang
+```java
 package com.final_project.blog_service.model;
 
 public enum CommentStatus {
@@ -5994,9 +5515,60 @@ public enum CommentStatus {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/model/Like.java
+## `src/main/java/com/final_project/blog_service/model/Content.java`
 
-`$lang
+```java
+package com.final_project.blog_service.model;
+
+import com.final_project.blog_service.dto.ContentBlock;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public  class Content {
+
+    @Builder.Default
+    private List<ContentBlock> blocks = new ArrayList<>();
+
+    @Builder.Default
+    private Integer estimatedReadTime = 1;  // in minutes
+}
+```
+
+## `src/main/java/com/final_project/blog_service/model/EditHistory.java`
+
+```java
+package com.final_project.blog_service.model;
+
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public  class EditHistory {
+    private Integer version;
+    private LocalDateTime updatedAt;
+    private String editorId;
+    private String summary;
+}
+```
+
+## `src/main/java/com/final_project/blog_service/model/Like.java`
+
+```java
 package com.final_project.blog_service.model;
 
 import lombok.AllArgsConstructor;
@@ -6040,9 +5612,42 @@ public class Like {
 
 ```
 
-### src/main/java/com/final_project/blog_service/model/ReadingHistory.java
+## `src/main/java/com/final_project/blog_service/model/Metadata.java`
 
-`$lang
+```java
+package com.final_project.blog_service.model;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public  class Metadata {
+
+    @Builder.Default
+    private List<String> tags = new ArrayList<>();
+
+    private String category;
+
+    private String description;  // SEO meta description
+
+    @Builder.Default
+    private List<String> keywords = new ArrayList<>();  // SEO keywords
+
+    private String coverImageUrl;  // from file service
+}
+```
+
+## `src/main/java/com/final_project/blog_service/model/ReadingHistory.java`
+
+```java
 package com.final_project.blog_service.model;
 
 import lombok.AllArgsConstructor;
@@ -6088,9 +5693,28 @@ public class ReadingHistory {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/model/Share.java
+## `src/main/java/com/final_project/blog_service/model/Seo.java`
 
-`$lang
+```java
+package com.final_project.blog_service.model;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public  class Seo {
+    private String publishedUrl;
+}
+```
+
+## `src/main/java/com/final_project/blog_service/model/Share.java`
+
+```java
 package com.final_project.blog_service.model;
 
 
@@ -6141,9 +5765,9 @@ public class Share {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/model/SharedPlatform.java
+## `src/main/java/com/final_project/blog_service/model/SharedPlatform.java`
 
-`$lang
+```java
 package com.final_project.blog_service.model;
 
 public enum SharedPlatform {
@@ -6159,9 +5783,46 @@ public enum SharedPlatform {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/repo/ArticleRepository.java
+## `src/main/java/com/final_project/blog_service/model/Stats.java`
 
-`$lang
+```java
+package com.final_project.blog_service.model;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public  class Stats {
+
+    @Builder.Default
+    private Long views = 0L;  // page views
+
+    @Builder.Default
+    private Long reads = 0L;  // engaged reads (2+ minutes)
+
+    @Builder.Default
+    private Long likes = 0L;
+
+    @Builder.Default
+    private Long commentCount = 0L;
+
+    @Builder.Default
+    private Long shareCount = 0L;
+
+    private LocalDateTime lastEngagedAt;
+}
+```
+
+## `src/main/java/com/final_project/blog_service/repo/ArticleRepository.java`
+
+```java
 package com.final_project.blog_service.repo;
 
 import com.final_project.blog_service.model.Article;
@@ -6235,9 +5896,9 @@ public interface ArticleRepository extends MongoRepository<Article, String> {
 
 ```
 
-### src/main/java/com/final_project/blog_service/repo/CommentRepository.java
+## `src/main/java/com/final_project/blog_service/repo/CommentRepository.java`
 
-`$lang
+```java
 package com.final_project.blog_service.repo;
 
 import com.final_project.blog_service.model.Comment;
@@ -6291,9 +5952,9 @@ public interface CommentRepository extends MongoRepository<Comment, String> {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/repo/LikeRepository.java
+## `src/main/java/com/final_project/blog_service/repo/LikeRepository.java`
 
-`$lang
+```java
 package com.final_project.blog_service.repo;
 
 import com.final_project.blog_service.model.Like;
@@ -6335,9 +5996,9 @@ public interface LikeRepository extends MongoRepository<Like, String> {
 }
 ```
 
-### src/main/java/com/final_project/blog_service/repo/ReadingHistoryRepository.java
+## `src/main/java/com/final_project/blog_service/repo/ReadingHistoryRepository.java`
 
-`$lang
+```java
 package com.final_project.blog_service.repo;
 
 import com.final_project.blog_service.model.ReadingHistory;
@@ -6378,9 +6039,9 @@ public interface ReadingHistoryRepository extends MongoRepository<ReadingHistory
 }
 ```
 
-### src/main/java/com/final_project/blog_service/repo/ShareRepository.java
+## `src/main/java/com/final_project/blog_service/repo/ShareRepository.java`
 
-`$lang
+```java
 package com.final_project.blog_service.repo;
 
 import com.final_project.blog_service.model.Share;
@@ -6416,19 +6077,21 @@ public interface ShareRepository extends MongoRepository<Share, String> {
 
 ```
 
-### src/main/java/com/final_project/blog_service/service/ArticleService.java
+## `src/main/java/com/final_project/blog_service/service/ArticleService.java`
 
-`$lang
+```java
 package com.final_project.blog_service.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.final_project.blog_service.client.FileServiceClient;
 import com.final_project.blog_service.client.UserServiceClient;
+import com.final_project.blog_service.dto.request.*;
+import com.final_project.blog_service.dto.response.*;
 import com.final_project.blog_service.exception.ResourceNotFoundException;
 import com.final_project.blog_service.exception.UnauthorizedException;
-import com.final_project.blog_service.exception.UserNotFoundException;
+import com.final_project.blog_service.utile.ContentBlockValidator;
+import com.final_project.blog_service.utile.ReadTimeCalculator;
 import com.final_project.blog_service.utile.SlugUtil;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -6439,12 +6102,14 @@ import org.springframework.transaction.annotation.Transactional;
 import com.final_project.blog_service.dto.*;
 import  com.final_project.blog_service.model.*;
 import com.final_project.blog_service.repo.*;
+import org.springframework.web.multipart.MultipartFile;
+
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-import static com.final_project.blog_service.utile.ReadTimeCalculator.calculateReadTime;
+import static java.util.stream.Collectors.toList;
 
 /**
  * Article Service - Core business logic for article management
@@ -6463,17 +6128,26 @@ public class ArticleService {
     private final UserServiceClient userServiceClient;
     private final UserCacheService userCacheService;
     private final ObjectMapper objectMapper;
+    private final ContentBlockValidator contentBlockValidator;
+    private final ReadTimeCalculator readTimeCalculator;
+    private final FileUploadService fileUploadService;
     public ArticleService(ArticleRepository articleRepository,
                           CommentRepository commentRepository,
+                          ReadTimeCalculator readTimeCalculator,
                           LikeRepository likeRepository,
                           RedisTemplate<String, String> redisTemplate,
                           FileServiceClient fileServiceClient,
                           UserServiceClient userServiceClient,
                           UserCacheService userCacheService,
                           ObjectMapper objectMapper,
-                          ShareRepository shareRepository
+                          ShareRepository shareRepository,
+                          ContentBlockValidator contentBlockValidator,
+                          FileUploadService fileUploadService
 
     ){
+        this.fileUploadService = fileUploadService;
+        this.readTimeCalculator = readTimeCalculator;
+        this.contentBlockValidator = contentBlockValidator;
         this.articleRepository = articleRepository;
         this.commentRepository = commentRepository;
         this.fileServiceClient = fileServiceClient;
@@ -6491,41 +6165,39 @@ public class ArticleService {
     /**
      * Create a new draft article
      */
-    @Transactional
-    public ArticleResponse createArticle(String authorId, CreateArticleRequest request) {
-        UserAuthorResponse authorResponse = userServiceClient.getUserAuthor(authorId);
-        if (authorResponse == null){
-            throw new ResourceNotFoundException("The User is Not Exist");
-        }
 
+    @Transactional
+    public ArticleResponse createArticle(CreateArticleRequest request, String authorId) {
+        contentBlockValidator.validate(request.getBlocks());
+        validateFileReferences(request.getBlocks());
 
         Article article = Article.builder()
-                .authorId(authorResponse.getId())
+                .authorId(authorId)
                 .title(request.getTitle())
-                .subtitle(request.getSubtitle())
                 .slug(generateUniqueSlug(request.getTitle()))
+                .content(
+                        Content
+                                .builder()
+                                .estimatedReadTime(
+                                        readTimeCalculator.calculateFromBlocks(request.getBlocks()))
+                                .blocks(request
+                                        .getBlocks()
+                                        .stream()
+                                        .map((req) ->
+                                                ContentBlock
+                                                        .builder()
+                                                        .type(req.getType())
+                                                        .order(req.getOrder())
+                                                        .data(req.getData())
+                                                        .build()
+                                        ).toList()
+                                )
+                                .build()
+                )
+                .coverImageFileId(request.getCoverImageFileId())
+                .coverImageUrl(request.getCoverImageUrl())
+                .visibility(request.getVisibility())
                 .status(ArticleStatus.DRAFT)
-                .visibility(ArticleVisiblity.PUBLIC)
-                .content(Article.Content.builder()
-                        .blocks(mapContentBlocks(request.getBlocks()))
-                        .estimatedReadTime(calculateReadTime(request.getBlocks()))
-                        .build()
-                )
-                .metadata(Article.Metadata.builder()
-                        .tags(request.getTags())
-                        .category(request.getCategory())
-                        .description(request.getDescription())
-                        .build()
-                )
-                .stats(Article.Stats.builder()
-                        .views(0L)
-                        .reads(0L)
-                        .likes(0L)
-                        .commentCount(0L)
-                        .shareCount(0L)
-                        .build()
-                )
-                .editHistory(new ArrayList<>())
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
@@ -6542,26 +6214,30 @@ public class ArticleService {
         Article article = getArticleByIdOrThrow(articleId);
         validateAuthor(article, authorId);
 
-        log.info("Updating article: {}", articleId);
 
         article.setTitle(request.getTitle());
-        article.setSubtitle(request.getSubtitle());
-        article.getContent().setBlocks(mapContentBlocks(request.getBlocks()));
-        article.getContent().setEstimatedReadTime(calculateReadTime(request.getBlocks()));
-
+        article
+                .getContent()
+                        .setBlocks(
+                                request
+                                        .getBlocks()
+                                        .stream()
+                                        .map((req) -> ContentBlock
+                                                .builder()
+                                                .order(req.getOrder())
+                                                .type(req.getType())
+                                                .data(req.getData())
+                                                .build()
+                                        ).toList()
+                        );
+        article.getContent().setEstimatedReadTime(readTimeCalculator.calculateFromBlocks(request.getBlocks()));
         article.getMetadata().setTags(request.getTags());
-        article.getMetadata().setCategory(request.getCategory());
         article.getMetadata().setDescription(request.getDescription());
         article.getMetadata().setCoverImageUrl(request.getCoverImageUrl());
-
         article.setUpdatedAt(LocalDateTime.now());
-
-        // Track edit history
         addEditHistory(article, authorId, "Updated content");
-
         Article updated = articleRepository.save(article);
         invalidateCache(articleId);
-
         return mapToResponse(updated);
     }
 
@@ -6572,20 +6248,15 @@ public class ArticleService {
     public ArticleResponse publishArticle(String articleId, String authorId, PublishArticleRequest request) {
         Article article = getArticleByIdOrThrow(articleId);
         validateAuthor(article, authorId);
-
         if (!ArticleStatus.DRAFT.equals(article.getStatus())) {
             throw new IllegalStateException("Only draft articles can be published");
         }
-
-        log.info("Publishing article: {}", articleId);
 
         article.setStatus(ArticleStatus.PUBLISHED);
         article.setVisibility(request.getVisibility());
         article.setPublishedAt(LocalDateTime.now());
         article.setUpdatedAt(LocalDateTime.now());
-
         addEditHistory(article, authorId, "Published article");
-
         Article published = articleRepository.save(article);
         invalidateCache(articleId);
 
@@ -6883,7 +6554,6 @@ public class ArticleService {
         return mapShareToResponse(saved);
     }
 
-    // ============= HELPER METHODS =============
 
     private String generateUniqueSlug(String title) {
         String baseSlug = SlugUtil.generateSlug(title);
@@ -6904,7 +6574,7 @@ public class ArticleService {
 
         int wordCount = blocks.stream()
                 .mapToInt(block -> {
-                    if ("text".equals(block.getType()) && block.getData().has("text")) {
+                    if ("text".equalsIgnoreCase(block.getType().getType()) && block.getData().has("text")) {
                         return block.getData().get("text").asText().split("\\s+").length;
                     }
                     return 0;
@@ -6915,22 +6585,24 @@ public class ArticleService {
         return Math.max(1, (wordCount + 199) / 200);
     }
 
-    private List<Article.ContentBlock> mapContentBlocks(List<ContentBlockRequest> requests) {
+    private List<ContentBlock> mapContentBlocks(List<ContentBlockRequest> requests) {
         if (requests == null) {
             return new ArrayList<>();
         }
 
         return requests.stream()
-                .map(req -> Article.ContentBlock.builder()
-                        .type(req.getType())
-                        .data(req.getData())
-                        .build()
+                .map(req ->
+                        ContentBlock.
+                                builder()
+                                .type(req.getType())
+                                .data(objectMapper.convertValue(req.getData(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}))
+                                .build()
                 )
                 .toList();
     }
 
     private void addEditHistory(Article article, String editorId, String summary) {
-        Article.EditHistory history = new Article.EditHistory();
+        EditHistory history = new EditHistory();
         history.setVersion((int) (articleRepository.countByAuthorIdAndStatus(article.getAuthorId(), article.getStatus()) + 1));
         history.setUpdatedAt(LocalDateTime.now());
         history.setEditorId(editorId);
@@ -6988,18 +6660,6 @@ public class ArticleService {
                 .slug(article.getSlug())
                 .title(article.getTitle())
                 .subtitle(article.getSubtitle())
-                .content(ContentResponse.builder()
-                        .blocks(article.getContent().getBlocks().stream()
-                                .map(b -> ContentBlockResponse.builder()
-                                        .type(b.getType())
-                                        .data(b.getData())
-                                        .build()
-                                )
-                                .toList()
-                        )
-                        .estimatedReadTime(article.getContent().getEstimatedReadTime())
-                        .build()
-                )
                 .metadata(MetadataResponse.builder()
                         .tags(article.getMetadata().getTags())
                         .category(article.getMetadata().getCategory())
@@ -7108,80 +6768,81 @@ public class ArticleService {
 
     @Transactional
     public ArticleResponse createArticleWithFiles(
-            String userId,
-            CreateArticleWithFilesRequest request
+            String title,
+            String description,
+            String blocksJson,
+            MultipartFile coverImage,
+            List<MultipartFile> inlineFiles,
+            String authorId
     ) {
-
-        // Validate user exists
         try {
-            UserProfileResponse userProfile = userCacheService.getUserProfile(userId);
-            log.info("User verified: {}", userProfile.getUsername());
-        } catch (UserNotFoundException e) {
-            log.error("User not found: {}", userId);
-            throw new UnauthorizedException("User not found: " + userId);
+            List<ArticleBlockRequest> blocks = objectMapper.readValue(
+                    blocksJson,
+                    new com.fasterxml.jackson.core.type.TypeReference<List<ArticleBlockRequest>>() {}
+            );
+
+            String coverFileId = null;
+            String coverUrl = null;
+
+            if (coverImage != null && !coverImage.isEmpty()) {
+                FileUploadResponse cover = fileUploadService.uploadArticleImage(coverImage, authorId, "drafts");
+                coverFileId = cover.getFileId();
+                coverUrl = cover.getCdnUrl();
+            }
+
+            if (inlineFiles != null && !inlineFiles.isEmpty()) {
+                for (ArticleBlockRequest block : blocks) {
+                    if ((block.getType() == ArticleBlockType.IMAGE || block.getType() == ArticleBlockType.VIDEO)
+                            && block.getData().containsKey("uploadIndex")) {
+
+                        int index = ((Number) block.getData().get("uploadIndex")).intValue();
+                        MultipartFile file = inlineFiles.get(index);
+
+                        FileUploadResponse uploaded = block.getType() == ArticleBlockType.IMAGE
+                                ? fileUploadService.uploadArticleImage(file, authorId, "drafts")
+                                : fileUploadService.uploadArticleVideo(file, authorId, "drafts");
+
+                        block.getData().put("fileId", uploaded.getFileId());
+                        block.getData().put("url", uploaded.getCdnUrl());
+                        block.getData().remove("uploadIndex");
+                    }
+                }
+            }
+
+            CreateArticleRequest request = CreateArticleRequest.builder()
+                    .title(title)
+                    .description(description)
+                    .blocks(blocks)
+                    .coverImageFileId(coverFileId)
+                    .coverImageUrl(coverUrl)
+                    .build();
+
+            return createArticle(request, authorId);
+
+        } catch (Exception ex) {
+            throw new IllegalArgumentException("Invalid multipart article request: " + ex.getMessage(), ex);
         }
-
-        // Process content blocks
-        List<Article.ContentBlock> processedBlocks = processContentBlocks(request.getBlocks());
-
-        // Create article entity
-        Article article = Article.builder()
-                .authorId(userId)
-                .title(request.getTitle())
-                .slug(generateUniqueSlug(request.getTitle()))
-                .subtitle(request.getSubtitle())
-                .status(ArticleStatus.DRAFT)
-                .visibility(ArticleVisiblity.PRIVATE)
-                .content(Article.Content.builder()
-                        .blocks(processedBlocks)
-                        .estimatedReadTime(calculateReadTimeForContentBlock(processedBlocks))
-                        .build()
-                )
-                .metadata(Article.Metadata.builder()
-                        .tags(request.getTags())
-                        .category(request.getCategory())
-                        .description(request.getDescription())
-                        .coverImageUrl(request.getCoverImageUrl())
-                        .build()
-                )
-                .stats(Article.Stats.builder()
-                        .views(0L)
-                        .reads(0L)
-                        .likes(0L)
-                        .commentCount(0L)
-                        .shareCount(0L)
-                        .build()
-                )
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
-
-        Article saved = articleRepository.save(article);
-        log.info("Article created with files: {} by user: {}", saved.getId(), userId);
-
-        return mapToResponse(saved);
     }
-
     /**
      * Process content blocks and validate file references
      */
-    private List<Article.ContentBlock> processContentBlocks(List<FlexibleContentBlockRequest> blocks) {
+    private List<ContentBlock> processContentBlocks(List<FlexibleContentBlockRequest> blocks) {
         return blocks.stream()
                 .map(block -> {
                     // Validate block data based on type
                     validateBlock(block);
                     // For image/video blocks, validate file exists
-                    if ("image".equals(block.getType()) || "video".equals(block.getType())) {
+                    if ("image".equalsIgnoreCase(block.getType().getType()) || "video".equalsIgnoreCase(block.getType().getType())) {
                         validateFileReference(block.getFileId());
                     }
                     // Convert to entity
-                    return Article.
+                    return
                             ContentBlock
                             .builder()
                             .type(block.getType())
                             .build();
                 })
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 
     /**
@@ -7189,12 +6850,12 @@ public class ArticleService {
      */
     private void validateBlock(FlexibleContentBlockRequest block) {
         switch (block.getType()) {
-            case "text":
+            case TEXT:
                 if (block.getText() == null || block.getText().isBlank()) {
                     throw new IllegalArgumentException("Text block requires 'text' field");
                 }
                 break;
-            case "heading":
+            case HEADING:
                 if (block.getLevel() == null || block.getLevel() < 1 || block.getLevel() > 6) {
                     throw new IllegalArgumentException("Heading block requires valid 'level' (1-6)");
                 }
@@ -7202,32 +6863,32 @@ public class ArticleService {
                     throw new IllegalArgumentException("Heading block requires 'text' field");
                 }
                 break;
-            case "image":
-            case "video":
+            case IMAGE:
+            case VIDEO:
                 if (block.getFileId() == null || block.getFileUrl() == null) {
                     throw new IllegalArgumentException(
                             block.getType() + " block requires 'fileId' and 'fileUrl' fields"
                     );
                 }
                 break;
-            case "code":
+            case CODE:
                 if (block.getCode() == null || block.getCode().isBlank()) {
                     throw new IllegalArgumentException("Code block requires 'code' field");
                 }
                 break;
-            case "quote":
+            case QUOTE:
                 if (block.getText() == null || block.getText().isBlank()) {
                     throw new IllegalArgumentException("Quote block requires 'text' field");
                 }
                 break;
-            case "embed":
+            case EMBED:
                 if (block.getProvider() == null || block.getEmbedUrl() == null) {
                     throw new IllegalArgumentException(
                             "Embed block requires 'provider' and 'embedUrl' fields"
                     );
                 }
                 break;
-            case "divider":
+            case DIVIDER:
                 // No specific validation needed
                 break;
             default:
@@ -7236,7 +6897,7 @@ public class ArticleService {
     }
 
 
-    private Article.ContentBlock convertFlexibleBlockToEntity(
+    private ContentBlock convertFlexibleBlockToEntity(
             FlexibleContentBlockRequest blockRequest
     ) {
         if (blockRequest == null) {
@@ -7248,21 +6909,21 @@ public class ArticleService {
         validateFlexibleContentBlock(blockRequest);
 
         // For image/video blocks, validate file exists in File Service
-        if ("image".equals(blockRequest.getType()) || "video".equals(blockRequest.getType())) {
+        if ("image".equalsIgnoreCase(blockRequest.getType().getType()) || "video".equals(blockRequest.getType().getType().toLowerCase())) {
             validateFileReference(blockRequest.getFileId());
         }
 
         // Convert DTO to JsonNode for flexible MongoDB storage
         JsonNode blockData = objectMapper.valueToTree(blockRequest);
-
+        Map<String, Object> data = objectMapper.convertValue(blockData,new  com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>(){});
         // Create and return entity
-        return Article.ContentBlock.builder()
+        return ContentBlock.builder()
                 .type(blockRequest.getType())
-                .data(blockData)
+                .data(data)
                 .build();
     }
 
-    private Article.ContentBlock convertContentBlockRequestToEntity(
+    private ContentBlock convertContentBlockRequestToEntity(
             ContentBlockRequest blockRequest
     ) {
         if (blockRequest == null) {
@@ -7270,23 +6931,23 @@ public class ArticleService {
         }
 
         JsonNode blockData = objectMapper.valueToTree(blockRequest);
+        Map<String , Object> data = objectMapper.convertValue(blockData, new com.fasterxml.jackson.core.type.TypeReference<Map<String , Object>>(){});
 
-        return Article.ContentBlock.builder()
+        return ContentBlock.builder()
                 .type(blockRequest.getType())
-                .data(blockData)
+                .data(data)
                 .build();
     }
 
-    // ============= VALIDATION METHODS =============
 
     /**
      * Validate flexible content block structure
      */
     private void validateFlexibleContentBlock(FlexibleContentBlockRequest block) {
-        String type = block.getType();
 
-        switch (type) {
-            case "text":
+
+        switch (block.getType()) {
+            case TEXT:
                 if (block.getText() == null || block.getText().isBlank()) {
                     throw new IllegalArgumentException("Text block requires non-empty 'text' field");
                 }
@@ -7295,7 +6956,7 @@ public class ArticleService {
                 }
                 break;
 
-            case "heading":
+            case HEADING:
                 if (block.getLevel() == null || block.getLevel() < 1 || block.getLevel() > 6) {
                     throw new IllegalArgumentException("Heading level must be 1-6");
                 }
@@ -7304,7 +6965,7 @@ public class ArticleService {
                 }
                 break;
 
-            case "image":
+            case IMAGE:
                 if (block.getFileId() == null || block.getFileId().isBlank()) {
                     throw new IllegalArgumentException("Image block requires 'fileId'");
                 }
@@ -7316,7 +6977,7 @@ public class ArticleService {
                 }
                 break;
 
-            case "video":
+            case VIDEO:
                 if (block.getFileId() == null || block.getFileId().isBlank()) {
                     throw new IllegalArgumentException("Video block requires 'fileId'");
                 }
@@ -7328,7 +6989,7 @@ public class ArticleService {
                 }
                 break;
 
-            case "code":
+            case CODE:
                 if (block.getCode() == null || block.getCode().isBlank()) {
                     throw new IllegalArgumentException("Code block requires 'code'");
                 }
@@ -7337,13 +6998,13 @@ public class ArticleService {
                 }
                 break;
 
-            case "quote":
+            case QUOTE:
                 if (block.getText() == null || block.getText().isBlank()) {
                     throw new IllegalArgumentException("Quote block requires 'text'");
                 }
                 break;
 
-            case "embed":
+            case EMBED:
                 if (block.getProvider() == null || block.getProvider().isBlank()) {
                     throw new IllegalArgumentException("Embed block requires 'provider'");
                 }
@@ -7352,12 +7013,12 @@ public class ArticleService {
                 }
                 break;
 
-            case "divider":
+            case DIVIDER:
                 // No validation needed
                 break;
 
             default:
-                throw new IllegalArgumentException("Unknown block type: " + type);
+                throw new IllegalArgumentException("Unknown block type: ");
         }
     }
 
@@ -7368,7 +7029,6 @@ public class ArticleService {
         if (fileId == null || fileId.isBlank()) {
             throw new IllegalArgumentException("File ID cannot be null");
         }
-
         try {
             // Call File Service to verify file exists
             fileServiceClient.getFileMetadata(fileId);
@@ -7381,27 +7041,26 @@ public class ArticleService {
         }
     }
 
-    // ============= UTILITY METHODS =============
+    private List<ContentBlock> mapBlocks(List<ArticleBlockRequest> requests) {
+        return requests.stream()
+                .map(block -> ContentBlock.builder()
+                        .type(block.getType())
+                        .order(block.getOrder())
+                        .data(block.getData())
+                        .build())
+                .toList();
+    }
 
-    /**
-     * Calculate estimated read time from content blocks
-     * Average: 200 words per minute
-     */
-    private Integer calculateReadTimeForContentBlock(List<Article.ContentBlock> blocks) {
-        int totalWords = 0;
-
-        for (Article.ContentBlock block : blocks) {
-            if (block.getData() != null) {
-                String text = block.getData().toString();
-                int words = text.split("\\s+").length;
-                totalWords += words;
+    private void validateFileReferences(List<ArticleBlockRequest> blocks) {
+        for (ArticleBlockRequest block : blocks) {
+            if (block.getType() == ArticleBlockType.IMAGE || block.getType() == ArticleBlockType.VIDEO) {
+                Object fileId = block.getData().get("fileId");
+                if (fileId == null || fileId.toString().isBlank()) {
+                    throw new IllegalArgumentException(block.getType() + " block requires fileId");
+                }
+                fileServiceClient.getFileMetadata(fileId.toString());
             }
         }
-
-        int minutes = Math.max(1, totalWords / 200);
-        log.debug("Calculated read time: {} minutes", minutes);
-
-        return minutes;
     }
     /**
      * Extract keywords from title and description
@@ -7413,11 +7072,11 @@ public class ArticleService {
 
         String combined = (title != null ? title : "") + " " + (description != null ? description : "");
 
-        return List.of(combined.split("\\s+")).stream()
+        return Stream.of(combined.split("\\s+"))
                 .filter(word -> word.length() > 3)
                 .distinct()
                 .limit(10)
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 
     // ============= RESPONSE MAPPING =============
@@ -7444,21 +7103,23 @@ public class ArticleService {
                 .build();
     }
 
-    private ContentResponse mapContentToResponse(Article.Content content) {
+    private ContentResponse mapContentToResponse(Content content) {
         return ContentResponse.builder()
-                .blocks(content.getBlocks().stream()
-                        .map(block -> ContentBlockResponse.builder()
+                .blocks(content.getBlocks()
+                        .stream()
+                        .map(block ->
+                                ContentBlockResponse.builder()
                                 .type(block.getType())
-                                .data(block.getData())
+                                .data((JsonNode) block.getData())
                                 .build()
                         )
-                        .collect(Collectors.toList())
+                        .collect(toList())
                 )
                 .estimatedReadTime(content.getEstimatedReadTime())
                 .build();
     }
 
-    private MetadataResponse mapMetadataToResponse(Article.Metadata metadata) {
+    private MetadataResponse mapMetadataToResponse(Metadata metadata) {
         return MetadataResponse.builder()
                 .tags(metadata.getTags())
                 .category(metadata.getCategory())
@@ -7468,7 +7129,7 @@ public class ArticleService {
                 .build();
     }
 
-    private StatsResponse mapStatsToResponse(Article.Stats stats) {
+    private StatsResponse mapStatsToResponse(Stats stats) {
         return StatsResponse.builder()
                 .views(stats.getViews())
                 .reads(stats.getReads())
@@ -7491,211 +7152,94 @@ public class ArticleService {
 
 ```
 
-### src/main/java/com/final_project/blog_service/service/FileUploadService.java
+## `src/main/java/com/final_project/blog_service/service/FileUploadService.java`
 
-`$lang
+```java
 package com.final_project.blog_service.service;
 import com.final_project.blog_service.client.FileServiceClient;
 import com.final_project.blog_service.dto.response.FileUploadResponse;
-import com.final_project.blog_service.dto.response.ImageUploadResponse;
-import com.final_project.blog_service.dto.response.VideoUploadResponse;
 import com.final_project.blog_service.exception.FileUploadException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Set;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class FileUploadService {
-
     private final FileServiceClient fileServiceClient;
-    @Value("${app.file-upload.max-image-size:10485760}") // 10MB
-    private long maxImageSize;
-    @Value("${app.file-upload.max-video-size:536870912}") // 500MB
-    private long maxVideoSize;
-    private static final String[] ALLOWED_IMAGE_TYPES = {
+    private static final long MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+    private static final long MAX_VIDEO_SIZE = 500 * 1024 * 1024;
+
+    private static final Set<String> IMAGE_TYPES = Set.of(
             "image/jpeg", "image/png", "image/webp", "image/gif"
-    };
+    );
 
-    private static final String[] ALLOWED_VIDEO_TYPES = {
+    private static final Set<String> VIDEO_TYPES = Set.of(
             "video/mp4", "video/webm", "video/ogg", "video/quicktime"
-    };
+    );
 
-    /**
-     * Upload image file
-     */
-    @Transactional
-    public ImageUploadResponse uploadImage(
-            MultipartFile file,
-            String alt,
-            String caption,
-            String userId
-    ) {
-        log.info("Uploading image for user: {}", userId);
-
-        // Validate file
-        validateFile(file, ALLOWED_IMAGE_TYPES, maxImageSize, "Image");
-
+    public FileUploadResponse uploadArticleImage(MultipartFile file ,String authorId, String articleId) {
+        validate(file, IMAGE_TYPES, MAX_IMAGE_SIZE, "image");
+        return upload(file, authorId, articleId, "image");
+    }
+    public FileUploadResponse uploadArticleVideo(MultipartFile file, String authorId, String articleId) {
+        validate(file, VIDEO_TYPES, MAX_VIDEO_SIZE, "video");
+        return upload(file, authorId, articleId, "video");
+    }
+    private FileUploadResponse upload(MultipartFile file, String authorId, String articleId, String subFolder) {
         try {
-            // Upload to File Service
-            FileUploadResponse response = fileServiceClient.uploadFile(
+            return fileServiceClient.uploadBlogFile(
                     file,
-                    "image",
-                    null
+                    authorId,
+                    articleId != null ? articleId : "drafts"
             );
-
-            log.info("Image uploaded successfully: {}", response.getFileId());
-
-            // Return formatted response
-            return ImageUploadResponse.builder()
-                    .fileId(response.getFileId())
-                    .fileUrl(response.getCdnUrl())
-                    .thumbnailUrl(response.getThumbnailUrl())
-                    .width(response.getImageWidth())
-                    .height(response.getImageHeight())
-                    .alt(alt)
-                    .caption(caption)
-                    .mimeType(response.getMimeType())
-                    .fileSize(response.getFileSize())
-                    .uploadedAt(response.getUploadedAt())
-                    .build();
-        } catch (Exception e) {
-            log.error("Failed to upload image: {}", e.getMessage(), e);
-            throw new FileUploadException("Failed to upload image: " + e.getMessage(), e);
+        } catch (Exception ex) {
+            log.error("File-service upload failed", ex);
+            throw new FileUploadException("Failed to upload " + subFolder + " file");
         }
     }
 
-    /**
-     * Upload video file
-     */
-    @Transactional
-    public VideoUploadResponse uploadVideo(
-            MultipartFile file,
-            String title,
-            String description,
-            String userId
-    ) {
-        log.info("Uploading video for user: {}", userId);
-
-        // Validate file
-        validateFile(file, ALLOWED_VIDEO_TYPES, maxVideoSize, "Video");
-
+    public void deleteFile(String fileId, String articleId) {
         try {
-            // Upload to File Service
-            FileUploadResponse response = fileServiceClient.uploadFile(
-                    file,
-                    "video",
-                    null
-            );
-
-            log.info("Video uploaded successfully: {}", response.getFileId());
-
-            // Return formatted response
-            return VideoUploadResponse.builder()
-                    .fileId(response.getFileId())
-                    .fileUrl(response.getCdnUrl())
-                    .thumbnailUrl(response.getThumbnailUrl())
-                    .duration(response.getVideoDurationSeconds())
-                    .title(title)
-                    .description(description)
-                    .mimeType(response.getMimeType())
-                    .fileSize(response.getFileSize())
-                    .processingStatus(response.getProcessingStatus())
-                    .uploadedAt(response.getUploadedAt())
-                    .build();
-        } catch (Exception e) {
-            log.error("Failed to upload video: {}", e.getMessage(), e);
-            throw new FileUploadException("Failed to upload video: " + e.getMessage(), e);
+            fileServiceClient.deleteFile(fileId, articleId);
+        } catch (Exception ex) {
+            log.warn("Failed to delete file {} from file-service", fileId, ex);
         }
     }
 
-    /**
-     * Delete file
-     */
-    @Transactional
-    public void deleteFile(String fileId, String userId) {
-        log.info("Deleting file: {} for user: {}", fileId, userId);
-
-        try {
-            fileServiceClient.deleteFile(fileId);
-            log.info("File deleted successfully: {}", fileId);
-        } catch (Exception e) {
-            log.error("Failed to delete file: {}", e.getMessage(), e);
-            throw new FileUploadException("Failed to delete file: " + e.getMessage(), e);
-        }
-    }
-
-    /**
-     * Validate file before upload
-     */
-    private void validateFile(
-            MultipartFile file,
-            String[] allowedTypes,
-            long maxSize,
-            String fileTypeName
-    ) {
+    private void validate(MultipartFile file, Set<String> allowedTypes, long maxSize, String label) {
         if (file == null || file.isEmpty()) {
-            throw new FileUploadException(fileTypeName + " file is required");
+            throw new FileUploadException(label + " file is required");
         }
 
-        // Check file size
         if (file.getSize() > maxSize) {
-            long maxMB = maxSize / 1024 / 1024;
-            throw new FileUploadException(
-                    fileTypeName + " file is too large. Max size: " + maxMB + "MB"
-            );
+            throw new FileUploadException(label + " file is too large");
         }
 
-        // Check MIME type
-        String mimeType = file.getContentType();
-        if (mimeType == null || !isAllowedMimeType(mimeType, allowedTypes)) {
-            throw new FileUploadException(
-                    "Invalid " + fileTypeName.toLowerCase() + " format. " +
-                            "Supported formats: " + String.join(", ", allowedTypes)
-            );
+        if (file.getContentType() == null || !allowedTypes.contains(file.getContentType())) {
+            throw new FileUploadException("Unsupported " + label + " type: " + file.getContentType());
         }
 
-        // Check file extension
         String filename = file.getOriginalFilename();
-        if (filename == null || !isValidFilename(filename)) {
+        if (    filename == null
+                || filename.contains("..")
+                || filename.contains("/")
+        ) {
             throw new FileUploadException("Invalid filename");
         }
+
     }
 
-    /**
-     * Check if MIME type is allowed
-     */
-    private boolean isAllowedMimeType(String mimeType, String[] allowedTypes) {
-        for (String allowedType : allowedTypes) {
-            if (mimeType.equals(allowedType)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Validate filename
-     */
-    private boolean isValidFilename(String filename) {
-        // Check for path traversal
-        if (filename.contains("..") || filename.contains("/") || filename.contains("\\")) {
-            return false;
-        }
-
-        // Check file extension
-        return filename.matches("^[a-zA-Z0-9._-]+\\.(jpg|jpeg|png|gif|webp|mp4|webm|ogg|mov)$");
-    }
 }
 ```
 
-### src/main/java/com/final_project/blog_service/service/UserCacheService.java
+## `src/main/java/com/final_project/blog_service/service/UserCacheService.java`
 
-`$lang
+```java
 package com.final_project.blog_service.service;
 import com.final_project.blog_service.client.UserServiceClient;
 import com.final_project.blog_service.dto.response.UserProfileResponse;
@@ -7917,113 +7461,130 @@ public class UserCacheService {
 
 ```
 
-### src/main/java/com/final_project/blog_service/utile/ContentBlockValidator.java
+## `src/main/java/com/final_project/blog_service/utile/ContentBlockValidator.java`
 
-`$lang
+```java
 package com.final_project.blog_service.utile;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.final_project.blog_service.dto.request.ContentBlockRequest;
+import com.final_project.blog_service.dto.request.ArticleBlockRequest;
+import com.final_project.blog_service.dto.ArticleBlockType;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 
+@Component
 public class ContentBlockValidator {
 
-    private static final List<String> VALID_BLOCK_TYPES = List.of(
-            "text", "heading", "image", "video", "code", "quote", "embed", "divider"
-    );
-
-    public static boolean isValidBlockType(String type) {
-        return VALID_BLOCK_TYPES.contains(type);
-    }
-
-    public static void validateBlock(ContentBlockRequest block) {
-        if (!isValidBlockType(block.getType())) {
-            throw new IllegalArgumentException("Invalid block type: " + block.getType());
+    public void validate(List<ArticleBlockRequest> blocks) {
+        if (blocks == null || blocks.isEmpty()) {
+            throw new IllegalArgumentException("Article must contain at least one content block");
         }
 
-        JsonNode data = block.getData();
+        for (ArticleBlockRequest block : blocks) {
+            validateBlock(block);
+        }
+    }
 
-        switch (block.getType()) {
-            case "text":
-                if (!data.has("text") || data.get("text").asText().isEmpty()) {
-                    throw new IllegalArgumentException("Text block must have non-empty 'text' field");
-                }
-                break;
+    private void validateBlock(ArticleBlockRequest block) {
+        if (block.getType() == null) {
+            throw new IllegalArgumentException("Block type is required");
+        }
 
-            case "heading":
-                if (!data.has("level") || !data.has("text")) {
-                    throw new IllegalArgumentException("Heading block must have 'level' and 'text' fields");
-                }
-                int level = data.get("level").asInt();
-                if (level < 1 || level > 6) {
-                    throw new IllegalArgumentException("Heading level must be 1-6");
-                }
-                break;
+        if (block.getData() == null) {
+            throw new IllegalArgumentException("Block data is required");
+        }
 
-            case "image":
-                if (!data.has("fileUrl")) {
-                    throw new IllegalArgumentException("Image block must have 'fileUrl'");
-                }
-                break;
+        Map<String, Object> data = block.getData();
+        ArticleBlockType type = block.getType();
 
-            case "code":
-                if (!data.has("code")) {
-                    throw new IllegalArgumentException("Code block must have 'code' field");
+        switch (type) {
+            case TEXT -> requireText(data, "text", "Text block requires text");
+            case HEADING -> {
+                requireText(data, "text", "Heading block requires text");
+                Object level = data.get("level");
+                if (!(level instanceof Number number) || number.intValue() < 1 || number.intValue() > 6) {
+                    throw new IllegalArgumentException("Heading level must be between 1 and 6");
                 }
-                break;
+            }
+            case IMAGE -> {
+                requireText(data, "fileId", "Image block requires fileId");
+                requireText(data, "url", "Image block requires url");
+                requireText(data, "alt", "Image block requires alt text");
+            }
+            case VIDEO -> {
+                requireText(data, "fileId", "Video block requires fileId");
+                requireText(data, "url", "Video block requires url");
+            }
+            case CODE -> {
+                requireText(data, "code", "Code block requires code");
+                requireText(data, "language", "Code block requires language");
+            }
+            case QUOTE -> requireText(data, "text", "Quote block requires text");
+            case EMBED -> {
+                requireText(data, "provider", "Embed block requires provider");
+                requireText(data, "url", "Embed block requires url");
+            }
+            case DIVIDER -> {
+                // no required fields
+            }
+        }
+    }
 
-            case "quote":
-                if (!data.has("text")) {
-                    throw new IllegalArgumentException("Quote block must have 'text' field");
-                }
-                break;
-
-            case "embed":
-                if (!data.has("provider") || !data.has("embedUrl")) {
-                    throw new IllegalArgumentException("Embed block must have 'provider' and 'embedUrl'");
-                }
-                break;
+    private void requireText(Map<String, Object> data, String key, String message) {
+        Object value = data.get(key);
+        if (!(value instanceof String text) || text.isBlank()) {
+            throw new IllegalArgumentException(message);
         }
     }
 }
 ```
 
-### src/main/java/com/final_project/blog_service/utile/ReadTimeCalculator.java
+## `src/main/java/com/final_project/blog_service/utile/ReadTimeCalculator.java`
 
-`$lang
+```java
 package com.final_project.blog_service.utile;
 
 
+import com.final_project.blog_service.dto.request.ArticleBlockRequest;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+
+@Component
 public class ReadTimeCalculator {
 
     private static final int WORDS_PER_MINUTE = 200;
 
-    public static int calculateReadTime(String content) {
-        if (content == null || content.isEmpty()) {
+    public int calculateFromBlocks(List<ArticleBlockRequest> blocks) {
+        if (blocks == null || blocks.isEmpty()) {
             return 1;
         }
 
-        String[] words = content.split("\\s+");
-        int wordCount = words.length;
+        int words = 0;
 
-        int readTime = (wordCount + WORDS_PER_MINUTE - 1) / WORDS_PER_MINUTE;
+        for (ArticleBlockRequest block : blocks) {
+            if (block.getData() == null) continue;
 
-        return Math.max(1, readTime);
-    }
+            Object text = block.getData().get("text");
+            if (text instanceof String value && !value.isBlank()) {
+                words += value.trim().split("\s+").length;
+            }
 
-    public static String formatReadTime(int minutes) {
-        if (minutes <= 1) {
-            return "1 min read";
+            Object code = block.getData().get("code");
+            if (code instanceof String value && !value.isBlank()) {
+                words += value.trim().split("\s+").length / 2;
+            }
         }
-        return minutes + " min read";
+
+        return Math.max(1, (int) Math.ceil(words / 200.0));
     }
 }
 ```
 
-### src/main/java/com/final_project/blog_service/utile/SlugUtil.java
+## `src/main/java/com/final_project/blog_service/utile/SlugUtil.java`
 
-`$lang
+```java
 package com.final_project.blog_service.utile;
 
 
@@ -8049,19 +7610,104 @@ public class SlugUtil {
 
 ```
 
-### src/main/resources/application.yaml
+## `src/main/resources/application.yaml`
 
-`$lang
+```yaml
 spring:
   application:
     name: blog-service
   config:
-    import: optional:configserver:http://localhost:8888
+    import:
+      - optional:configserver:http://localhost:8888
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/blog_db
+      auto-index-creation: true
+    redis:
+      host: localhost
+      port: 6379
+      connect-timeout: 2000
+      jedis:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+  rabbitmq:
+    password: ${RABBIT_PASSWORD:guest}
+    username: ${RABBIT_USERNAME:guest}
+    host: ${RABBIT_HOST:localhost}
+    port: ${RABBIT_PORT:5672}
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri:  http://localhost:8444/realms/final-project
+          jwk-set-uri: http://localhost:8444/realms/final-project/protocol/openid-connect/certs
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+      indent-output: true
+
+eureka:
+  instance:
+    prefer-ip-address: true
+    ip-address: 127.0.0.1
+    hostname: localhost
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+server:
+  port: 8087
+  error:
+    include-message: always
+    include-stacktrace: on_param
+    include-exception: false
+    include-binding-errors: always
+logging:
+  level:
+    root: info
+    com:
+      final_project:
+        blog_service:
+          model:
+            Article: DEBUG
+    org:
+      springframework:
+        web: INFO
+        data:
+          mongodb: DEBUG
+        security: TRACE
+
+
+
+app:
+  file-upload:
+    max-image-size: 10485760
+    max-video-size: 536870912
+  service:
+    auth-url: http://auth-service
+    file-url: http://file-service
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
 ```
 
-### src/test/java/com/final_project/blog_service/BlogServiceApplicationTests.java
+## `src/test/java/com/final_project/blog_service/BlogServiceApplicationTests.java`
 
-`$lang
+```java
 package com.final_project.blog_service;
 
 import org.junit.jupiter.api.Test;
@@ -8076,5 +7722,4 @@ class BlogServiceApplicationTests {
 
 }
 ```
-
 

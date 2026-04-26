@@ -50,4 +50,7 @@ public class CreateArticleRequest {
     @Schema(description = "Optional cover image URL returned by file-service")
     private String coverImageUrl;
 
+    @Schema(description = "optional keywords for searching and finding ")
+    private List<String> keywords;
+
 }

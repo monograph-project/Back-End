@@ -33,7 +33,9 @@ spring:
     serialization:
       write-dates-as-timestamps: false
       indent-output: true
-
+  servlet:
+    multipart:
+      max-file-size: 10MB
 eureka:
   instance:
     prefer-ip-address: true
@@ -59,6 +61,7 @@ server:
     include-stacktrace: on_param
     include-exception: false
     include-binding-errors: always
+
 logging:
   level:
     root: info
@@ -67,12 +70,12 @@ logging:
         blog_service:
           model:
             Article: DEBUG
-    org:
-      springframework:
-        web: INFO
-        data:
-          mongodb: DEBUG
-        security: TRACE
+#    org:
+#      springframework:
+#        web: INFO
+#        data:
+#          mongodb: DEBUG
+#        security: TRACE
 
 
 

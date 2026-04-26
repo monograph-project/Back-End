@@ -42,4 +42,12 @@ public class FileRecordService {
         return fileRecordRepository.findFirstByOwnerIdAndSubFolder(ownerId, subFolder)
                 .orElseThrow(() -> new FileNotFound("File Not Found"));
     }
+    public FileRecord findFileByNameAndOwnerId(String  fileName, String ownerId){
+        return fileRecordRepository.findByFileNameAndOwnerId(fileName, ownerId)
+                .orElseThrow(() -> new FileNotFound("File Not Found"));
+    }
+    public FileRecord findByIdAndOwnerIdAndCategory(String fileId, String ownerId, FileCategory category){
+        return fileRecordRepository.findByIdAndOwnerIdAndCategory(fileId,ownerId,category)
+                .orElseThrow(() -> new FileNotFound("Not Found"));
+    }
 }

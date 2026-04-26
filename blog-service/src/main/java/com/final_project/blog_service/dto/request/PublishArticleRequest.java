@@ -3,6 +3,7 @@ package com.final_project.blog_service.dto.request;
 import com.final_project.blog_service.model.ArticleVisiblity;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,11 +20,7 @@ import lombok.NoArgsConstructor;
 )
 public class PublishArticleRequest {
 
-    @NotBlank(message = "Visibility is required")
-    @Pattern(
-            regexp = "^(PUBLIC|PRIVATE|UNLISTED)$",
-            message = "Visibility must be one of: PUBLIC, PRIVATE, UNLISTED"
-    )
+    @NotNull( message = "should not be null")
     @Schema(
             title = "Visibility",
             description = "Who can see this article",

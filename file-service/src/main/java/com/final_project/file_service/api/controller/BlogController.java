@@ -44,8 +44,10 @@ public class BlogController {
                 article
         );
         String  url =  fileService.upload(fileMetadata, file.getInputStream());
+        FileRecord currentFile  = fileRecordService.findFileByNameAndOwnerId(file.getOriginalFilename(), ownerId);
         return FileUploadResponse
                 .builder()
+                .fileId(currentFile.getId())
                 .fileType(file.getContentType())
                 .fileSize(file.getSize())
                 .cdnUrl(url)
@@ -53,9 +55,10 @@ public class BlogController {
                 .build();
     }
 
-    @GetMapping("/{fileId}")
-    public FileMetadataResponse getFileMetadata(@PathVariable("fileId") String fileId){
-        FileRecord file = fileRecordService.findByOwnerIdAndCategory(fileId, FileCategory.BLOG);
+    @GetMapping("/{fileId}/owner/{ownerId}")
+    public FileMetadataResponse getFileMetadata(@PathVariable("fileId") String fileId, @PathVariable String ownerId){
+
+        FileRecord file = fileRecordService.findByIdAndOwnerIdAndCategory(fileId, ownerId,FileCategory.BLOG);
         String url =  fileStoragePort.generatePresignedUrl(file.getBucket(), file.getFileName());
         return FileMetadataResponse
                 .builder()
@@ -63,7 +66,6 @@ public class BlogController {
                 .cdnUrl(url)
                 .originalFilename(file.getFileName())
                 .build();
-
     }
 
     @GetMapping("/{articleId}/user/{userId}")

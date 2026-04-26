@@ -10,6 +10,4 @@ public class UserAuthorResponse  {
     private String userName;
     private String email;
     private String profile;
-    private String entityId;
-    private String userType;
 }

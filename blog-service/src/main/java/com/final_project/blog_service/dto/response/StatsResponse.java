@@ -24,7 +24,8 @@ public class StatsResponse {
             example = "234",
             minimum = "0"
     )
-    private Long views;
+    @Builder.Default
+    private Long views = 0L;
 
     @Schema(
             title = "Reads",
@@ -32,7 +33,8 @@ public class StatsResponse {
             example = "189",
             minimum = "0"
     )
-    private Long reads;
+    @Builder.Default
+    private Long reads = 0L;
 
     @Schema(
             title = "Likes",
@@ -40,7 +42,8 @@ public class StatsResponse {
             example = "45",
             minimum = "0"
     )
-    private Long likes;
+    @Builder.Default
+    private Long likes = 0L;
 
     @Schema(
             title = "Comment Count",
@@ -48,7 +51,8 @@ public class StatsResponse {
             example = "12",
             minimum = "0"
     )
-    private Long commentCount;
+    @Builder.Default
+    private Long commentCount = 0L;
 
     @Schema(
             title = "Share Count",
@@ -56,7 +60,8 @@ public class StatsResponse {
             example = "8",
             minimum = "0"
     )
-    private Long shareCount;
+    @Builder.Default
+    private Long shareCount = 0L;
 
     @Schema(
             title = "Last Engaged At",
