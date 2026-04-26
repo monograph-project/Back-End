@@ -1,6 +1,6 @@
 package com.final_project.blog_service.service;
 import com.final_project.blog_service.client.UserServiceClient;
-import com.final_project.blog_service.dto.UserProfileResponse;
+import com.final_project.blog_service.dto.response.UserProfileResponse;
 import com.final_project.blog_service.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

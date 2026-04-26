@@ -129,6 +129,8 @@ app:
       blog-commented: blog.commented
       comment-replied: comment.replied
       notification-dlq: notification.dlq
+      article-operation: article.operations
+      repository.operation: repository.operations
 
 resilience4j:
   circuitbreaker:

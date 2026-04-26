@@ -1,7 +1,7 @@
 package com.final_project.blog_service.exception;
 
 
-import com.final_project.blog_service.dto.ErrorResponse;
+import com.final_project.blog_service.dto.response.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

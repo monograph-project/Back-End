@@ -27,10 +27,19 @@ public interface ArticleRepository extends MongoRepository<Article, String> {
             ArticleStatus status,
             Pageable pageable
     );
+    // Find published articles by author
+    Page<Article> findByAuthorId(
+            String authorId,
+            Pageable pageable
+    );
 
     // Find all published articles (for feed)
     @Query("{ 'status': 'PUBLISHED', 'visibility': 'PUBLIC' }")
     Page<Article> findPublishedArticles(Pageable pageable);
+
+    @Query("{'_id': '?0' ,'status':  'PUBLISHED', 'visibility' :  'PUBLIC'}")
+    Article findByIdAndStatsIsPublish(String id);
+
 
     // Find articles by tags
     Page<Article> findByMetadataTagsInAndStatusAndVisibility(
@@ -64,6 +73,16 @@ public interface ArticleRepository extends MongoRepository<Article, String> {
     @Query("{ 'status': 'ARCHIVED', 'archivedAt': { $lt: ?0 } }")
     void deleteOldArchives(LocalDateTime threshold);
 
+
+//    FOR AUTHOR
+
+    @Query("{'_id':  ?0, 'authorId':  ?1}")
+    Optional<Article> findArticleByIdAndAuthor(String articleId, String authorId);
+
+
+//    FOR VIEWER
+
+    @Query("{'_id':  ?0, 'authorId':  ?1, 'status':  'PUBLISHED', 'visibility':  'PUBLIC'}")
     Optional<Article> findArticleByIdAndAuthorId(String articleId, String authorId);
 }
 

@@ -191,6 +191,7 @@ public class AuthenticationService {
         throw new UnsupportedOperationException("Use Keycloak reset-password action emails instead of local reset tokens.");
     }
 
+
     public void verifyEmail(EmailVerificationRequest request) {
         throw new UnsupportedOperationException("Use Keycloak email verification actions instead of local verification tokens.");
     }

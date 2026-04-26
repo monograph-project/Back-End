@@ -85,7 +85,6 @@ public class KeycloakService {
             throw new KeycloakException("User not found in Keycloak: " + userId, exception);
         }
     }
-
     public List<UserRepresentation> getUsers() {
         System.out.println(keycloakConfig.getRealm());
         System.out.println(keycloakConfig.getAdminClientId());
@@ -261,4 +260,5 @@ public class KeycloakService {
         }
         return clients.get(0).getId();
     }
+
 }

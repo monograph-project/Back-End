@@ -67,6 +67,16 @@ public class KafkaConfig {
                 .partitions(1).replicas(1).build();
     }
 
+    @Bean public NewTopic articleOperationsTopic(){
+        return TopicBuilder.name(appProperties.getKafka().getTopics().getArticleOperations())
+                .partitions(1).replicas(1).build();
+    }
+    @Bean
+    public NewTopic repositoryOperationsTopic(){
+        return TopicBuilder.name(appProperties.getKafka().getTopics().getRepositoryOperation())
+                .partitions(1).replicas(1).build();
+    }
+
     // ── Consumer factory ─────────────────────────────────────────────────────
 
     @Bean

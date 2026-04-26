@@ -58,7 +58,7 @@ public class IdempotencyService {
      * Checks whether a key exists without claiming it.
      */
     public boolean exists(String idempotencyKey) {
-        return Boolean.TRUE.equals(redisTemplate.hasKey(KEY_PREFIX + idempotencyKey));
+        return redisTemplate.hasKey(KEY_PREFIX + idempotencyKey);
     }
 
     /**

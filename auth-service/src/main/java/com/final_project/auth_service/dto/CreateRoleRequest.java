@@ -29,18 +29,4 @@ public class CreateRoleRequest {
     @Size(max = 500, message = "Description must not exceed 500 characters")
     @Schema(description = "Role description", example = "Administrator with full access")
     private String description;
-
-    @Pattern(regexp = "^[A-Z_]+$", message = "Role key must contain only uppercase letters and underscores")
-    @Size(min = 3, max = 50, message = "Role key must be between 3 and 50 characters")
-    @JsonProperty("role_key")
-    @Schema(description = "Legacy field kept for backward compatibility", example = "ADMIN_ROLE")
-    private String roleKey;
-
-    @JsonProperty("permission_ids")
-    @Schema(description = "Initial permission IDs to assign to this role")
-    private Set<String> permissionIds;
-
-    @JsonProperty("is_system_role")
-    @Schema(description = "Whether this is a system role (cannot be deleted)", example = "false")
-    private Boolean isSystemRole = false;
 }

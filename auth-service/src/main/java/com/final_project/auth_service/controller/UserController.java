@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 
+import javax.naming.AuthenticationException;
 import java.util.List;
 import java.util.Map;
 
@@ -296,6 +297,27 @@ public class UserController {
         log.info("Verifying email for user: {}", id);
         userService.verifyUserEmail(id);
         return ResponseEntity.noContent().build();
+    }
+
+
+    /**
+     * Verify user email.
+     *
+     * @param id User ID
+     */
+    @GetMapping("/{id}/{roleName}")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR')")
+    @Operation(summary = "Verify user email", description = "Marks user email as verified")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Email verified"),
+            @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    public ResponseEntity<UserDTO> getUserByIdAndRole(
+            @PathVariable String id,
+            @PathVariable String roleName
+            ) throws AuthenticationException {
+
+        return ResponseEntity.ok(userService.getUserByIdAndRoleName(id, roleName));
     }
 
     @PostMapping("/stats/count")

@@ -1,13 +1,14 @@
 package com.final_project.blog_service.model;
 
 
+import com.final_project.blog_service.dto.ContentBlock;
 import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
-import com.fasterxml.jackson.databind.JsonNode;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.ArrayList;
@@ -63,36 +64,13 @@ public class Article {
 
     private LocalDateTime archivedAt;
 
+    private String coverImageFileId;
+    private String coverImageUrl;
+
     /**
      * Flexible content block structure
      * Supports: text, heading, image, video, code, quote, embed, divider
      */
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class Content {
-
-        @Builder.Default
-        private List<ContentBlock> blocks = new ArrayList<>();
-
-        @Builder.Default
-        private Integer estimatedReadTime = 1;  // in minutes
-    }
-
-    /**
-     * Individual content block
-     * Data field is polymorphic - structure depends on block type
-     */
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class ContentBlock {
-        private String type;  // text, heading, image, video, code, quote, embed, divider
-        private JsonNode data;  // flexible JSON structure based on type
-    }
-
     /**
      * Block type definitions for reference:
      *
@@ -142,65 +120,4 @@ public class Article {
      * DIVIDER:
      * { type: "divider", data: {} }
      */
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class Metadata {
-
-        @Builder.Default
-        private List<String> tags = new ArrayList<>();
-
-        private String category;
-
-        private String description;  // SEO meta description
-
-        @Builder.Default
-        private List<String> keywords = new ArrayList<>();  // SEO keywords
-
-        private String coverImageUrl;  // from file service
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class Stats {
-
-        @Builder.Default
-        private Long views = 0L;  // page views
-
-        @Builder.Default
-        private Long reads = 0L;  // engaged reads (2+ minutes)
-
-        @Builder.Default
-        private Long likes = 0L;
-
-        @Builder.Default
-        private Long commentCount = 0L;
-
-        @Builder.Default
-        private Long shareCount = 0L;
-
-        private LocalDateTime lastEngagedAt;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class Seo {
-        private String publishedUrl;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class EditHistory {
-        private Integer version;
-        private LocalDateTime updatedAt;
-        private String editorId;
-        private String summary;
-    }
 }

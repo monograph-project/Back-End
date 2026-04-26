@@ -1,67 +1,74 @@
 package com.final_project.blog_service.utile;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.final_project.blog_service.dto.ContentBlockRequest;
+import com.final_project.blog_service.dto.request.ArticleBlockRequest;
+import com.final_project.blog_service.dto.ArticleBlockType;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 
+@Component
 public class ContentBlockValidator {
 
-    private static final List<String> VALID_BLOCK_TYPES = List.of(
-            "text", "heading", "image", "video", "code", "quote", "embed", "divider"
-    );
-
-    public static boolean isValidBlockType(String type) {
-        return VALID_BLOCK_TYPES.contains(type);
-    }
-
-    public static void validateBlock(ContentBlockRequest block) {
-        if (!isValidBlockType(block.getType())) {
-            throw new IllegalArgumentException("Invalid block type: " + block.getType());
+    public void validate(List<ArticleBlockRequest> blocks) {
+        if (blocks == null || blocks.isEmpty()) {
+            throw new IllegalArgumentException("Article must contain at least one content block");
         }
 
-        JsonNode data = block.getData();
+        for (ArticleBlockRequest block : blocks) {
+            validateBlock(block);
+        }
+    }
 
-        switch (block.getType()) {
-            case "text":
-                if (!data.has("text") || data.get("text").asText().isEmpty()) {
-                    throw new IllegalArgumentException("Text block must have non-empty 'text' field");
-                }
-                break;
+    private void validateBlock(ArticleBlockRequest block) {
+        if (block.getType() == null) {
+            throw new IllegalArgumentException("Block type is required");
+        }
 
-            case "heading":
-                if (!data.has("level") || !data.has("text")) {
-                    throw new IllegalArgumentException("Heading block must have 'level' and 'text' fields");
-                }
-                int level = data.get("level").asInt();
-                if (level < 1 || level > 6) {
-                    throw new IllegalArgumentException("Heading level must be 1-6");
-                }
-                break;
+        if (block.getData() == null) {
+            throw new IllegalArgumentException("Block data is required");
+        }
 
-            case "image":
-                if (!data.has("fileUrl")) {
-                    throw new IllegalArgumentException("Image block must have 'fileUrl'");
-                }
-                break;
+        Map<String, Object> data = block.getData();
+        ArticleBlockType type = block.getType();
 
-            case "code":
-                if (!data.has("code")) {
-                    throw new IllegalArgumentException("Code block must have 'code' field");
+        switch (type) {
+            case TEXT -> requireText(data, "text", "Text block requires text");
+            case HEADING -> {
+                requireText(data, "text", "Heading block requires text");
+                Object level = data.get("level");
+                if (!(level instanceof Number number) || number.intValue() < 1 || number.intValue() > 6) {
+                    throw new IllegalArgumentException("Heading level must be between 1 and 6");
                 }
-                break;
+            }
+            case IMAGE -> {
+                requireText(data, "fileId", "Image block requires fileId");
+                requireText(data, "url", "Image block requires url");
+                requireText(data, "alt", "Image block requires alt text");
+            }
+            case VIDEO -> {
+                requireText(data, "fileId", "Video block requires fileId");
+                requireText(data, "url", "Video block requires url");
+            }
+            case CODE -> {
+                requireText(data, "code", "Code block requires code");
+                requireText(data, "language", "Code block requires language");
+            }
+            case QUOTE -> requireText(data, "text", "Quote block requires text");
+            case EMBED -> {
+                requireText(data, "provider", "Embed block requires provider");
+                requireText(data, "url", "Embed block requires url");
+            }
+            case DIVIDER -> {
+                // no required fields
+            }
+        }
+    }
 
-            case "quote":
-                if (!data.has("text")) {
-                    throw new IllegalArgumentException("Quote block must have 'text' field");
-                }
-                break;
-
-            case "embed":
-                if (!data.has("provider") || !data.has("embedUrl")) {
-                    throw new IllegalArgumentException("Embed block must have 'provider' and 'embedUrl'");
-                }
-                break;
+    private void requireText(Map<String, Object> data, String key, String message) {
+        Object value = data.get(key);
+        if (!(value instanceof String text) || text.isBlank()) {
+            throw new IllegalArgumentException(message);
         }
     }
 }
