@@ -2,123 +2,168 @@ package com.final_project.versioncontrolservice.controller;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.final_project.versioncontrolservice.model.UserDocument;
+import com.final_project.versioncontrolservice.dto.*;
 import com.final_project.versioncontrolservice.service.AuthService;
+import com.final_project.versioncontrolservice.service.InvitationApplicationService;
 import com.final_project.versioncontrolservice.service.RepoAccessRules;
-import com.final_project.versioncontrolservice.service.VicRepositoryService;
+import com.final_project.versioncontrolservice.service.RepositoryService;
 import com.final_project.versioncontrolservice.exception.ForbiddenException;
 import com.final_project.versioncontrolservice.exception.BadRequestException;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
-
+@Slf4j
 @RestController
+@RequestMapping("/api/v1/repos")
+@AllArgsConstructor
 public class RepositoryController {
-
     private final AuthService authService;
-    private final VicRepositoryService vicRepositoryService;
+    private final RepositoryService repositoryService;
+    private final RepositoryService vicRepositoryService;
+    private final InvitationApplicationService invitationApplicationService;
 
-    public RepositoryController(AuthService authService, VicRepositoryService vicRepositoryService) {
-        this.authService = authService;
-        this.vicRepositoryService = vicRepositoryService;
-    }
 
-    @PostMapping(path = "/repos", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, String>> createRepo(
+    @PostMapping( consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<RepositoryResponse> createRepo(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
-            @RequestBody CreateRepoBody body
+            @RequestBody CreateRepositoryRequest request
     ) {
-        UserDocument user = authService.requireUser(authorization);
-        if (body == null || body.name() == null || body.name().isBlank()) {
-            throw new BadRequestException("repository name is required");
-        }
-        var doc = vicRepositoryService.createRepo(user.getUsername(), body.name(), body.description());
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                "status", "created",
-                "owner", doc.getOwner(),
-                "name", doc.getName()
-        ));
+        return ResponseEntity.ok(repositoryService.createRepo(request));
     }
 
-    @GetMapping(path = "/repos/{owner}/{repo}/info/refs", produces = MediaType.APPLICATION_JSON_VALUE)
+
+    @GetMapping(path = "/{owner}/{repo}/info/refs", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> infoRefs(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
-            @PathVariable String owner,
-            @PathVariable String repo
-    ) {
-        var meta = vicRepositoryService.loadMeta(owner, repo);
-        String username = authService.optionalUser(authorization).map(UserDocument::getUsername).orElse("");
-        if (!RepoAccessRules.canRead(meta, username)) {
-            throw new ForbiddenException("forbidden");
-        }
-        return vicRepositoryService.listRefs(meta);
-    }
-
-    @GetMapping(path = "/repos/{owner}/{repo}/objects/{hash}", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
-    public ResponseEntity<byte[]> getObject(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @PathVariable String owner,
             @PathVariable String repo,
-            @PathVariable String hash
+            @AuthenticationPrincipal Jwt jwt
     ) {
-        var meta = vicRepositoryService.loadMeta(owner, repo);
-        String username = authService.optionalUser(authorization).map(UserDocument::getUsername).orElse("");
-        if (!RepoAccessRules.canRead(meta, username)) {
-            throw new ForbiddenException("forbidden");
-        }
-        byte[] data = vicRepositoryService.readObjectRaw(meta, hash.trim());
+
+        var meta = repositoryService.loadMeta(owner, repo);
+        String userName =  jwt.getClaim("preferred_username");
+        log.info(userName);
+        //
+//        String username = authService.getContributorUser(authorization).getUsername();
+//        if (!RepoAccessRules.canRead(meta, username)) {
+//            throw new ForbiddenException("forbidden");
+//        }
+        return repositoryService.listRefs(meta);
+    }
+
+    @GetMapping(path = "/{owner}/{repo}/objects/{hash}", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+    public ResponseEntity<byte[]> getObject(
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @PathVariable String hash,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        var meta = repositoryService.loadMeta(owner, repo);
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
+//        if (!RepoAccessRules.canRead(meta, user.getUsername())) {
+//            throw new ForbiddenException("forbidden");
+//        }
+        byte[] data = repositoryService.readObjectRaw(meta, hash.trim());
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM).body(data);
     }
 
     @PostMapping(
-            path = "/repos/{owner}/{repo}/objects/{hash}",
+            path = "/{owner}/{repo}/objects/{hash}",
             consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE
     )
     public ResponseEntity<Map<String, String>> uploadObject(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @PathVariable String owner,
             @PathVariable String repo,
             @PathVariable String hash,
-            @RequestBody byte[] body
+            @RequestBody byte[] body,
+            @AuthenticationPrincipal Jwt jwt
     ) {
-        UserDocument user = authService.requireUser(authorization);
-        var meta = vicRepositoryService.loadMeta(owner, repo);
-        if (!RepoAccessRules.canWrite(meta, user.getUsername())) {
-            throw new ForbiddenException("forbidden");
-        }
-        vicRepositoryService.writeObject(meta, hash.trim(), body);
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
+        var meta = repositoryService.loadMeta(owner, repo);
+//        if (!RepoAccessRules.canWrite(meta, user.getUsername())) {
+//            throw new ForbiddenException("forbidden");
+//        }
+        repositoryService.writeObject(meta, hash.trim(), body);
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("status", "stored"));
     }
 
     @PostMapping(
-            path = "/repos/{owner}/{repo}/refs/heads/{branch}",
+            path = "/{owner}/{repo}/refs/heads/{branch}",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE
     )
     public UpdateBranchResponse updateBranch(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @PathVariable String owner,
             @PathVariable String repo,
             @PathVariable String branch,
-            @RequestBody UpdateBranchBody body
+            @RequestBody UpdateBranchBody body,
+            @AuthenticationPrincipal Jwt jwt
     ) {
-        UserDocument user = authService.requireUser(authorization);
-        var meta = vicRepositoryService.loadMeta(owner, repo);
-        if (!RepoAccessRules.canWrite(meta, user.getUsername())) {
-            throw new com.final_project.versioncontrolservice.exception.ForbiddenException("forbidden");
-        }
-        if (body == null || body.hash() == null || body.hash().isBlank()) {
-            throw new BadRequestException("hash is required");
-        }
-        vicRepositoryService.updateBranchRef(meta, branch, body.hash().trim());
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
+        var meta = repositoryService.loadMeta(owner, repo);
+        repositoryService.updateBranchRef(meta, branch, body.hash().trim());
         return new UpdateBranchResponse("updated", branch.trim());
     }
 
+    @PostMapping(path = "/{owner}/{repo}/invitations/{guest}")
+    public ResponseEntity<InvitationResponse> create(
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @PathVariable String guest
+    ) {
+      return ResponseEntity.ok(
+              invitationApplicationService.create(InvitationRequest
+                      .builder()
+                      .repository(repo)
+                      .guest(guest)
+                      .host(owner)
+                      .build())
+      ) ;
+    }
+
+    @GetMapping(path = "/invitations/{user}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public List<InvitationResponse> listMine(
+            @PathVariable String user
+    ) {
+        return invitationApplicationService.listPendingForUser(user);
+    }
+
+    @PostMapping(path = "/invitations/{invitationId}/accept/{userId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<InvitationResponse> accept(
+            @PathVariable String userId,
+            @PathVariable String invitationId
+    ) {
+       return ResponseEntity.ok(invitationApplicationService.accept(invitationId, userId)) ;
+    }
+
+
+    @PostMapping(path = "/guest/{guestId}/owner/{ownerId}/repositor/{repoName}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<RepositoryDTO> removeFromRepositoryContribution(
+            @PathVariable String guestId,
+            @PathVariable String ownerId,
+            @PathVariable String repoName
+    ) {
+        return ResponseEntity.ok(repositoryService.removeBlockUserFromRepository(ownerId,guestId, repoName)) ;
+    }
+    @PostMapping(path = "/invitations/{invitationId}/reject/{userId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<InvitationResponse> reject(
+            @PathVariable String userId,
+            @PathVariable String invitationId
+    ) {
+        return ResponseEntity.ok(invitationApplicationService.reject(invitationId, userId)) ;
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record InviteBody(String username, String role) {}
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record CreateRepoBody(String name, String description) {}
 

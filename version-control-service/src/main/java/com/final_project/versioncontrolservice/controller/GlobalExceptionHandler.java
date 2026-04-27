@@ -1,14 +1,12 @@
 package com.final_project.versioncontrolservice.controller;
 
+import com.final_project.versioncontrolservice.exception.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import com.final_project.versioncontrolservice.exception.BadRequestException;
-import com.final_project.versioncontrolservice.exception.ForbiddenException;
-import com.final_project.versioncontrolservice.exception.NotFoundException;
 import com.final_project.versioncontrolservice.service.AuthService;
 
 @RestControllerAdvice
@@ -24,13 +22,13 @@ public class GlobalExceptionHandler {
         return text(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
-    @ExceptionHandler(AuthService.InvalidCredentialsException.class)
+    @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<String> invalidCreds() {
         return text(HttpStatus.UNAUTHORIZED, "invalid credentials");
     }
 
-    @ExceptionHandler(AuthService.UnauthorizedException.class)
-    public ResponseEntity<String> unauthorized(AuthService.UnauthorizedException ex) {
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<String> unauthorized(UnauthorizedException ex) {
         return text(HttpStatus.UNAUTHORIZED, ex.getMessage());
     }
 
