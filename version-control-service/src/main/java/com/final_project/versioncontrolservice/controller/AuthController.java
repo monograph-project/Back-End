@@ -1,51 +1,38 @@
 package com.final_project.versioncontrolservice.controller;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.final_project.versioncontrolservice.model.UserDocument;
+import com.final_project.versioncontrolservice.dto.AuthResponse;
+import com.final_project.versioncontrolservice.dto.LoginRequest;
+import com.final_project.versioncontrolservice.dto.RefreshTokenRequest;
+import com.final_project.versioncontrolservice.dto.SignupRequest;
 import com.final_project.versioncontrolservice.service.AuthService;
-import org.springframework.http.HttpStatus;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Map;
-
+@Slf4j
 @RestController
+@AllArgsConstructor
 public class AuthController {
-
     private final AuthService authService;
 
-    public AuthController(AuthService authService) {
-        this.authService = authService;
-    }
-
     @PostMapping(path = "/auth/register", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, String>> register(@RequestBody RegisterBody body) {
-        if (body == null) {
-            throw new IllegalArgumentException("invalid json body");
-        }
-        UserDocument u = authService.register(body.username(), body.email(), body.password());
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                "status", "registered",
-                "username", u.getUsername(),
-                "email", u.getEmail()
-        ));
+    public ResponseEntity<AuthResponse> register(@RequestBody SignupRequest request) {
+        return ResponseEntity.ok(authService.signup(request));
     }
 
     @PostMapping(path = "/auth/login", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, String>> login(@RequestBody LoginBody body) {
-        if (body == null) {
-            throw new IllegalArgumentException("invalid json body");
-        }
-        String token = authService.login(body.identifier(), body.password());
-        return ResponseEntity.ok(Map.of("status", "authenticated", "token", token));
+    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
+       return ResponseEntity.ok(authService.login(request));
+    }
+    @PostMapping(path = "/auth/refresh", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<AuthResponse> refresh(@RequestBody RefreshTokenRequest refreshToken) {
+        log.info("Refresh Token: {}", refreshToken.getRefreshToken());
+        return ResponseEntity.ok(authService.refresh(refreshToken));
     }
 
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public record RegisterBody(String username, String email, String password) {}
 
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public record LoginBody(String identifier, String password) {}
 }

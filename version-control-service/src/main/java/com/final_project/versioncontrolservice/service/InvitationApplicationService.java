@@ -1,16 +1,14 @@
 package com.final_project.versioncontrolservice.service;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
-import org.bson.types.ObjectId;
+import com.final_project.versioncontrolservice.dto.*;
 import org.springframework.stereotype.Service;
-
+import com.final_project.versioncontrolservice.model.*;
 import com.final_project.versioncontrolservice.exception.BadRequestException;
 import com.final_project.versioncontrolservice.exception.ForbiddenException;
 import com.final_project.versioncontrolservice.exception.NotFoundException;
-import com.final_project.versioncontrolservice.model.InvitationDocument;
-import com.final_project.versioncontrolservice.model.VicRepositoryDocument;
 import com.final_project.versioncontrolservice.repo.InvitationRepository;
 
 import lombok.AllArgsConstructor;
@@ -19,58 +17,136 @@ import lombok.AllArgsConstructor;
 @AllArgsConstructor
 public class InvitationApplicationService {
     private final InvitationRepository invitationRepository;
-    private final VicRepositoryService vicRepositoryService;
+    private final AuthService authService;
+    private final RepositoryService repositoryService;
 
+    public InvitationResponse create(InvitationRequest request) {
 
-
-    public void create(VicRepositoryDocument meta, String invitedUser, String role) {
-        String u = invitedUser.trim().toLowerCase();
-        if (u.isEmpty()) {
-            throw new BadRequestException("username is required");
+        ContributorUser guest = authService.getContributorUser(request.getGuest());
+        if (guest == null){
+            throw new NotFoundException("The Guest User Not Found");
         }
-        String r = role == null || role.isBlank() ? "write" : role.trim().toLowerCase();
-        if (!List.of("read", "write", "admin").contains(r)) {
-            throw new BadRequestException("invalid role");
+        ContributorUser host = authService.getContributorUser(request.getHost());
+        if (host == null){
+            throw new NotFoundException("The Host user Not Found");
         }
-        long pending = invitationRepository.countByRepoOwnerAndRepoNameAndInvitedUserAndStatus(
-                meta.getOwner(), meta.getName(), u, "pending");
+
+        RepositoryDTO repo = repositoryService.repositoryByOwnerAndRepoName(host.getUsername(), request.getRepository());
+        long pending = invitationRepository
+                .countByRepository_UserNameIgnoreCaseAndRepository_RepositoryNameIgnoreCaseAndGuestUser_IdAndStatus(
+                repo.getOwner(), repo.getRepositoryName(), guest.getId(), InvitationStatus.PENDING);
         if (pending > 0) {
             throw new BadRequestException("pending invitation already exists");
         }
-        InvitationDocument inv = new InvitationDocument();
-        inv.setRepoOwner(meta.getOwner());
-        inv.setRepoName(meta.getName());
-        inv.setInvitedUser(u);
-        inv.setRole(r);
-        inv.setStatus("pending");
-        inv.setCreatedAt(Instant.now());
-        invitationRepository.save(inv);
+        Invitation invitation = Invitation
+                .builder()
+                .repository(
+                        RepositoryMetadata
+                                .builder()
+                                .description(repo.getDescription())
+                                .type(repo.getVisibility())
+                                .userName(repo.getOwner())
+                                .repositoryName(repo.getRepositoryName())
+                                .build()
+                )
+                .status(InvitationStatus.PENDING)
+                .guestUser(UserDTO.builder()
+                        .email(guest.getEmail())
+                        .status(guest.getStatus())
+                        .username(guest.getUsername())
+                        .id(guest.getId())
+                        .profile(guest.getProfile())
+                        .firstName(guest.getFirstName())
+                        .lastName(guest.getLastName())
+                        .roles(guest.getRoles())
+                        .build())
+                .hostUser(UserDTO
+                        .builder()
+                        .username(host.getUsername())
+                        .id(host.getId())
+                        .email(host.getEmail())
+                        .status(host.getStatus())
+                        .lastName(host.getLastName())
+                        .firstName(host.getFirstName())
+                        .roles(host.getRoles())
+                        .profile(host.getProfile())
+                        .build())
+                .createdAt(LocalDateTime.now())
+                .expiresAt(LocalDateTime.now().plusDays(1))
+                .build();
+       Invitation saved =  invitationRepository.save(invitation);
+        return InvitationResponse.from(saved);
     }
 
-    public List<InvitationDocument> listPendingForUser(String username) {
-        return invitationRepository.findByInvitedUserAndStatus(username.trim().toLowerCase(), "pending");
+    public List<InvitationResponse> listPendingForUser(String userId) {
+        ContributorUser user = authService.getContributorUser(userId);
+        List<Invitation> pendingInvitation =  invitationRepository.findByGuestUser_IdAndStatus(user.getUsername(), InvitationStatus.PENDING);
+        if (pendingInvitation.isEmpty()){
+            return List.of();
+        }
+        return pendingInvitation
+                .stream()
+                .map(InvitationResponse::from).toList();
     }
 
-    public InvitationDocument findById(String idHex) {
-        ObjectId id;
-        try {
-            id = new ObjectId(idHex.trim());
-        } catch (IllegalArgumentException e) {
-            throw new BadRequestException("invalid invitation id");
-        }
-        return invitationRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException("invitation not found"));
+    public InvitationResponse findById(String id) {
+        Invitation invitation = invitationRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("The Invitation With this not found"));
+        return InvitationResponse.from(invitation);
     }
 
-    public void accept(InvitationDocument inv, String username) {
-        if (!inv.getInvitedUser().equalsIgnoreCase(username.trim())) {
-            throw new ForbiddenException("you cannot accept this invitation");
+
+    public InvitationResponse accept(String invitationId, String userId) {
+
+        Invitation invitation = invitationRepository.findById(invitationId)
+                .orElseThrow(() -> new NotFoundException("Invitation not found"));
+
+        if (!invitation.getGuestUser().getId().equals(userId)) {
+            throw new ForbiddenException("You cannot accept this invitation");
         }
-        if (!"pending".equals(inv.getStatus())) {
-            throw new BadRequestException("invitation is not pending");
+
+        if (invitation.getStatus() != InvitationStatus.PENDING) {
+            throw new BadRequestException("Invitation is not pending");
         }
-        vicRepositoryService.addCollaborator(inv.getRepoOwner(), inv.getRepoName(), inv.getInvitedUser(), inv.getRole());
-        inv.setStatus("accepted");
-        invitationRepository.save(inv);
+
+        if (invitation.getExpiresAt() != null &&
+                invitation.getExpiresAt().isBefore(LocalDateTime.now())) {
+
+            invitation.setStatus(InvitationStatus.EXPIRED);
+            invitationRepository.save(invitation);
+
+            throw new BadRequestException("Invitation has expired");
+        }
+
+        repositoryService.addCollaborator(
+                invitation.getRepository().getUserName(),
+                invitation.getRepository().getRepositoryName(),
+                ContributorRequest
+                        .builder()
+                        .email(invitation.getGuestUser().getEmail())
+                        .username(invitation.getGuestUser().getUsername())
+                        .id(invitation.getGuestUser().getId())
+                        .build()
+        );
+        invitation.setStatus(InvitationStatus.ACCEPTED);
+        invitationRepository.save(invitation);
+        return InvitationResponse.from(invitation);
+    }
+
+    public InvitationResponse reject(String invitationId, String userId) {
+        Invitation invitation = invitationRepository.findById(invitationId)
+                .orElseThrow(() -> new NotFoundException("Invitation not found"));
+
+        if (!invitation.getGuestUser().getId().equals(userId)) {
+            throw new ForbiddenException("You cannot reject this invitation");
+        }
+
+        if (invitation.getStatus() != InvitationStatus.PENDING) {
+            throw new BadRequestException("Invitation is not pending");
+        }
+
+        invitation.setStatus(InvitationStatus.REJECTED);
+        Invitation saved =  invitationRepository.save(invitation);
+        return InvitationResponse.from(saved);
     }
 }

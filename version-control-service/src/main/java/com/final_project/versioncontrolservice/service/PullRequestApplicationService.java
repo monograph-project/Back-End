@@ -5,7 +5,7 @@ import com.final_project.versioncontrolservice.exception.ForbiddenException;
 import com.final_project.versioncontrolservice.exception.NotFoundException;
 import com.final_project.versioncontrolservice.repo.PullRequestRepository;
 import com.final_project.versioncontrolservice.model.PullRequestDocument;
-import com.final_project.versioncontrolservice.model.VicRepositoryDocument;
+import com.final_project.versioncontrolservice.model.RepositoryDocument;
 import org.bson.types.ObjectId;
 import org.springframework.stereotype.Service;
 
@@ -16,12 +16,12 @@ import java.util.List;
 public class PullRequestApplicationService {
 
     private final PullRequestRepository pullRequestRepository;
-    private final VicRepositoryService vicRepositoryService;
+    private final RepositoryService vicRepositoryService;
     private final CommitGraphService commitGraphService;
 
     public PullRequestApplicationService(
             PullRequestRepository pullRequestRepository,
-            VicRepositoryService vicRepositoryService,
+            RepositoryService vicRepositoryService,
             CommitGraphService commitGraphService
     ) {
         this.pullRequestRepository = pullRequestRepository;
@@ -30,7 +30,7 @@ public class PullRequestApplicationService {
     }
 
     public PullRequestDocument create(
-            VicRepositoryDocument meta,
+            RepositoryDocument meta,
             String author,
             String sourceBranch,
             String targetBranch,
@@ -60,8 +60,8 @@ public class PullRequestApplicationService {
         }
 
         PullRequestDocument pr = new PullRequestDocument();
-        pr.setRepoOwner(meta.getOwner());
-        pr.setRepoName(meta.getName());
+        pr.setRepoOwner(meta.getOwner().getUsername());
+        pr.setRepoName(meta.getRepositoryName());
         pr.setAuthor(author.trim().toLowerCase());
         pr.setSourceBranch(sourceBranch);
         pr.setTargetBranch(targetBranch);
@@ -72,11 +72,11 @@ public class PullRequestApplicationService {
         return pullRequestRepository.save(pr);
     }
 
-    public List<PullRequestDocument> list(VicRepositoryDocument meta) {
-        return pullRequestRepository.findByRepoOwnerAndRepoName(meta.getOwner(), meta.getName());
+    public List<PullRequestDocument> list(RepositoryDocument meta) {
+        return pullRequestRepository.findByRepoOwnerAndRepoName(meta.getOwner().getUsername(), meta.getRepositoryName());
     }
 
-    public PullRequestDocument find(VicRepositoryDocument meta, String idHex) {
+    public PullRequestDocument find(RepositoryDocument meta, String idHex) {
         ObjectId id;
         try {
             id = new ObjectId(idHex.trim());
@@ -84,11 +84,11 @@ public class PullRequestApplicationService {
             throw new BadRequestException("invalid pull request id");
         }
         return pullRequestRepository
-                .findByIdAndRepoOwnerAndRepoName(id, meta.getOwner(), meta.getName())
+                .findByIdAndRepoOwnerAndRepoName(id, meta.getOwner().getUsername(), meta.getRepositoryName())
                 .orElseThrow(() -> new NotFoundException("pull request not found"));
     }
 
-    public void merge(VicRepositoryDocument meta, PullRequestDocument pr, String adminUsername) {
+    public void merge(RepositoryDocument meta, PullRequestDocument pr, String adminUsername) {
         if (!RepoAccessRules.canAdmin(meta, adminUsername)) {
             throw new ForbiddenException("forbidden");
         }
@@ -111,7 +111,7 @@ public class PullRequestApplicationService {
 
         boolean canFf;
         try {
-            canFf = commitGraphService.isAncestorInRepo(meta.getOwner(), meta.getName(), targetHash, sourceHash);
+            canFf = commitGraphService.isAncestorInRepo(meta.getOwner().getUsername(), meta.getRepositoryName(), targetHash, sourceHash);
         } catch (Exception e) {
             throw new IllegalStateException(e.getMessage(), e);
         }
@@ -119,7 +119,7 @@ public class PullRequestApplicationService {
             throw new BadRequestException("non-fast-forward merge not supported yet");
         }
 
-        VicRepositoryDocument fresh = vicRepositoryService.loadMeta(meta.getOwner(), meta.getName());
+        RepositoryDocument fresh = vicRepositoryService.loadMeta(meta.getOwner().getUsername(), meta.getRepositoryName());
         vicRepositoryService.updateBranchRef(fresh, pr.getTargetBranch(), sourceHash);
         markMerged(pr.getId());
     }

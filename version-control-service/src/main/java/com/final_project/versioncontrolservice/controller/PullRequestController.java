@@ -1,12 +1,12 @@
 package com.final_project.versioncontrolservice.controller;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.final_project.versioncontrolservice.dto.ContributorUser;
 import com.final_project.versioncontrolservice.model.PullRequestDocument;
-import com.final_project.versioncontrolservice.model.UserDocument;
 import com.final_project.versioncontrolservice.service.AuthService;
 import com.final_project.versioncontrolservice.service.PullRequestApplicationService;
 import com.final_project.versioncontrolservice.service.RepoAccessRules;
-import com.final_project.versioncontrolservice.service.VicRepositoryService;
+import com.final_project.versioncontrolservice.service.RepositoryService;
 import com.final_project.versioncontrolservice.exception.ForbiddenException;
 import com.final_project.versioncontrolservice.exception.BadRequestException;
 import com.final_project.versioncontrolservice.dto.PullRequestResponse;
@@ -23,12 +23,12 @@ import java.util.Map;
 public class PullRequestController {
 
     private final AuthService authService;
-    private final VicRepositoryService vicRepositoryService;
+    private final RepositoryService vicRepositoryService;
     private final PullRequestApplicationService pullRequestApplicationService;
 
     public PullRequestController(
             AuthService authService,
-            VicRepositoryService vicRepositoryService,
+            RepositoryService vicRepositoryService,
             PullRequestApplicationService pullRequestApplicationService
     ) {
         this.authService = authService;
@@ -43,7 +43,7 @@ public class PullRequestController {
             @PathVariable String repo,
             @RequestBody CreatePrBody body
     ) {
-        UserDocument user = authService.requireUser(authorization);
+        ContributorUser user = authService.getContributorUser(authorization);
         var meta = vicRepositoryService.loadMeta(owner, repo);
         if (body == null) {
             throw new BadRequestException("invalid json body");
@@ -66,7 +66,7 @@ public class PullRequestController {
             @PathVariable String repo
     ) {
         var meta = vicRepositoryService.loadMeta(owner, repo);
-        String username = authService.optionalUser(authorization).map(UserDocument::getUsername).orElse("");
+        String username = authService.getContributorUser(authorization).getUsername();
         if (!RepoAccessRules.canRead(meta, username)) {
             throw new ForbiddenException("forbidden");
         }
@@ -81,7 +81,7 @@ public class PullRequestController {
             @PathVariable String id
     ) {
         var meta = vicRepositoryService.loadMeta(owner, repo);
-        String username = authService.optionalUser(authorization).map(UserDocument::getUsername).orElse("");
+        String username = authService.getContributorUser(authorization).getUsername();
         if (!RepoAccessRules.canRead(meta, username)) {
             throw new ForbiddenException("forbidden");
         }
@@ -96,7 +96,7 @@ public class PullRequestController {
             @PathVariable String repo,
             @PathVariable String id
     ) {
-        UserDocument user = authService.requireUser(authorization);
+        ContributorUser user = authService.getContributorUser(authorization);
         var meta = vicRepositoryService.loadMeta(owner, repo);
         PullRequestDocument pr = pullRequestApplicationService.find(meta, id);
         pullRequestApplicationService.merge(meta, pr, user.getUsername());

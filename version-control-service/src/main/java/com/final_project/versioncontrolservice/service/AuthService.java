@@ -1,114 +1,123 @@
 package com.final_project.versioncontrolservice.service;
 
-import com.final_project.versioncontrolservice.model.SessionDocument;
-import com.final_project.versioncontrolservice.repo.SessionRepository;
-import com.final_project.versioncontrolservice.model.UserDocument;
-import com.final_project.versioncontrolservice.repo.UserRepository;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import com.final_project.versioncontrolservice.dto.*;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.Optional;
-import java.util.UUID;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 @Service
 public class AuthService {
+    private final WebClient authServiceClient;
 
-    private static final int SESSION_HOURS = 24;
+    public AuthService(WebClient authServiceClient) {
+        this.authServiceClient = authServiceClient;
+    }
+    public AuthResponse signup(SignupRequest request) {
+        return authServiceClient.post()
+                .uri("/api/v1/auth/signup")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(
+                                        new RuntimeException("Auth service client error: " + body)
+                                ))
+                )
+                .onStatus(HttpStatusCode::is5xxServerError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(
+                                        new RuntimeException("Auth service server error: " + body)
+                                ))
+                ).bodyToMono(AuthResponse.class)
+                .block();
+    }
+    public AuthResponse login(LoginRequest request) {
+        return authServiceClient
+                .post()
+                .uri("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(
+                                        new RuntimeException("Auth service client error: " + body)
+                                ))
+                )
+                .onStatus(HttpStatusCode::is5xxServerError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(
+                                        new RuntimeException("Auth service server error: " + body)
+                                ))
+                ).bodyToMono(AuthResponse.class)
+                .block();
 
-    private final UserRepository userRepository;
-    private final SessionRepository sessionRepository;
-    private final BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder();
-
-    public AuthService(UserRepository userRepository, SessionRepository sessionRepository) {
-        this.userRepository = userRepository;
-        this.sessionRepository = sessionRepository;
     }
 
-    public UserDocument register(String username, String email, String password) {
-        String u = username.trim().toLowerCase();
-        String em = email.trim().toLowerCase();
-        if (u.isEmpty() || em.isEmpty() || password == null || password.isEmpty()) {
-            throw new IllegalArgumentException("username, email and password are required");
-        }
-        if (password.length() < 8) {
-            throw new IllegalArgumentException("password must be at least 8 characters");
-        }
-        if (userRepository.existsByUsername(u)) {
-            throw new IllegalArgumentException("username already exists");
-        }
-        if (userRepository.existsByEmail(em)) {
-            throw new IllegalArgumentException("email already exists");
-        }
-        UserDocument doc = new UserDocument();
-        doc.setUsername(u);
-        doc.setEmail(em);
-        doc.setPasswordHash(bcrypt.encode(password));
-        doc.setCreatedAt(Instant.now());
-        return userRepository.save(doc);
+    public ContributorUser getContributorUser(String userId) {
+        return authServiceClient
+                .get()
+                .uri("/api/v1/users/contributor/{id}", userId)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(
+                                        new RuntimeException("Auth service client error: " + body)
+                                ))
+                )
+                .onStatus(HttpStatusCode::is5xxServerError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(
+                                        new RuntimeException("Auth service server error: " + body)
+                                ))
+                )
+                .bodyToMono(ContributorUser.class)
+                .block();
     }
 
-    public String login(String identifier, String password) {
-        String id = identifier.trim().toLowerCase();
-        if (id.isEmpty() || password == null || password.isEmpty()) {
-            throw new IllegalArgumentException("identifier and password are required");
-        }
-        UserDocument user = userRepository.findByUsername(id)
-                .or(() -> userRepository.findByEmail(id))
-                .orElseThrow(() -> new InvalidCredentialsException());
-        if (!bcrypt.matches(password, user.getPasswordHash())) {
-            throw new InvalidCredentialsException();
-        }
-        String token = UUID.randomUUID().toString();
-        SessionDocument s = new SessionDocument();
-        s.setUserId(user.getId());
-        s.setToken(token);
-        s.setCreatedAt(Instant.now());
-        s.setExpiresAt(Instant.now().plus(SESSION_HOURS, ChronoUnit.HOURS));
-        sessionRepository.save(s);
-        return token;
+    public AuthResponse refresh(RefreshTokenRequest refresh) {
+        return authServiceClient
+                .post()
+                .uri("/api/v1/auth/refresh-token")
+                .bodyValue(refresh)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(
+                                        new RuntimeException("Auth service client error: " + body)
+                                ))
+                )
+                .onStatus(HttpStatusCode::is5xxServerError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(
+                                        new RuntimeException("Auth service server error: " + body)
+                                ))
+                )
+                .bodyToMono(AuthResponse.class)
+                .block();
     }
 
-    public Optional<UserDocument> optionalUser(String authorizationHeader) {
-        String token = bearerToken(authorizationHeader);
-        if (token == null) {
-            return Optional.empty();
-        }
-        Optional<SessionDocument> s = sessionRepository.findByToken(token);
-        if (s.isEmpty()) {
-            return Optional.empty();
-        }
-        SessionDocument session = s.get();
-        if (Instant.now().isAfter(session.getExpiresAt())) {
-            sessionRepository.delete(session);
-            return Optional.empty();
-        }
-        return userRepository.findById(session.getUserId());
-    }
-
-    public UserDocument requireUser(String authorizationHeader) {
-        return optionalUser(authorizationHeader).orElseThrow(() -> new UnauthorizedException("unauthorized"));
-    }
-
-    private static String bearerToken(String authorizationHeader) {
-        if (authorizationHeader == null || authorizationHeader.isBlank()) {
-            return null;
-        }
-        String h = authorizationHeader.trim();
-        final String p = "Bearer ";
-        if (!h.startsWith(p)) {
-            return null;
-        }
-        String t = h.substring(p.length()).trim();
-        return t.isEmpty() ? null : t;
-    }
-
-    public static class InvalidCredentialsException extends RuntimeException {}
-
-    public static class UnauthorizedException extends RuntimeException {
-        public UnauthorizedException(String m) {
-            super(m);
-        }
+    public UserDTO getUserByUsername(String username) {
+        return authServiceClient
+                .get()
+                .uri("/api/v1/users//by-username/{username}", username)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(
+                                        new RuntimeException("Auth service client error: " + body)
+                                ))
+                )
+                .onStatus(HttpStatusCode::is5xxServerError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(
+                                        new RuntimeException("Auth service server error: " + body)
+                                ))
+                )
+                .bodyToMono(UserDTO.class)
+                .block();
     }
 }

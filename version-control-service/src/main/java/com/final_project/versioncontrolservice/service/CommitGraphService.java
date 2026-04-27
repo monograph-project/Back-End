@@ -8,7 +8,6 @@ import java.util.Set;
 
 @Service
 public class CommitGraphService {
-
     private final MinioStorageService minio;
 
     public CommitGraphService(MinioStorageService minio) {
