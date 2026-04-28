@@ -138,12 +138,36 @@ public class RepositoryService {
         minio.writeLayoutBranchRef(meta.getOwner().getUsername(), meta.getRepositoryName(), branch, hash.trim());
     }
 
+//    public String listBranchHash(RepositoryDocument meta, String branch) {
+//        String h = meta.getBranchHeads().get(branch.trim());
+//        if (h == null) {
+//            return "";
+//        }
+//        return h.trim();
+//    }
     public String listBranchHash(RepositoryDocument meta, String branch) {
-        String h = meta.getBranchHeads().get(branch.trim());
-        if (h == null) {
-            return "";
+
+        if (meta == null) {
+            throw new NotFoundException("Repository not found");
         }
-        return h.trim();
+
+        if (branch == null || branch.trim().isEmpty()) {
+            throw new BadRequestException("Branch is required");
+        }
+
+        String branchName = branch.trim();
+
+        if (meta.getBranchHeads() == null || !meta.getBranchHeads().containsKey(branchName)) {
+            throw new BadRequestException("Branch does not exist: " + branchName);
+        }
+
+        String hash = meta.getBranchHeads().get(branchName);
+
+        if (hash == null || hash.trim().isEmpty()) {
+            throw new BadRequestException("Branch has no commits yet: " + branchName);
+        }
+
+        return hash.trim();
     }
 
     @Transactional

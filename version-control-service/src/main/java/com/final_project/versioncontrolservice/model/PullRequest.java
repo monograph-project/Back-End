@@ -25,10 +25,15 @@ public class PullRequest {
     private String repoName;
 
     private PullRequestUser author;
+
     @Field("source_branch")
     private String sourceBranch;
+    @Field("source_hash")
+    private String sourceHash;
     @Field("target_branch")
     private String targetBranch;
+    @Field("target_hash")
+    private String targetHash;
     private String title;
     private String description;
     private PullRequestStatus status;
