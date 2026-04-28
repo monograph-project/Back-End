@@ -17,6 +17,7 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/repos/{owner}/{repo}")
+@AllArgsConstructor
 public class FileViewController {
 
     private final AuthService authService;
@@ -24,17 +25,6 @@ public class FileViewController {
     private final MinioStorageService minioStorageService;
     private final CommitGraphService commitGraphService;
 
-    public FileViewController(
-            AuthService authService,
-            RepositoryService vicRepositoryService,
-            MinioStorageService minioStorageService,
-            CommitGraphService commitGraphService
-    ) {
-        this.authService = authService;
-        this.vicRepositoryService = vicRepositoryService;
-        this.minioStorageService = minioStorageService;
-        this.commitGraphService = commitGraphService;
-    }
 
     /**
      * Get file content at a specific commit/branch

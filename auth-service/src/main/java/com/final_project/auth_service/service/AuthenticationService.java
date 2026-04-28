@@ -31,6 +31,8 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
@@ -59,6 +61,7 @@ public class AuthenticationService {
     private final ObjectMapper objectMapper;
     private final KeycloakConfig keycloakConfig;
     private final AuthEventPublisher eventPublisher;
+    private final JwtDecoder jwtDecoder;
 
     @Value("${app.default-role:faculty-user}")
     private String defaultRole;
@@ -151,7 +154,11 @@ public class AuthenticationService {
     }
 
     public AuthResponse refreshToken(RefreshTokenRequest request) {
-        return requestToken("refresh_token", Map.of("refresh_token", request.getRefreshToken()));
+        AuthResponse authResponse =  requestToken("refresh_token", Map.of("refresh_token", request.getRefreshToken()));
+        Jwt jwt = jwtDecoder.decode(authResponse.getAccessToken());
+        UserRepresentation user = keycloakService.getUserById(jwt.getSubject());
+        authResponse.setUser(toDTO(user));
+        return authResponse;
     }
 
     public void changePassword(String userId, ChangePasswordRequest request) {
@@ -225,7 +232,7 @@ public class AuthenticationService {
 
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("client_id", "frontend");
-        form.add("grant_type", "password");
+        form.add("grant_type", grantType);
 
         params.forEach(form::add);
 

@@ -24,7 +24,7 @@ public class RepositoryOperationConsumer {
     private final RepositoryOperationProcessor repositoryOperationProcessor;
 
     @KafkaListener(
-            topics = "${app.kafka.topics.repository-operation}",
+            topics = "${app.kafka.topics.repository.operation}",
             groupId = "notification-service-group",
             containerFactory = "kafkaListenerContainerFactory"
     )

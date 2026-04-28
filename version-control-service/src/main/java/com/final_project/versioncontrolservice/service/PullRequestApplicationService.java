@@ -1,133 +1,178 @@
 package com.final_project.versioncontrolservice.service;
 
+import com.final_project.versioncontrolservice.dto.*;
 import com.final_project.versioncontrolservice.exception.BadRequestException;
-import com.final_project.versioncontrolservice.exception.ForbiddenException;
 import com.final_project.versioncontrolservice.exception.NotFoundException;
+import com.final_project.versioncontrolservice.model.PullRequest;
+import com.final_project.versioncontrolservice.model.PullRequestStatus;
 import com.final_project.versioncontrolservice.repo.PullRequestRepository;
-import com.final_project.versioncontrolservice.model.PullRequestDocument;
 import com.final_project.versioncontrolservice.model.RepositoryDocument;
-import org.bson.types.ObjectId;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
+@AllArgsConstructor
 public class PullRequestApplicationService {
 
     private final PullRequestRepository pullRequestRepository;
-    private final RepositoryService vicRepositoryService;
     private final CommitGraphService commitGraphService;
-
-    public PullRequestApplicationService(
-            PullRequestRepository pullRequestRepository,
-            RepositoryService vicRepositoryService,
-            CommitGraphService commitGraphService
-    ) {
-        this.pullRequestRepository = pullRequestRepository;
-        this.vicRepositoryService = vicRepositoryService;
-        this.commitGraphService = commitGraphService;
-    }
-
-    public PullRequestDocument create(
-            RepositoryDocument meta,
+    private final RepositoryService repositoryService;
+    private final AuthService authService;
+    public PullRequestResponse create(
             String author,
-            String sourceBranch,
-            String targetBranch,
-            String title,
-            String description
+            String repo,
+            CreatePullRequest request
     ) {
-        if (!RepoAccessRules.canRead(meta, author)) {
-            throw new ForbiddenException("forbidden");
+        ContributorUser authorContributor =  authService.getContributorUser(request.getAuthor());
+        if (authorContributor == null) {
+            throw new NotFoundException("Contributor Not Found");
         }
-        sourceBranch = sourceBranch.trim();
-        targetBranch = targetBranch.trim();
-        title = title.trim();
-        description = description == null ? "" : description.trim();
-        if (sourceBranch.isEmpty() || targetBranch.isEmpty() || title.isEmpty()) {
-            throw new BadRequestException("source_branch, target_branch and title are required");
+        ContributorUser repoOwner = authService.getContributorUser(repo);
+        if (repoOwner == null) {
+            throw new NotFoundException("Repo Not Found");
         }
-        if (sourceBranch.equals(targetBranch)) {
-            throw new BadRequestException("source and target branch cannot be the same");
+
+        RepositoryDocument currentDocument = repositoryService.loadMeta(author, repo);
+        if (currentDocument == null) {
+            throw new NotFoundException("The Current Repository does not exist");
         }
-        String headSource = vicRepositoryService.listBranchHash(meta, sourceBranch);
+
+        String headSource = repositoryService.listBranchHash(currentDocument, request.getSourceBranch());
         if (headSource.isEmpty()) {
-            throw new BadRequestException("source branch \"" + sourceBranch + "\" does not exist");
+            throw new BadRequestException("source branch \"" + request.getSourceBranch() + "\" does not exist");
         }
-        String headTarget = vicRepositoryService.listBranchHash(meta, targetBranch);
+
+        String headTarget = repositoryService.listBranchHash(currentDocument, request.getTargetBranch());
         if (headTarget.isEmpty()) {
-            throw new BadRequestException("target branch \"" + targetBranch + "\" does not exist");
+            throw new BadRequestException("target branch \"" + request.getTargetBranch()  + "\" does not exist");
         }
 
-        PullRequestDocument pr = new PullRequestDocument();
-        pr.setRepoOwner(meta.getOwner().getUsername());
-        pr.setRepoName(meta.getRepositoryName());
-        pr.setAuthor(author.trim().toLowerCase());
-        pr.setSourceBranch(sourceBranch);
-        pr.setTargetBranch(targetBranch);
-        pr.setTitle(title);
-        pr.setDescription(description);
-        pr.setStatus("open");
-        pr.setCreatedAt(Instant.now());
-        return pullRequestRepository.save(pr);
+       PullRequest pullRequest = PullRequest
+               .builder()
+               .sourceBranch(headSource)
+               .targetBranch(headTarget)
+               .author(
+                       PullRequestUser
+                               .builder()
+                               .email(authorContributor.getEmail())
+                               .firstName(authorContributor.getFirstName())
+                               .username(authorContributor.getUsername())
+                               .id(authorContributor.getId())
+                               .profile(authorContributor.getProfile())
+                               .build()
+               )
+
+               .createdAt(Instant.now())
+               .description(request.getDescription())
+               .title(request.getTitle())
+               .repoOwner(
+                       PullRequestUser
+                               .builder()
+                               .email(repoOwner.getEmail())
+                               .firstName(repoOwner.getFirstName())
+                               .username(repoOwner.getUsername())
+                               .id(repoOwner.getId())
+                               .profile(repoOwner.getProfile())
+                               .build()
+               )
+               .build();
+        PullRequest saved = pullRequestRepository.save(pullRequest);
+        return PullRequestResponse.from(saved);
     }
 
-    public List<PullRequestDocument> list(RepositoryDocument meta) {
-        return pullRequestRepository.findByRepoOwnerAndRepoName(meta.getOwner().getUsername(), meta.getRepositoryName());
-    }
+    public List<PullRequestResponse> list(String owner, String repo) {
 
-    public PullRequestDocument find(RepositoryDocument meta, String idHex) {
-        ObjectId id;
-        try {
-            id = new ObjectId(idHex.trim());
-        } catch (IllegalArgumentException e) {
-            throw new BadRequestException("invalid pull request id");
+        RepositoryDocument document = repositoryService.loadMeta(owner, repo);
+        if (document == null) {
+            throw new  NotFoundException("The Current Repository does not exist");
         }
-        return pullRequestRepository
-                .findByIdAndRepoOwnerAndRepoName(id, meta.getOwner().getUsername(), meta.getRepositoryName())
+
+        List<PullRequest> list =  pullRequestRepository
+                .findByRepoOwner_UsernameIgnoreCaseAndRepoNameIgnoreCase(document.getOwner().getUsername(), document.getRepositoryName());
+        return list
+                .stream()
+                .map(PullRequestResponse::from).collect(Collectors.toList());
+    }
+
+    public PullRequestResponse find(String id, String owner, String repo) {
+        RepositoryDocument document = repositoryService.loadMeta(owner, repo);
+        if (document == null) {
+            throw new  NotFoundException("The Current Repository does not exist");
+        }
+
+        PullRequest result =  pullRequestRepository
+                .findByIdAndRepoOwner_UsernameIgnoreCaseAndRepoNameIgnoreCase(id, document.getOwner().getUsername(), document.getRepositoryName())
                 .orElseThrow(() -> new NotFoundException("pull request not found"));
+        return PullRequestResponse.from(result);
     }
 
-    public void merge(RepositoryDocument meta, PullRequestDocument pr, String adminUsername) {
-        if (!RepoAccessRules.canAdmin(meta, adminUsername)) {
-            throw new ForbiddenException("forbidden");
+
+
+    public MergeResponse merge(String pullId, String owner, String repoName) {
+        RepositoryDocument document = repositoryService.loadMeta(owner, repoName);
+        if (document == null) {
+            throw new  NotFoundException("The Current Repository does not exist");
         }
-        if (!"open".equals(pr.getStatus())) {
-            throw new BadRequestException("pull request is not open");
+        PullRequest pullRequest = pullRequestRepository.findById(pullId)
+                .orElseThrow(() -> new NotFoundException("Pull Request not found"));
+
+        if (!pullRequest.getStatus().equals(PullRequestStatus.OPENED)){
+            throw new  BadRequestException("Pull Request Status Not Opened");
         }
-        String sourceHash = vicRepositoryService.listBranchHash(meta, pr.getSourceBranch());
+
+        String sourceHash = repositoryService.listBranchHash(document, pullRequest.getSourceBranch());
+
         if (sourceHash.isEmpty()) {
             throw new BadRequestException("source branch does not exist");
         }
-        String targetHash = vicRepositoryService.listBranchHash(meta, pr.getTargetBranch());
+
+        String targetHash = repositoryService.listBranchHash(document, pullRequest.getTargetBranch());
+
         if (targetHash.isEmpty()) {
             throw new BadRequestException("target branch does not exist");
         }
 
         if (sourceHash.equals(targetHash)) {
-            markMerged(pr.getId());
-            return;
+            markMerged(pullRequest.getId());
+            return null;
         }
 
         boolean canFf;
+
         try {
-            canFf = commitGraphService.isAncestorInRepo(meta.getOwner().getUsername(), meta.getRepositoryName(), targetHash, sourceHash);
+            canFf = commitGraphService.isAncestorInRepo(document.getOwner().getUsername(), document.getRepositoryName(), targetHash, sourceHash);
         } catch (Exception e) {
             throw new IllegalStateException(e.getMessage(), e);
         }
+
         if (!canFf) {
             throw new BadRequestException("non-fast-forward merge not supported yet");
         }
 
-        RepositoryDocument fresh = vicRepositoryService.loadMeta(meta.getOwner().getUsername(), meta.getRepositoryName());
-        vicRepositoryService.updateBranchRef(fresh, pr.getTargetBranch(), sourceHash);
-        markMerged(pr.getId());
+        RepositoryDocument mergedRepository = repositoryService.loadMeta(document.getOwner().getUsername(), document.getRepositoryName());
+        repositoryService.updateBranchRef(mergedRepository, pullRequest.getTargetBranch(), sourceHash);
+        markMerged(mergedRepository.getId());
+
+        return MergeResponse
+                .builder()
+                .mergedAt(Instant.now())
+                .pullRequestId(pullRequest.getId())
+                .status(PullRequestStatus.MERGED)
+                .targetBranch(pullRequest.getTargetBranch())
+                .sourceBranch(pullRequest.getSourceBranch())
+                .newHead(sourceHash)
+                .message("Success")
+                .build();
     }
 
-    private void markMerged(ObjectId id) {
-        PullRequestDocument pr = pullRequestRepository.findById(id)
+    private void markMerged(String  id) {
+        PullRequest pr = pullRequestRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("pull request not found"));
-        pr.setStatus("merged");
+        pr.setStatus(PullRequestStatus.MERGED);
         pr.setMergedAt(Instant.now());
         pullRequestRepository.save(pr);
     }

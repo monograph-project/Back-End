@@ -9,10 +9,10 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface TaskCommentRepository extends MongoRepository<TaskComment, ObjectId> {
+public interface TaskCommentRepository extends MongoRepository<TaskComment, String > {
+    List<TaskComment> findByTaskIdOrderByCreatedAtAsc(String  taskId);
+    long countByTaskId(String  taskId);
 
-    List<TaskComment> findByTaskIdOrderByCreatedAtAsc(ObjectId taskId);
-
-    long countByTaskId(ObjectId taskId);
+    
 }
 

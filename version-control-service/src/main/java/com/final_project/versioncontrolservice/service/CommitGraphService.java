@@ -1,5 +1,6 @@
 package com.final_project.versioncontrolservice.service;
 
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayDeque;
@@ -7,12 +8,9 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Service
+@AllArgsConstructor
 public class CommitGraphService {
     private final MinioStorageService minio;
-
-    public CommitGraphService(MinioStorageService minio) {
-        this.minio = minio;
-    }
 
     public boolean isAncestorInRepo(String owner, String repo, String ancestor, String descendant) {
         if (ancestor == null || descendant == null || ancestor.isEmpty() || descendant.isEmpty()) {

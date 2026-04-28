@@ -1,8 +1,11 @@
-package com.final_project.notification_service.event;
+package com.final_project.blog_service.event;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.final_project.notification_service.model.ArticleEventType;
-import lombok.*;
+import com.final_project.blog_service.model.ArticleEventType;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.Map;

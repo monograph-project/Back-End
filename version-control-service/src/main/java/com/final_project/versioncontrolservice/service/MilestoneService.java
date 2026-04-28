@@ -1,12 +1,18 @@
 package com.final_project.versioncontrolservice.service;
 
+import com.final_project.versioncontrolservice.dto.MilestoneTaskUser;
+import com.final_project.versioncontrolservice.dto.UserDTO;
 import com.final_project.versioncontrolservice.exception.ForbiddenException;
 import com.final_project.versioncontrolservice.exception.NotFoundException;
 import com.final_project.versioncontrolservice.model.Milestone;
 import com.final_project.versioncontrolservice.model.Task;
 import com.final_project.versioncontrolservice.model.RepositoryDocument;
+import com.final_project.versioncontrolservice.model.TaskStatus;
 import com.final_project.versioncontrolservice.repo.MilestoneRepository;
 import com.final_project.versioncontrolservice.repo.TaskRepository;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.bson.types.ObjectId;
 import org.springframework.stereotype.Service;
 
@@ -15,68 +21,87 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
+@AllArgsConstructor
 public class MilestoneService {
 
+    private final AuthService authService;
     private final MilestoneRepository milestoneRepository;
     private final TaskRepository taskRepository;
     private final RepositoryService vicRepositoryService;
 
-    public MilestoneService(MilestoneRepository milestoneRepository,
-                            TaskRepository taskRepository,
-                            RepositoryService vicRepositoryService) {
-        this.milestoneRepository = milestoneRepository;
-        this.taskRepository = taskRepository;
-        this.vicRepositoryService = vicRepositoryService;
-    }
-
     /**
      * Create a new milestone
      */
-    public Milestone createMilestone(String owner, String repo,
+    public MilestoneResponse createMilestone(String owner, String repo,
                                              MilestoneRequest request, String username) {
-        // Validate permissions
-        RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
-        if (!RepoAccessRules.canAdmin(meta, username)) {
-            throw new ForbiddenException("only repository admins can create milestones");
+        UserDTO ownerUser = authService.getUserByUsername(owner);
+        if (ownerUser == null) {
+            throw new NotFoundException("There is not such uers");
         }
+        UserDTO creatorUser = authService.getUserByUsername(username);
+        if  (creatorUser == null) {
+            throw new NotFoundException("User not found");
+        }
+
+
+        // Validate permissions
+
+        RepositoryDocument meta = vicRepositoryService.loadMeta(ownerUser.getUsername(), repo);
+
 
         // Generate milestone number
         int number = getNextMilestoneNumber(owner, repo);
 
-        Milestone milestone = new Milestone();
-        milestone.setRepoOwner(owner);
-        milestone.setRepoName(repo);
-        milestone.setNumber(number);
-        milestone.setTitle(request.getTitle());
-        milestone.setDescription(request.getDescription());
-        milestone.setDueDate(request.getDueDate());
-        milestone.setCreatedAt(Instant.now());
-        milestone.setUpdatedAt(Instant.now());
-        milestone.setCreatedBy(username);
-        milestone.setStatus("open");
+        Milestone milestone = Milestone.builder()
+                .repoOwner(MilestoneTaskUser
+                        .builder()
+                        .userId(ownerUser.getId())
+                        .email(ownerUser.getEmail())
+                        .profile(ownerUser.getProfile())
+                        .firstName(ownerUser.getFirstName())
+                        .userName(ownerUser.getUsername())
+                        .build())
+                .repoName(repo)
+                .number(number)
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .dueDate(request.getDueDate())
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .createdBy(username)
+                .status("open")
 
-        // Academic fields
-        milestone.setMaxScore(request.getMaxScore());
-        milestone.setPassingScore(request.getPassingScore());
-        milestone.setRubric(request.getRubric());
-        milestone.setRequiredTasks(request.getRequiredTasks());
-        milestone.setCompletionPercentage(0.0);
+                // Academic fields
+                .maxScore(request.getMaxScore())
+                .passingScore(request.getPassingScore())
+                .rubric(request.getRubric())
+                .requiredTasks(request.getRequiredTasks())
+                .completionPercentage(0.0)
 
-        return milestoneRepository.save(milestone);
+                // Optional: initialize stats explicitly (good practice)
+                .totalTasks(0)
+                .openTasks(0)
+                .completedTasks(0)
+                .inProgressTasks(0)
+
+                .build();
+       Milestone saved =  milestoneRepository.save(milestone);
+
+       return MilestoneResponse.fromDocument(saved);
     }
 
     /**
      * Update milestone progress based on task completion
      */
-    public void updateMilestoneProgress(String owner, String repo, ObjectId milestoneId) {
+    public void updateMilestoneProgress(String owner, String repo, String  milestoneId) {
         Milestone milestone = milestoneRepository.findById(milestoneId)
                 .orElseThrow(() -> new NotFoundException("milestone not found"));
 
         // Count tasks by status
         long totalTasks = taskRepository.countByMilestone(owner, repo, milestoneId);
-        long completedTasks = taskRepository.countByMilestoneAndStatus(owner, repo, milestoneId, "completed");
-        long inProgressTasks = taskRepository.countByMilestoneAndStatus(owner, repo, milestoneId, "in_progress");
-        long openTasks = taskRepository.countByMilestoneAndStatus(owner, repo, milestoneId, "open");
+        long completedTasks = taskRepository.countByMilestoneAndStatus(owner, repo, milestoneId, TaskStatus.COMPLETED);
+        long inProgressTasks = taskRepository.countByMilestoneAndStatus(owner, repo, milestoneId, TaskStatus.PROGRESS);
+        long openTasks = taskRepository.countByMilestoneAndStatus(owner, repo, milestoneId, TaskStatus.OPEN);
 
         milestone.setTotalTasks((int) totalTasks);
         milestone.setCompletedTasks((int) completedTasks);
@@ -106,7 +131,7 @@ public class MilestoneService {
      */
     public List<MilestoneResponse> getMilestones(String owner, String repo) {
         List<Milestone> milestones = milestoneRepository
-                .findByRepoOwnerAndRepoNameOrderByNumberDesc(owner, repo);
+                .findByRepoOwner_UserNameAndRepoNameOrderByNumberDesc(owner, repo);
 
         return milestones.stream()
                 .map(m -> {
@@ -114,8 +139,7 @@ public class MilestoneService {
 
                     // Get tasks for this milestone
                     List<Task> tasks = taskRepository
-                            .findByRepoOwnerAndRepoNameAndMilestoneId(owner, repo, m.getId());
-
+                            .findByRepoOwner_UserNameAndRepoNameAndMilestoneId(owner, repo, m.getId());
                     response.setTasks(tasks.stream()
                             .map(TaskResponse::fromDocument)
                             .collect(Collectors.toList()));
@@ -125,20 +149,62 @@ public class MilestoneService {
                 .collect(Collectors.toList());
     }
 
+    public MilestoneResponse updateMilestone(
+            String owner,
+            String repo,
+            int number,
+            MilestoneRequest request
+    ) {
+        Milestone milestone = milestoneRepository
+                .findByRepoOwner_UserNameAndRepoNameAndNumber(owner, repo, number)
+                .orElseThrow(() -> new NotFoundException("milestone #" + number + " not found"));
+
+        if (request.getTitle() != null) {
+            milestone.setTitle(request.getTitle());
+        }
+
+        if (request.getDescription() != null) {
+            milestone.setDescription(request.getDescription());
+        }
+
+        if (request.getDueDate() != null) {
+            milestone.setDueDate(request.getDueDate());
+        }
+
+        if (request.getMaxScore() != null) {
+            milestone.setMaxScore(request.getMaxScore());
+        }
+
+        if (request.getPassingScore() != null) {
+            milestone.setPassingScore(request.getPassingScore());
+        }
+
+        if (request.getRubric() != null) {
+            milestone.setRubric(request.getRubric());
+        }
+
+        if (request.getRequiredTasks() != null) {
+            milestone.setRequiredTasks(request.getRequiredTasks());
+        }
+
+        milestone.setUpdatedAt(Instant.now());
+
+        Milestone saved = milestoneRepository.save(milestone);
+        return MilestoneResponse.fromDocument(saved);
+    }
     /**
      * Get milestone by number
      */
     public Milestone getMilestone(String owner, String repo, int number) {
-        return milestoneRepository.findByRepoOwnerAndRepoNameAndNumber(owner, repo, number)
+        return  milestoneRepository.findByRepoOwner_UserNameAndRepoNameAndNumber(owner, repo, number)
                 .orElseThrow(() -> new NotFoundException("milestone #" + number + " not found"));
-    }
 
+    }
     /**
      * Close a milestone
      */
-    public Milestone closeMilestone(String owner, String repo, int number, String username) {
+    public MilestoneResponse closeMilestone(String owner, String repo, int number, String username) {
         Milestone milestone = getMilestone(owner, repo, number);
-
         RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
         if (!RepoAccessRules.canAdmin(meta, username)) {
             throw new ForbiddenException("only repository admins can close milestones");
@@ -148,13 +214,15 @@ public class MilestoneService {
         milestone.setClosedAt(Instant.now());
         milestone.setUpdatedAt(Instant.now());
 
-        return milestoneRepository.save(milestone);
+        Milestone saved =  milestoneRepository.save(milestone);
+        return MilestoneResponse.fromDocument(saved);
     }
+
 
     /**
      * Reopen a milestone
      */
-    public Milestone reopenMilestone(String owner, String repo, int number, String username) {
+    public MilestoneResponse reopenMilestone(String owner, String repo, int number, String username) {
         Milestone milestone = getMilestone(owner, repo, number);
 
         RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
@@ -166,17 +234,19 @@ public class MilestoneService {
         milestone.setClosedAt(null);
         milestone.setUpdatedAt(Instant.now());
 
-        return milestoneRepository.save(milestone);
+        Milestone result =  milestoneRepository.save(milestone);
+        return MilestoneResponse.fromDocument(result);
     }
 
     private int getNextMilestoneNumber(String owner, String repo) {
-        return milestoneRepository.findTopByRepoOwnerAndRepoNameOrderByNumberDesc(owner, repo)
+        return milestoneRepository.findTopByRepoOwner_UserNameAndRepoNameOrderByNumberDesc(owner, repo)
                 .map(m -> m.getNumber() + 1)
                 .orElse(1);
     }
 
-    // ─── Request/Response DTOs ────────────────────────────────────────────
-
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
     public static class MilestoneRequest {
         private String title;
         private String description;
@@ -185,24 +255,11 @@ public class MilestoneService {
         private Integer passingScore;
         private String rubric;
         private Integer requiredTasks;
-
-        // Getters and setters
-        public String getTitle() { return title; }
-        public void setTitle(String title) { this.title = title; }
-        public String getDescription() { return description; }
-        public void setDescription(String description) { this.description = description; }
-        public Instant getDueDate() { return dueDate; }
-        public void setDueDate(Instant dueDate) { this.dueDate = dueDate; }
-        public Integer getMaxScore() { return maxScore; }
-        public void setMaxScore(Integer maxScore) { this.maxScore = maxScore; }
-        public Integer getPassingScore() { return passingScore; }
-        public void setPassingScore(Integer passingScore) { this.passingScore = passingScore; }
-        public String getRubric() { return rubric; }
-        public void setRubric(String rubric) { this.rubric = rubric; }
-        public Integer getRequiredTasks() { return requiredTasks; }
-        public void setRequiredTasks(Integer requiredTasks) { this.requiredTasks = requiredTasks; }
     }
 
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
     public static class MilestoneResponse {
         private String id;
         private int number;
@@ -227,7 +284,7 @@ public class MilestoneService {
 
         public static MilestoneResponse fromDocument(Milestone doc) {
             MilestoneResponse response = new MilestoneResponse();
-            response.setId(doc.getId().toHexString());
+            response.setId(doc.getId());
             response.setNumber(doc.getNumber());
             response.setTitle(doc.getTitle());
             response.setDescription(doc.getDescription());
@@ -249,55 +306,18 @@ public class MilestoneService {
             return response;
         }
 
-        // Getters and setters
-        public String getId() { return id; }
-        public void setId(String id) { this.id = id; }
-        public int getNumber() { return number; }
-        public void setNumber(int number) { this.number = number; }
-        public String getTitle() { return title; }
-        public void setTitle(String title) { this.title = title; }
-        public String getDescription() { return description; }
-        public void setDescription(String description) { this.description = description; }
-        public Instant getDueDate() { return dueDate; }
-        public void setDueDate(Instant dueDate) { this.dueDate = dueDate; }
-        public Instant getCreatedAt() { return createdAt; }
-        public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
-        public Instant getUpdatedAt() { return updatedAt; }
-        public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
-        public Instant getClosedAt() { return closedAt; }
-        public void setClosedAt(Instant closedAt) { this.closedAt = closedAt; }
-        public String getCreatedBy() { return createdBy; }
-        public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
-        public String getStatus() { return status; }
-        public void setStatus(String status) { this.status = status; }
-        public Integer getMaxScore() { return maxScore; }
-        public void setMaxScore(Integer maxScore) { this.maxScore = maxScore; }
-        public Integer getPassingScore() { return passingScore; }
-        public void setPassingScore(Integer passingScore) { this.passingScore = passingScore; }
-        public String getRubric() { return rubric; }
-        public void setRubric(String rubric) { this.rubric = rubric; }
-        public Integer getRequiredTasks() { return requiredTasks; }
-        public void setRequiredTasks(Integer requiredTasks) { this.requiredTasks = requiredTasks; }
-        public Double getCompletionPercentage() { return completionPercentage; }
-        public void setCompletionPercentage(Double completionPercentage) { this.completionPercentage = completionPercentage; }
-        public Integer getTotalTasks() { return totalTasks; }
-        public void setTotalTasks(Integer totalTasks) { this.totalTasks = totalTasks; }
-        public Integer getOpenTasks() { return openTasks; }
-        public void setOpenTasks(Integer openTasks) { this.openTasks = openTasks; }
-        public Integer getCompletedTasks() { return completedTasks; }
-        public void setCompletedTasks(Integer completedTasks) { this.completedTasks = completedTasks; }
-        public Integer getInProgressTasks() { return inProgressTasks; }
-        public void setInProgressTasks(Integer inProgressTasks) { this.inProgressTasks = inProgressTasks; }
-        public List<TaskResponse> getTasks() { return tasks; }
-        public void setTasks(List<TaskResponse> tasks) { this.tasks = tasks; }
     }
 
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
     public static class TaskResponse {
         private String id;
         private int number;
         private String title;
         private String description;
-        private String assignedTo;
+        private MilestoneTaskUser assignedTo;
         private String status;
         private String priority;
         private List<String> labels;
@@ -315,14 +335,14 @@ public class MilestoneService {
 
         public static TaskResponse fromDocument(Task doc) {
             TaskResponse response = new TaskResponse();
-            response.setId(doc.getId().toHexString());
+            response.setId(doc.getId());
             response.setNumber(doc.getNumber());
             response.setTitle(doc.getTitle());
             response.setDescription(doc.getDescription());
             response.setAssignedTo(doc.getAssignedTo());
-            response.setStatus(doc.getStatus());
-            response.setPriority(doc.getPriority());
-            response.setLabels(doc.getLabels());
+            response.setStatus(doc.getStatus().getStatus());
+            response.setPriority(doc.getPriority().value());
+            response.setLabels(doc.getLabels().stream().map(String::valueOf).collect(Collectors.toList()));
             response.setDueDate(doc.getDueDate());
             response.setMaxScore(doc.getMaxScore());
             response.setEarnedScore(doc.getEarnedScore());
@@ -337,44 +357,6 @@ public class MilestoneService {
             return response;
         }
 
-        // Getters and setters
-        public String getId() { return id; }
-        public void setId(String id) { this.id = id; }
-        public int getNumber() { return number; }
-        public void setNumber(int number) { this.number = number; }
-        public String getTitle() { return title; }
-        public void setTitle(String title) { this.title = title; }
-        public String getDescription() { return description; }
-        public void setDescription(String description) { this.description = description; }
-        public String getAssignedTo() { return assignedTo; }
-        public void setAssignedTo(String assignedTo) { this.assignedTo = assignedTo; }
-        public String getStatus() { return status; }
-        public void setStatus(String status) { this.status = status; }
-        public String getPriority() { return priority; }
-        public void setPriority(String priority) { this.priority = priority; }
-        public List<String> getLabels() { return labels; }
-        public void setLabels(List<String> labels) { this.labels = labels; }
-        public Instant getDueDate() { return dueDate; }
-        public void setDueDate(Instant dueDate) { this.dueDate = dueDate; }
-        public Integer getMaxScore() { return maxScore; }
-        public void setMaxScore(Integer maxScore) { this.maxScore = maxScore; }
-        public Integer getEarnedScore() { return earnedScore; }
-        public void setEarnedScore(Integer earnedScore) { this.earnedScore = earnedScore; }
-        public Integer getMilestoneNumber() { return milestoneNumber; }
-        public void setMilestoneNumber(Integer milestoneNumber) { this.milestoneNumber = milestoneNumber; }
-        public Instant getCompletedAt() { return completedAt; }
-        public void setCompletedAt(Instant completedAt) { this.completedAt = completedAt; }
-        public String getReviewedBy() { return reviewedBy; }
-        public void setReviewedBy(String reviewedBy) { this.reviewedBy = reviewedBy; }
-        public String getReviewComments() { return reviewComments; }
-        public void setReviewComments(String reviewComments) { this.reviewComments = reviewComments; }
-        public String getSubmissionUrl() { return submissionUrl; }
-        public void setSubmissionUrl(String submissionUrl) { this.submissionUrl = submissionUrl; }
-        public String getSubmissionBranch() { return submissionBranch; }
-        public void setSubmissionBranch(String submissionBranch) { this.submissionBranch = submissionBranch; }
-        public List<Task.RequirementCheck> getRequirementsChecklist() { return requirementsChecklist; }
-        public void setRequirementsChecklist(List<Task.RequirementCheck> requirementsChecklist) { this.requirementsChecklist = requirementsChecklist; }
-        public Integer getCommentsCount() { return commentsCount; }
-        public void setCommentsCount(Integer commentsCount) { this.commentsCount = commentsCount; }
+
     }
 }

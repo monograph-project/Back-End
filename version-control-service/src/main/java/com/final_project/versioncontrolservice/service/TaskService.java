@@ -1,20 +1,26 @@
 package com.final_project.versioncontrolservice.service;
 
 
+import com.final_project.versioncontrolservice.dto.ContributorUser;
+import com.final_project.versioncontrolservice.dto.MilestoneTaskUser;
+import com.final_project.versioncontrolservice.dto.SubmissionResponse;
+import com.final_project.versioncontrolservice.dto.UserDTO;
 import com.final_project.versioncontrolservice.exception.ForbiddenException;
 import com.final_project.versioncontrolservice.exception.NotFoundException;
 import com.final_project.versioncontrolservice.model.*;
 import com.final_project.versioncontrolservice.repo.*;
 import com.final_project.versioncontrolservice.websocket.WebSocketEvents;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
-
+@AllArgsConstructor
 @Service
 public class TaskService {
-
     private final TaskRepository taskRepository;
     private final MilestoneRepository milestoneRepository;
     private final TaskCommentRepository commentRepository;
@@ -22,54 +28,54 @@ public class TaskService {
     private final RepositoryService vicRepositoryService;
     private final MilestoneService milestoneService;
     private final WebSocketNotificationService notificationService;
-
-    public TaskService(TaskRepository taskRepository,
-                       MilestoneRepository milestoneRepository,
-                       TaskCommentRepository commentRepository,
-                       SubmissionRepository submissionRepository,
-                       RepositoryService vicRepositoryService,
-                       MilestoneService milestoneService,
-                       WebSocketNotificationService notificationService) {
-        this.taskRepository = taskRepository;
-        this.milestoneRepository = milestoneRepository;
-        this.commentRepository = commentRepository;
-        this.submissionRepository = submissionRepository;
-        this.vicRepositoryService = vicRepositoryService;
-        this.milestoneService = milestoneService;
-        this.notificationService = notificationService;
-    }
-
+    private final AuthService authService;
     /**
      * Create a new task (with optional milestone assignment)
      */
-    public Task createTask(String owner, String repo, TaskRequest request, String username) {
-        RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
-        if (!RepoAccessRules.canWrite(meta, username)) {
-            throw new ForbiddenException("you don't have permission to create tasks");
+    public MilestoneService.TaskResponse createTask(String owner, String repo, TaskRequest request, String username) {
+
+        UserDTO ownerUser = authService.getUserByUsername(owner);
+        if (ownerUser == null) {
+            throw new NotFoundException("User Not Found");
+        }
+        UserDTO repoUser = authService.getUserByUsername(username);
+        if (repoUser == null) {
+            throw new NotFoundException("Repo User Not Found");
         }
 
+
+
+        RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
         int number = getNextTaskNumber(owner, repo);
 
-        Task task = new Task();
-        task.setRepoOwner(owner);
-        task.setRepoName(repo);
-        task.setNumber(number);
-        task.setTitle(request.getTitle());
-        task.setDescription(request.getDescription());
-        task.setCreatedBy(username);
-        task.setCreatedAt(Instant.now());
-        task.setUpdatedAt(Instant.now());
-        task.setStatus("open");
-        task.setPriority(request.getPriority() != null ? request.getPriority() : "medium");
-        task.setLabels(request.getLabels() != null ? request.getLabels() : new ArrayList<>());
-        task.setDueDate(request.getDueDate());
-        task.setEstimatedHours(request.getEstimatedHours());
-        task.setMaxScore(request.getMaxScore());
+        List<ContributorUser> contributorUser = meta.getCollaborators();
 
-        // Requirements checklist
+        Task task = Task.builder()
+                .priority(request.getPriority())
+                .status(TaskStatus.OPEN)
+                .repoName(meta.getRepositoryName())
+                .assignedAt(Instant.now())
+                .repoOwner(MilestoneTaskUser
+                        .builder()
+                        .email(ownerUser.getEmail())
+                        .firstName(ownerUser.getFirstName())
+                        .userId(ownerUser.getId())
+                        .userName(ownerUser.getUsername())
+                        .profile(ownerUser.getProfile())
+                        .build())
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .createdBy(repoUser.getUsername())
+                .updatedAt(Instant.now())
+                .labels(request.getLabels())
+                .dueDate(request.getDueDate())
+                .estimatedHours(request.getEstimatedHours())
+                .maxScore(request.getMaxScore())
+                .build();
         if (request.getRequirements() != null) {
             task.setRequirementsChecklist(
-                    request.getRequirements().stream()
+                    request.getRequirements()
+                            .stream()
                             .map(req -> {
                                 Task.RequirementCheck check = new Task.RequirementCheck();
                                 check.setRequirement(req);
@@ -79,45 +85,59 @@ public class TaskService {
                             .collect(Collectors.toList())
             );
         }
-
-        // Link to milestone if provided
         if (request.getMilestoneNumber() != null) {
             Milestone milestone = milestoneRepository
-                    .findByRepoOwnerAndRepoNameAndNumber(owner, repo, request.getMilestoneNumber())
+                    .findByRepoOwner_UserNameAndRepoNameAndNumber(owner, repo, request.getMilestoneNumber())
                     .orElseThrow(() -> new NotFoundException("milestone #" + request.getMilestoneNumber() + " not found"));
-
             task.setMilestoneId(milestone.getId());
             task.setMilestoneNumber(milestone.getNumber());
-
-            // Update milestone progress
             milestoneService.updateMilestoneProgress(owner, repo, milestone.getId());
         }
+
 
         Task saved = taskRepository.save(task);
 
         // Send notification
         sendTaskNotification(owner, repo, saved, "created", username);
 
-        return saved;
+        return MilestoneService.TaskResponse.fromDocument(saved);
     }
 
     /**
      * Assign task to a user
      */
-    public Task assignTask(String owner, String repo, int taskNumber,
+    public MilestoneService.TaskResponse assignTask(String owner, String repo, int taskNumber,
                                    String assignee, String assignedBy) {
-        Task task = getTask(owner, repo, taskNumber);
-
-        RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
-        if (!RepoAccessRules.canWrite(meta, assignedBy)) {
-            throw new ForbiddenException("you don't have permission to assign tasks");
+        UserDTO assigneeUser = authService.getUserByUsername(assignee);
+        if (assigneeUser == null) {
+            throw new NotFoundException("User Not Found");
         }
 
-        task.setAssignedTo(assignee);
-        task.setAssignedAt(Instant.now());
-        task.setStatus("in_progress");
-        task.setUpdatedAt(Instant.now());
+        UserDTO repoOwner = authService.getUserByUsername(owner);
+        if (repoOwner == null) {
+            throw new NotFoundException("Repo User Not Found");
+        }
 
+        UserDTO assignedByUser =  authService.getUserByUsername(assignedBy);
+        if (assignedByUser == null) {
+            throw new NotFoundException("User Not Found");
+        }
+
+        Task task = getTask(owner, repo, taskNumber);
+        RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
+        task.setAssignedTo(
+                MilestoneTaskUser.builder()
+                        .email(assigneeUser.getEmail())
+                        .firstName(assigneeUser.getFirstName())
+                        .userId(assigneeUser.getId())
+                        .userName(assigneeUser.getUsername())
+                        .profile(assigneeUser.getProfile())
+                        .build()
+        );
+
+        task.setAssignedAt(Instant.now());
+        task.setStatus(TaskStatus.PROGRESS);
+        task.setUpdatedAt(Instant.now());
         Task updated = taskRepository.save(task);
 
         // Update milestone if task belongs to one
@@ -136,55 +156,66 @@ public class TaskService {
                         .build()
         );
 
-        return updated;
+        return MilestoneService.TaskResponse.fromDocument(updated);
     }
 
     /**
      * Submit work for a task
      */
-    public Submission submitTask(String owner, String repo, int taskNumber,
+    public SubmissionResponse submitTask(String owner, String repo, int taskNumber,
                                          SubmissionRequest request, String username) {
-        Task task = getTask(owner, repo, taskNumber);
-
-        // Verify user is assigned to this task
-        if (!username.equals(task.getAssignedTo())) {
-            throw new ForbiddenException("you are not assigned to this task");
+        UserDTO user = authService.getUserByUsername(username);
+        if (user == null) {
+            throw new NotFoundException("User Not Found");
+        }
+        UserDTO repoOwner = authService.getUserByUsername(owner);
+        if (repoOwner == null) {
+            throw new NotFoundException("Repo User Not Found");
         }
 
-        Submission submission = new Submission();
-        submission.setTaskId(task.getId());
-        submission.setSubmittedBy(username);
-        submission.setSubmittedAt(Instant.now());
-        submission.setDescription(request.getDescription());
-        submission.setBranchName(request.getBranchName());
-        submission.setCommitHash(request.getCommitHash());
-        submission.setPullRequestUrl(request.getPullRequestUrl());
-        submission.setFiles(request.getFiles());
-        submission.setStatus("submitted");
-        submission.setRevisionCount(0);
-
+        Task task = getTask(owner, repo, taskNumber);
+        Submission submission = Submission
+                .builder()
+                .taskId(task.getId())
+                .submittedBy(
+                        MilestoneTaskUser
+                                .builder()
+                                .profile(user.getProfile())
+                                .userName(user.getUsername())
+                                .email(user.getEmail())
+                                .firstName(user.getFirstName())
+                                .userId(user.getId())
+                                .build()
+                )
+                .submittedAt(Instant.now())
+                .description(request.getDescription())
+                .branchName(request.getBranchName())
+                .commitHash(request.getCommitHash())
+                .pullRequestUrl(request.getPullRequestUrl())
+                .files(request.getFiles()).status("submitted")
+                .revisionCount(0)
+                        .build();
         // Update task status
-        task.setStatus("in_review");
+
+        task.setStatus(TaskStatus.PROGRESS);
         task.setSubmissionUrl(request.getPullRequestUrl());
         task.setSubmissionBranch(request.getBranchName());
         task.setSubmissionCommit(request.getCommitHash());
         task.setUpdatedAt(Instant.now());
         taskRepository.save(task);
-
         Submission saved = submissionRepository.save(submission);
-
         // Notify repo admins
         notifyAdminsAboutSubmission(owner, repo, task, username);
-
-        return saved;
+        return SubmissionResponse.from(saved);
     }
 
     /**
      * Review/grading a task submission
      */
-    public Task reviewTask(String owner, String repo, int taskNumber,
-                                   ReviewRequest request, String reviewer) {
+    public MilestoneService.TaskResponse reviewTask(String owner, String repo, int taskNumber,
+                                                    ReviewRequest request, String reviewer) {
         Task task = getTask(owner, repo, taskNumber);
+
 
         RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
         if (!RepoAccessRules.canAdmin(meta, reviewer)) {
@@ -211,10 +242,10 @@ public class TaskService {
         task.setEarnedScore(request.getScore());
 
         if (request.isApproved()) {
-            task.setStatus("completed");
+            task.setStatus(TaskStatus.CANCELLED);
             task.setCompletedAt(Instant.now());
         } else {
-            task.setStatus("in_progress");  // Back to in_progress for revisions
+            task.setStatus(TaskStatus.PROGRESS);  // Back to in_progress for revisions
         }
 
         task.setUpdatedAt(Instant.now());
@@ -228,7 +259,7 @@ public class TaskService {
         }
 
         // Notify student
-        notificationService.sendUserNotification(task.getAssignedTo(),
+        notificationService.sendUserNotification(task.getAssignedTo().getUserName(),
                 WebSocketEvents.NotificationEvent.builder()
                         .type("task_reviewed")
                         .title("Task Reviewed")
@@ -237,8 +268,7 @@ public class TaskService {
                         .createdAt(Instant.now())
                         .build()
         );
-
-        return updated;
+        return MilestoneService.TaskResponse.fromDocument(updated);
     }
 
     /**
@@ -246,25 +276,28 @@ public class TaskService {
      */
     public StudentDashboard getStudentDashboard(String owner, String repo, String username) {
         List<Task> tasks = taskRepository
-                .findByRepoOwnerAndRepoNameAndAssignedTo(owner, repo, username);
-
+                .findByRepoOwner_UserNameAndRepoNameAndAssignedTo_UserName(owner, repo, username);
         long totalTasks = tasks.size();
-        long completedTasks = tasks.stream().filter(t -> "completed".equals(t.getStatus())).count();
-        long inProgressTasks = tasks.stream().filter(t -> "in_progress".equals(t.getStatus())).count();
-        long inReviewTasks = tasks.stream().filter(t -> "in_review".equals(t.getStatus())).count();
-        long openTasks = tasks.stream().filter(t -> "open".equals(t.getStatus())).count();
-
+        long completedTasks = tasks
+                .stream()
+                .filter(t -> t.getStatus().equals(TaskStatus.COMPLETED)).count();
+        long inProgressTasks = tasks
+                .stream()
+                .filter(t -> t.getStatus().equals(TaskStatus.PROGRESS)).count();
+        long inReviewTasks = tasks
+                .stream().filter(t -> t.getStatus().equals(TaskStatus.REVIEW)).count();
+        long openTasks = tasks
+                .stream()
+                .filter(t -> t.getStatus().equals(TaskStatus.OPEN)).count();
         // Calculate total score
         int totalEarnedScore = tasks.stream()
                 .filter(t -> t.getEarnedScore() != null)
                 .mapToInt(Task::getEarnedScore)
                 .sum();
-
         int totalPossibleScore = tasks.stream()
                 .filter(t -> t.getMaxScore() != null)
                 .mapToInt(Task::getMaxScore)
                 .sum();
-
         return StudentDashboard.builder()
                 .username(username)
                 .totalTasks(totalTasks)
@@ -282,16 +315,17 @@ public class TaskService {
                 .build();
     }
 
-    // ─── Helper Methods ───────────────────────────────────────────────────
-
     private Task getTask(String owner, String repo, int number) {
-        return taskRepository.findByRepoOwnerAndRepoNameAndNumber(owner, repo, number)
+        return taskRepository.findByRepoOwner_UserNameAndRepoNameAndNumber(owner, repo, number)
                 .orElseThrow(() -> new NotFoundException("task #" + number + " not found"));
     }
 
     private int getNextTaskNumber(String owner, String repo) {
-        return taskRepository.findTopByRepoOwnerAndRepoNameOrderByNumberDesc(owner, repo)
-                .map(t -> t.getNumber() + 1)
+        return taskRepository
+                .findByRepoOwner_UserNameAndRepoNameOrderByNumberDesc(owner, repo)
+                .stream()
+                .findFirst()
+                .map(task -> task.getNumber() + 1)
                 .orElse(1);
     }
 
@@ -304,7 +338,7 @@ public class TaskService {
                 .timestamp(Instant.now())
                 .metadata(Map.of(
                         "task_number", task.getNumber(),
-                        "task_id", task.getId().toHexString()
+                        "task_id", task.getId()
                 ))
                 .build();
 
@@ -328,79 +362,44 @@ public class TaskService {
         );
     }
 
-    // ─── Request/Response DTOs ────────────────────────────────────────────
-
+    @Data
+    @Builder
+    @AllArgsConstructor
     public static class TaskRequest {
         private String title;
         private String description;
         private Integer milestoneNumber;
-        private String priority;
-        private List<String> labels;
+        private TaskPriority priority;
+        private List<Label> labels;
         private Instant dueDate;
         private Integer estimatedHours;
         private Integer maxScore;
         private List<String> requirements;
-
-        // Getters and setters
-        public String getTitle() { return title; }
-        public void setTitle(String title) { this.title = title; }
-        public String getDescription() { return description; }
-        public void setDescription(String description) { this.description = description; }
-        public Integer getMilestoneNumber() { return milestoneNumber; }
-        public void setMilestoneNumber(Integer milestoneNumber) { this.milestoneNumber = milestoneNumber; }
-        public String getPriority() { return priority; }
-        public void setPriority(String priority) { this.priority = priority; }
-        public List<String> getLabels() { return labels; }
-        public void setLabels(List<String> labels) { this.labels = labels; }
-        public Instant getDueDate() { return dueDate; }
-        public void setDueDate(Instant dueDate) { this.dueDate = dueDate; }
-        public Integer getEstimatedHours() { return estimatedHours; }
-        public void setEstimatedHours(Integer estimatedHours) { this.estimatedHours = estimatedHours; }
-        public Integer getMaxScore() { return maxScore; }
-        public void setMaxScore(Integer maxScore) { this.maxScore = maxScore; }
-        public List<String> getRequirements() { return requirements; }
-        public void setRequirements(List<String> requirements) { this.requirements = requirements; }
     }
 
+    @Data
+    @Builder
+    @AllArgsConstructor
     public static class SubmissionRequest {
         private String description;
         private String branchName;
         private String commitHash;
         private String pullRequestUrl;
         private List<String> files;
-
-        // Getters and setters
-        public String getDescription() { return description; }
-        public void setDescription(String description) { this.description = description; }
-        public String getBranchName() { return branchName; }
-        public void setBranchName(String branchName) { this.branchName = branchName; }
-        public String getCommitHash() { return commitHash; }
-        public void setCommitHash(String commitHash) { this.commitHash = commitHash; }
-        public String getPullRequestUrl() { return pullRequestUrl; }
-        public void setPullRequestUrl(String pullRequestUrl) { this.pullRequestUrl = pullRequestUrl; }
-        public List<String> getFiles() { return files; }
-        public void setFiles(List<String> files) { this.files = files; }
     }
 
+    @Data
+    @Builder
+    @AllArgsConstructor
     public static class ReviewRequest {
         private String feedback;
         private Integer score;
         private boolean approved;
         private List<String> checkedRequirements;
-
-        // Getters and setters
-        public String getFeedback() { return feedback; }
-        public void setFeedback(String feedback) { this.feedback = feedback; }
-        public Integer getScore() { return score; }
-        public void setScore(Integer score) { this.score = score; }
-        public boolean isApproved() { return approved; }
-        public void setApproved(boolean approved) { this.approved = approved; }
-        public List<String> getCheckedRequirements() { return checkedRequirements; }
-        public void setCheckedRequirements(List<String> checkedRequirements) { this.checkedRequirements = checkedRequirements; }
     }
 
-    @lombok.Data
-    @lombok.Builder
+    @Data
+    @Builder
     public static class StudentDashboard {
         private String username;
         private long totalTasks;
@@ -413,5 +412,8 @@ public class TaskService {
         private double scorePercentage;
         private List<MilestoneService.TaskResponse> tasks;
     }
+
+
+
 }
 

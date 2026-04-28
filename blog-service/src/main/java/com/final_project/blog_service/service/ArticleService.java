@@ -5,8 +5,10 @@ import com.final_project.blog_service.client.FileServiceClient;
 import com.final_project.blog_service.client.UserServiceClient;
 import com.final_project.blog_service.dto.request.*;
 import com.final_project.blog_service.dto.response.*;
+import com.final_project.blog_service.event.BlogInteractionEvent;
 import com.final_project.blog_service.exception.ResourceNotFoundException;
 import com.final_project.blog_service.exception.UnauthorizedException;
+import com.final_project.blog_service.kafka.KafkaProducer;
 import com.final_project.blog_service.utile.ContentBlockValidator;
 import com.final_project.blog_service.utile.ReadTimeCalculator;
 import com.final_project.blog_service.utile.SlugUtil;
@@ -44,7 +46,7 @@ public class ArticleService {
     private final RedisTemplate<String, String> redisTemplate;
     private final FileServiceClient fileServiceClient;
     private final UserServiceClient userServiceClient;
-    private final UserCacheService userCacheService;
+    private final KafkaProducer kafkaProducer;
     private final ObjectMapper objectMapper;
     private final ContentBlockValidator contentBlockValidator;
     private final ReadTimeCalculator readTimeCalculator;
@@ -56,7 +58,7 @@ public class ArticleService {
                           RedisTemplate<String, String> redisTemplate,
                           FileServiceClient fileServiceClient,
                           UserServiceClient userServiceClient,
-                          UserCacheService userCacheService,
+                          KafkaProducer kafkaProducer,
                           ObjectMapper objectMapper,
                           ShareRepository shareRepository,
                           ContentBlockValidator contentBlockValidator,
@@ -74,7 +76,8 @@ public class ArticleService {
         this.shareRepository = shareRepository;
         this.redisTemplate = redisTemplate;
         this.userServiceClient = userServiceClient;
-        this.userCacheService = userCacheService;
+        this.kafkaProducer = kafkaProducer;
+
     }
 
     private static final String ARTICLE_CACHE_KEY = "article:";
@@ -268,10 +271,20 @@ public class ArticleService {
         addEditHistory(article, authorId, "Published article");
         Article published = articleRepository.save(article);
         invalidateCache(articleId);
-
-        // TODO: Trigger publish event for notifications
-        // publishEvent(new ArticlePublishedEvent(published));
-
+        kafkaProducer.produce(
+                BlogInteractionEvent
+                        .builder()
+                        .eventId(UUID.randomUUID().toString())
+                        .occurredAt(LocalDateTime.now())
+                        .authorEmail(author.getEmail())
+                        .authorName(author.getUserName())
+                        .authorUserId(author.getId())
+                        .blogPostId(article.getId())
+                        .blogPostUrl("current:post")
+                        .blogPostTitle(article.getTitle())
+                        .eventType(ArticleEventType.ARTICLE_PUBLISHED)
+                        .build()
+        );
         return mapToResponse(published);
     }
 
@@ -380,7 +393,10 @@ public class ArticleService {
     @Transactional
     public CommentResponse postComment(String articleId, String authorId, CreateCommentRequest request) {
         Article article = getArticleByIdOrThrow(articleId);
-
+        UserAuthorResponse author = userServiceClient.getUserAuthor(authorId);
+        if(author == null){
+            throw new ResourceNotFoundException("User Not Found");
+        }
         Comment comment = Comment.builder()
                 .articleId(articleId)
                 .parentCommentId(null)  // Top-level comment
@@ -402,6 +418,25 @@ public class ArticleService {
         articleRepository.save(article);
         invalidateCache(articleId);
 
+        kafkaProducer.produce(
+                BlogInteractionEvent
+                        .builder()
+                        .occurredAt(LocalDateTime.now())
+                        .commentId(saved.getId())
+                        .eventId(UUID.randomUUID().toString())
+                        .eventType(ArticleEventType.COMMENT_CREATED)
+                        .blogPostTitle(article.getTitle())
+                        .blogPostId(articleId)
+                        .blogPostUrl("posturl")
+                        .actorEmail(author.getEmail())
+                        .actorName(author.getUserName())
+                        .actorUserId(author.getId())
+                        .profile(author.getProfile())
+                        .commentSnippet(saved.getBody())
+                        .authorUserId(article.getAuthorId())
+                        .build()
+        );
+
         log.info("Comment posted on article: {}", articleId);
 
         return mapCommentToResponse(saved);
@@ -415,6 +450,7 @@ public class ArticleService {
                                           String authorId, CreateCommentRequest request) {
         Article article = getArticleByIdOrThrow(articleId);
         Comment parentComment = getCommentByIdOrThrow(parentCommentId);
+        UserProfileResponse replier = userServiceClient.getUserProfile(authorId);
 
         Comment reply = Comment.builder()
                 .articleId(articleId)
@@ -443,6 +479,29 @@ public class ArticleService {
 
         log.info("Reply posted on comment: {}", parentCommentId);
 
+        // COMMENT_REPLIED
+        kafkaProducer.produce(
+                BlogInteractionEvent.builder()
+                        .eventId(UUID.randomUUID().toString())
+                        .eventType(ArticleEventType.COMMENT_REPLIED)
+                        .occurredAt(LocalDateTime.now())
+
+                        .blogPostId(articleId)
+                        .blogPostTitle(article.getTitle())
+                        .blogPostUrl("posturl")
+
+                        .commentId(reply.getId())
+                        .parentCommentId(parentComment.getId())
+                        .commentSnippet(reply.getBody())
+
+                        .actorUserId(replier.getId())
+                        .actorName(replier.getUsername())
+                        .actorEmail(replier.getEmail())
+                        .profile(replier.getProfileImageUrl())
+                        // For replies, author is the original comment owner, not article owner
+                        .authorUserId(parentComment.getId())
+                        .build()
+        );
         return mapCommentToResponse(saved);
     }
 
@@ -503,6 +562,20 @@ public class ArticleService {
     @Transactional
     public LikeResponse likeArticle(String articleId, String userId) {
         Article article = getArticleByIdOrThrow(articleId);
+        if (article == null){
+            throw new ResourceNotFoundException("Article Not Found");
+        }
+
+
+        UserProfileResponse user = userServiceClient.getUserProfile(userId);
+        if (user == null){
+            throw new ResourceNotFoundException("user Not Found");
+        }
+        UserAuthorResponse articleUser = userServiceClient.getUserAuthor(article.getAuthorId());
+
+        if (articleUser == null){
+            throw new ResourceNotFoundException("The Article User You are Looking For is not Found");
+        }
 
         // Check if already liked
         Optional<Like> existingLike = likeRepository.findByUserIdAndArticleId(userId, articleId);
@@ -525,6 +598,28 @@ public class ArticleService {
         invalidateCache(articleId);
 
         log.info("Article liked: {}", articleId);
+
+        // ARTICLE_LIKED
+        kafkaProducer.produce(
+                BlogInteractionEvent.builder()
+                        .eventId(UUID.randomUUID().toString())
+                        .eventType(ArticleEventType.ARTICLE_LIKED)
+                        .occurredAt(LocalDateTime.now())
+
+                        .blogPostId(articleId)
+                        .blogPostTitle(article.getTitle())
+                        .blogPostUrl("posturl")
+
+                        .actorUserId(user.getId())
+                        .actorName(user.getUsername())
+                        .actorEmail(user.getEmail())
+                        .profile(user.getProfileImageUrl())
+
+                        .authorUserId(article.getAuthorId())
+                        .authorName(articleUser.getUserName())
+                        .authorEmail(articleUser.getEmail())
+                        .build()
+        );
 
         return mapLikeToResponse(saved);
     }
@@ -552,6 +647,15 @@ public class ArticleService {
     @Transactional
     public ShareResponse shareArticle(String articleId, String userId, ShareRequest request) {
         Article article = getArticleByIdOrThrow(articleId);
+        UserProfileResponse user = userServiceClient.getUserProfile(userId);
+        if (user == null){
+            throw new ResourceNotFoundException("User Not Exist");
+        }
+
+        UserAuthorResponse authorResponse = userServiceClient.getUserAuthor(article.getAuthorId());
+        if (authorResponse == null){
+            throw new ResourceNotFoundException("User Not Found");
+        }
 
         Share share = Share.builder()
                 .userId(userId)
@@ -575,6 +679,29 @@ public class ArticleService {
 
         log.info("Article shared: {} on {}", articleId, request.getPlatform());
 
+        // ARTICLE_SHARED
+        kafkaProducer.produce(
+                BlogInteractionEvent.builder()
+                        .eventId(UUID.randomUUID().toString())
+                        .eventType(ArticleEventType.ARTICLE_SHARED)
+                        .occurredAt(LocalDateTime.now())
+
+                        .blogPostId(articleId)
+                        .blogPostTitle(article.getTitle())
+                        .blogPostUrl("posturl")
+
+                        .actorUserId(user.getId())
+                        .actorName(user.getUsername())
+                        .actorEmail(user.getEmail())
+                        .profile(user.getProfileImageUrl())
+
+                        .authorUserId(article.getAuthorId())
+                        .authorName(authorResponse.getUserName())
+                        .authorEmail(authorResponse.getEmail())
+                        .sharePlatform(share.getPlatform().name())
+
+                        .build()
+        );
         return mapShareToResponse(saved);
     }
 

@@ -1,4 +1,7 @@
 package com.final_project.versioncontrolservice.model;
+import com.final_project.versioncontrolservice.dto.MilestoneTaskUser;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
@@ -18,15 +21,16 @@ import java.util.Map;
 @CompoundIndexes({
         @CompoundIndex(name = "repo_milestone", def = "{'repo_owner': 1, 'repo_name': 1, 'number': 1}", unique = true)
 })
+@Builder
+@AllArgsConstructor
 public class Milestone {
 
     @Id
-    private ObjectId id;
+    private String  id;
 
     @Field("repo_owner")
     @Indexed
-    private String repoOwner;
-
+    private MilestoneTaskUser repoOwner;
     @Field("repo_name")
     @Indexed
     private String repoName;
@@ -36,7 +40,6 @@ public class Milestone {
 
     private String title;
     private String description;
-
     @Field("due_date")
     private Instant dueDate;
 
@@ -68,7 +71,6 @@ public class Milestone {
 
     @Field("completion_percentage")
     private Double completionPercentage;  // 0.0 to 100.0
-
     // Statistics
     @Field("total_tasks")
     private Integer totalTasks = 0;

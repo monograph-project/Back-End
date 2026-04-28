@@ -198,6 +198,7 @@ public class BlogInteractionProcessor implements NotificationProcessor<BlogInter
                 Map.entry("messageBoxTitle", messageBoxTitle),
                 Map.entry("sharePlatform", safe(event.getSharePlatform())),
                 Map.entry("adminName", safe(event.getAdminName())),
+                Map.entry("profile", safe(event.getProfile())),
                 Map.entry("occurredAt", event.getOccurredAt() == null ? "" : event.getOccurredAt().toString()),
                 Map.entry("baseUrl", props.getNotification().getBaseUrl())
         );

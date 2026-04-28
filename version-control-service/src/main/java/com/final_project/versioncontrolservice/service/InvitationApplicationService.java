@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.final_project.versioncontrolservice.dto.*;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import com.final_project.versioncontrolservice.model.*;
 import com.final_project.versioncontrolservice.exception.BadRequestException;
@@ -13,6 +14,7 @@ import com.final_project.versioncontrolservice.repo.InvitationRepository;
 
 import lombok.AllArgsConstructor;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class InvitationApplicationService {
@@ -35,9 +37,12 @@ public class InvitationApplicationService {
         long pending = invitationRepository
                 .countByRepository_UserNameIgnoreCaseAndRepository_RepositoryNameIgnoreCaseAndGuestUser_IdAndStatus(
                 repo.getOwner(), repo.getRepositoryName(), guest.getId(), InvitationStatus.PENDING);
-        if (pending > 0) {
+
+        if (pending > 0 ) {
+
             throw new BadRequestException("pending invitation already exists");
         }
+
         Invitation invitation = Invitation
                 .builder()
                 .repository(
@@ -78,9 +83,11 @@ public class InvitationApplicationService {
         return InvitationResponse.from(saved);
     }
 
+
+
     public List<InvitationResponse> listPendingForUser(String userId) {
         ContributorUser user = authService.getContributorUser(userId);
-        List<Invitation> pendingInvitation =  invitationRepository.findByGuestUser_IdAndStatus(user.getUsername(), InvitationStatus.PENDING);
+        List<Invitation> pendingInvitation =  invitationRepository.findByGuestUser_IdAndStatus(user.getId(), InvitationStatus.PENDING);
         if (pendingInvitation.isEmpty()){
             return List.of();
         }
@@ -101,6 +108,7 @@ public class InvitationApplicationService {
         Invitation invitation = invitationRepository.findById(invitationId)
                 .orElseThrow(() -> new NotFoundException("Invitation not found"));
 
+        log.info(invitation.getStatus().name());
         if (!invitation.getGuestUser().getId().equals(userId)) {
             throw new ForbiddenException("You cannot accept this invitation");
         }

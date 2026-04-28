@@ -6,6 +6,7 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface InvitationRepository extends MongoRepository<Invitation, String> {
@@ -17,6 +18,12 @@ public interface InvitationRepository extends MongoRepository<Invitation, String
             InvitationStatus status
     );
 
+
+    Optional<Invitation> findByHostUser_UsernameIgnoreCaseAndRepository_UserNameIgnoreCaseAndRepository_RepositoryNameIgnoreCase(
+            String hostUsername,
+            String ownerUsername,
+            String repositoryName
+    );
     List<Invitation> findByGuestUser_IdAndStatus(
             String guestUserId,
             InvitationStatus status

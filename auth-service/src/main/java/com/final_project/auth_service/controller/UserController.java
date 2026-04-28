@@ -104,6 +104,26 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
+
+    /**
+     * Get user by ID.
+     *
+     * @param id User ID
+     * @return User DTO
+     */
+    @GetMapping("/contributor/{id}")
+    @Operation(summary = "Get user by ID", description = "Retrieves user information by unique identifier")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "User found"),
+            @ApiResponse(responseCode = "404", description = "User not found"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    public ResponseEntity<ContributorUser> getContributorById(
+            @PathVariable String id) {
+        ContributorUser user = userService.getContributorUser(id);
+        return ResponseEntity.ok(user);
+    }
+
     /**
      * Get user by username.
      *
@@ -111,7 +131,6 @@ public class UserController {
      * @return User DTO
      */
     @GetMapping("/by-username/{username}")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR')")
     @Operation(summary = "Get user by username", description = "Retrieves user information by username")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "User found"),

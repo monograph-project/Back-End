@@ -1,6 +1,9 @@
 package com.final_project.versioncontrolservice.model;
 
 
+import com.final_project.versioncontrolservice.dto.MilestoneTaskUser;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
@@ -13,25 +16,25 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Data
+@Builder
+@AllArgsConstructor
 @Document(collection = "submissions")
 public class Submission {
 
     @Id
     private ObjectId id;
-
     @Field("task_id")
     @Indexed
-    private ObjectId taskId;
+    private String  taskId;
 
     @Field("submitted_by")
     @Indexed
-    private String submittedBy;
+    private MilestoneTaskUser submittedBy;
 
     @Field("submitted_at")
     private Instant submittedAt;
 
     private String description;
-
     @Field("branch_name")
     private String branchName;
 
@@ -42,7 +45,6 @@ public class Submission {
     private String pullRequestUrl;
 
     private List<String> files = new ArrayList<>();
-
     private String status;  // "submitted", "reviewed", "revision_requested", "accepted"
 
     @Field("reviewed_by")
