@@ -1,6 +1,9 @@
 package com.final_project.versioncontrolservice.model;
 
 
+import com.final_project.versioncontrolservice.dto.MilestoneTaskUser;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import org.bson.types.ObjectId;
 import org.springframework.data.annotation.Id;
@@ -20,14 +23,15 @@ import java.util.Map;
 @CompoundIndexes({
         @CompoundIndex(name = "repo_task", def = "{'repo_owner': 1, 'repo_name': 1, 'number': 1}", unique = true)
 })
+@Builder
+@AllArgsConstructor
 public class Task {
-
     @Id
-    private ObjectId id;
-
+    private String  id;
     @Field("repo_owner")
     @Indexed
-    private String repoOwner;
+    private MilestoneTaskUser repoOwner;
+
 
     @Field("repo_name")
     @Indexed
@@ -35,20 +39,20 @@ public class Task {
 
     @Indexed
     private Integer number;  // Auto-increment within repository
-
     private String title;
     private String description;
 
+
     @Field("milestone_id")
     @Indexed
-    private ObjectId milestoneId;
+    private String  milestoneId;
 
     @Field("milestone_number")
     private Integer milestoneNumber;
 
     @Field("assigned_to")
     @Indexed
-    private String assignedTo;  // Username of assignee
+    private MilestoneTaskUser assignedTo;  // Username of assignee
 
     @Field("assigned_at")
     private Instant assignedAt;
@@ -65,20 +69,19 @@ public class Task {
     @Field("completed_at")
     private Instant completedAt;
 
-    private String status;  // "open", "in_progress", "in_review", "completed", "cancelled"
-
-    private String priority;  // "low", "medium", "high", "critical"
-
-    private List<String> labels = new ArrayList<>();
+    private TaskStatus status;  // "open", "in_progress", "in_review", "completed", "cancelled"
+    private TaskPriority priority;  // "low", "medium", "high", "critical"
+    private List<Label> labels = new ArrayList<>();
 
     @Field("due_date")
     private Instant dueDate;
-
     @Field("estimated_hours")
     private Integer estimatedHours;
 
+
     @Field("actual_hours")
     private Integer actualHours;
+
 
     // Academic-specific fields
     @Field("max_score")

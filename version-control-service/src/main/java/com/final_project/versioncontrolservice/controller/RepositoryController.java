@@ -146,7 +146,7 @@ public class RepositoryController {
     }
 
 
-    @PostMapping(path = "/guest/{guestId}/owner/{ownerId}/repositor/{repoName}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(path = "/guest/{guestId}/owner/{ownerId}/repository/{repoName}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<RepositoryDTO> removeFromRepositoryContribution(
             @PathVariable String guestId,
             @PathVariable String ownerId,

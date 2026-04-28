@@ -1,9 +1,6 @@
 package com.final_project.auth_service.service;
 
-import com.final_project.auth_service.dto.AuthorResponse;
-import com.final_project.auth_service.dto.CreateUserRequest;
-import com.final_project.auth_service.dto.UpdateUserRequest;
-import com.final_project.auth_service.dto.UserDTO;
+import com.final_project.auth_service.dto.*;
 import com.final_project.auth_service.exception.DuplicateUserException;
 import com.final_project.auth_service.exception.UserNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -15,8 +12,10 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.naming.AuthenticationException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -183,6 +182,18 @@ public class UserService {
                 .userType(getFirstAttribute(user, "user_type"))
                 .build();
     }
+    public ContributorUser getContributorUser(String userId){
+        UserRepresentation user = keycloakService.getUserById(userId);
+        return ContributorUser
+                .builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .username(user.getUsername())
+                .profile(getFirstAttribute(user, "profile"))
+                .build();
+    }
 
     private UserDTO toDTO(UserRepresentation user) {
         return UserDTO.builder()
@@ -218,6 +229,7 @@ public class UserService {
         }
         attributes.put(key, List.of(value));
     }
+
 
     private String getFirstAttribute(UserRepresentation user, String key) {
         if (user.getAttributes() == null || !user.getAttributes().containsKey(key) || user.getAttributes().get(key).isEmpty()) {

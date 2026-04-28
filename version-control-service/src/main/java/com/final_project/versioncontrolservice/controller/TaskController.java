@@ -2,10 +2,12 @@ package com.final_project.versioncontrolservice.controller;
 
 
 import com.final_project.versioncontrolservice.dto.ContributorUser;
+import com.final_project.versioncontrolservice.dto.SubmissionResponse;
 import com.final_project.versioncontrolservice.model.Task;
 import com.final_project.versioncontrolservice.service.AuthService;
 import com.final_project.versioncontrolservice.service.MilestoneService;
 import com.final_project.versioncontrolservice.service.TaskService;
+import lombok.AllArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -15,57 +17,47 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+@RequestMapping("/api/v1/task")
 @RestController
+@AllArgsConstructor
 public class TaskController {
-
     private final AuthService authService;
     private final TaskService taskService;
-
-    public TaskController(AuthService authService, TaskService taskService) {
-        this.authService = authService;
-        this.taskService = taskService;
-    }
-
     /**
      * Create a new task
      * POST /repos/{owner}/{repo}/tasks
      */
-    @PostMapping(path = "/repos/{owner}/{repo}/tasks",
+
+    @PostMapping(path = "/repos/{owner}/{repo}/tasks/{username}",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<MilestoneService.TaskResponse> createTask(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @PathVariable String owner,
             @PathVariable String repo,
-            @RequestBody TaskService.TaskRequest request) {
+            @RequestBody TaskService.TaskRequest request,
+            @PathVariable String username
 
-        ContributorUser user = authService.getContributorUser(authorization);
-        Task task = taskService.createTask(owner, repo, request, user.getUsername());
-
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(MilestoneService.TaskResponse.fromDocument(task));
+    ) {
+        return ResponseEntity.ok(taskService.createTask(owner, repo, request, username));
     }
 
     /**
      * Assign task to user
      * POST /repos/{owner}/{repo}/tasks/{number}/assign
      */
-    @PostMapping(path = "/repos/{owner}/{repo}/tasks/{number}/assign",
+    @PostMapping(path = "/repos/{owner}/{repo}/tasks/{number}/assign/{user}/{assignee}",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<MilestoneService.TaskResponse> assignTask(
+            @PathVariable String user,
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @PathVariable String owner,
             @PathVariable String repo,
             @PathVariable int number,
-            @RequestBody Map<String, String> body) {
-
-        ContributorUser user = authService.getContributorUser(authorization);
-        String assignee = body.get("assignee");
-
-        Task task = taskService.assignTask(owner, repo, number, assignee, user.getUsername());
-
-        return ResponseEntity.ok(MilestoneService.TaskResponse.fromDocument(task));
+            @PathVariable String assignee
+    ) {
+        return ResponseEntity.ok(taskService.assignTask(owner, repo, number, assignee, user));
     }
 
     /**
@@ -75,7 +67,7 @@ public class TaskController {
     @PostMapping(path = "/repos/{owner}/{repo}/tasks/{number}/submit",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, String>> submitTask(
+    public ResponseEntity<SubmissionResponse> submitTask(
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @PathVariable String owner,
             @PathVariable String repo,
@@ -83,9 +75,7 @@ public class TaskController {
             @RequestBody TaskService.SubmissionRequest request) {
 
         ContributorUser user = authService.getContributorUser(authorization);
-        taskService.submitTask(owner, repo, number, request, user.getUsername());
-
-        return ResponseEntity.ok(Map.of("status", "submitted"));
+        return ResponseEntity.ok(taskService.submitTask(owner, repo, number, request, user.getUsername()));
     }
 
     /**
@@ -101,11 +91,8 @@ public class TaskController {
             @PathVariable String repo,
             @PathVariable int number,
             @RequestBody TaskService.ReviewRequest request) {
-
         ContributorUser user = authService.getContributorUser(authorization);
-        Task task = taskService.reviewTask(owner, repo, number, request, user.getUsername());
-
-        return ResponseEntity.ok(MilestoneService.TaskResponse.fromDocument(task));
+        return ResponseEntity.ok(taskService.reviewTask(owner, repo, number, request, user.getUsername()));
     }
 
     /**
@@ -118,28 +105,23 @@ public class TaskController {
             @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @PathVariable String owner,
             @PathVariable String repo) {
-
         ContributorUser user = authService.getContributorUser(authorization);
-        TaskService.StudentDashboard dashboard = taskService.getStudentDashboard(owner, repo, user.getUsername());
-
-        return ResponseEntity.ok(dashboard);
+        return ResponseEntity.ok(taskService.getStudentDashboard(owner, repo, user.getUsername()));
     }
 
     /**
      * List tasks (with filters)
      * GET /repos/{owner}/{repo}/tasks
      */
-    @GetMapping(path = "/repos/{owner}/{repo}/tasks",
-            produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<List<MilestoneService.TaskResponse>> listTasks(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
-            @PathVariable String owner,
-            @PathVariable String repo,
-            @RequestParam(required = false) String assignee,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) Integer milestone) {
-
-        // Implementation depends on your filtering needs
-        return ResponseEntity.ok(List.of());
-    }
+//    @GetMapping(path = "/repos/{owner}/{repo}/tasks",
+//            produces = MediaType.APPLICATION_JSON_VALUE)
+//    public ResponseEntity<List<MilestoneService.TaskResponse>> listTasks(
+//            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+//            @PathVariable String owner,
+//            @PathVariable String repo,
+//            @RequestParam(required = false) String assignee,
+//            @RequestParam(required = false) String status,
+//            @RequestParam(required = false) Integer milestone) {
+//        return ResponseEntity.ok(taskService.);
+//    }
 }

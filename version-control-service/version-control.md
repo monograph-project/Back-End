@@ -623,6 +623,7 @@ public class InvitationController {
 package com.final_project.versioncontrolservice.controller;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.final_project.versioncontrolservice.model.PullRequest;
 import com.final_project.versioncontrolservice.model.PullRequestDocument;
 import com.final_project.versioncontrolservice.service.AuthService;
 import com.final_project.versioncontrolservice.service.PullRequestApplicationService;
@@ -669,7 +670,7 @@ public class PullRequestController {
         if (body == null) {
             throw new BadRequestException("invalid json body");
         }
-        PullRequestDocument pr = pullRequestApplicationService.create(
+        PullRequest pr = pullRequestApplicationService.create(
                 meta,
                 user.getUsername(),
                 body.sourceBranch(),
@@ -706,7 +707,7 @@ public class PullRequestController {
         if (!RepoAccessRules.canRead(meta, username)) {
             throw new ForbiddenException("forbidden");
         }
-        PullRequestDocument pr = pullRequestApplicationService.find(meta, id);
+        PullRequest pr = pullRequestApplicationService.find(meta, id);
         return PullRequestResponse.from(pr);
     }
 
@@ -719,7 +720,7 @@ public class PullRequestController {
     ) {
         UserDocument user = authService.requireUser(authorization);
         var meta = vicRepositoryService.loadMeta(owner, repo);
-        PullRequestDocument pr = pullRequestApplicationService.find(meta, id);
+        PullRequest pr = pullRequestApplicationService.find(meta, id);
         pullRequestApplicationService.merge(meta, pr, user.getUsername());
         return ResponseEntity.ok(Map.of("status", "merged"));
     }
@@ -922,6 +923,7 @@ package com.final_project.versioncontrolservice.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.final_project.versioncontrolservice.model.PullRequest;
 import com.final_project.versioncontrolservice.model.PullRequestDocument;
 
 import java.time.Instant;
@@ -940,7 +942,7 @@ public record PullRequestResponse(
         @JsonProperty("created_at") Instant createdAt,
         @JsonProperty("merged_at") Instant mergedAt
 ) {
-    public static PullRequestResponse from(PullRequestDocument d) {
+    public static PullRequestResponse from(PullRequest d) {
         return new PullRequestResponse(
                 d.getId().toHexString(),
                 d.getRepoOwner(),
@@ -1241,6 +1243,7 @@ public interface InvitationRepository extends MongoRepository<InvitationDocument
 ```java
 package com.final_project.versioncontrolservice.repo;
 
+import com.final_project.versioncontrolservice.model.PullRequest;
 import com.final_project.versioncontrolservice.model.PullRequestDocument;
 import org.bson.types.ObjectId;
 import org.springframework.data.mongodb.repository.MongoRepository;
@@ -1250,11 +1253,11 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface PullRequestRepository extends MongoRepository<PullRequestDocument, ObjectId> {
+public interface PullRequestRepository extends MongoRepository<PullRequest, ObjectId> {
 
-    List<PullRequestDocument> findByRepoOwnerAndRepoName(String repoOwner, String repoName);
+    List<PullRequest> findByRepoOwnerAndRepoName(String repoOwner, String repoName);
 
-    Optional<PullRequestDocument> findByIdAndRepoOwnerAndRepoName(ObjectId id, String repoOwner, String repoName);
+    Optional<PullRequest> findByIdAndRepoOwnerAndRepoName(ObjectId id, String repoOwner, String repoName);
 }
 
 ```
@@ -1765,8 +1768,8 @@ package com.final_project.versioncontrolservice.service;
 import com.final_project.versioncontrolservice.exception.BadRequestException;
 import com.final_project.versioncontrolservice.exception.ForbiddenException;
 import com.final_project.versioncontrolservice.exception.NotFoundException;
+import com.final_project.versioncontrolservice.model.PullRequest;
 import com.final_project.versioncontrolservice.repo.PullRequestRepository;
-import com.final_project.versioncontrolservice.model.PullRequestDocument;
 import com.final_project.versioncontrolservice.model.VicRepositoryDocument;
 import org.bson.types.ObjectId;
 import org.springframework.stereotype.Service;
@@ -1791,7 +1794,7 @@ public class PullRequestApplicationService {
         this.commitGraphService = commitGraphService;
     }
 
-    public PullRequestDocument create(
+    public PullRequest create(
             VicRepositoryDocument meta,
             String author,
             String sourceBranch,
@@ -1821,7 +1824,7 @@ public class PullRequestApplicationService {
             throw new BadRequestException("target branch \"" + targetBranch + "\" does not exist");
         }
 
-        PullRequestDocument pr = new PullRequestDocument();
+        PullRequest pr = new PullRequest();
         pr.setRepoOwner(meta.getOwner());
         pr.setRepoName(meta.getName());
         pr.setAuthor(author.trim().toLowerCase());
@@ -1834,11 +1837,11 @@ public class PullRequestApplicationService {
         return pullRequestRepository.save(pr);
     }
 
-    public List<PullRequestDocument> list(VicRepositoryDocument meta) {
+    public List<PullRequest> list(VicRepositoryDocument meta) {
         return pullRequestRepository.findByRepoOwnerAndRepoName(meta.getOwner(), meta.getName());
     }
 
-    public PullRequestDocument find(VicRepositoryDocument meta, String idHex) {
+    public PullRequest find(VicRepositoryDocument meta, String idHex) {
         ObjectId id;
         try {
             id = new ObjectId(idHex.trim());
@@ -1850,7 +1853,7 @@ public class PullRequestApplicationService {
                 .orElseThrow(() -> new NotFoundException("pull request not found"));
     }
 
-    public void merge(VicRepositoryDocument meta, PullRequestDocument pr, String adminUsername) {
+    public void merge(VicRepositoryDocument meta, PullRequest pr, String adminUsername) {
         if (!RepoAccessRules.canAdmin(meta, adminUsername)) {
             throw new ForbiddenException("forbidden");
         }
@@ -1887,7 +1890,7 @@ public class PullRequestApplicationService {
     }
 
     private void markMerged(ObjectId id) {
-        PullRequestDocument pr = pullRequestRepository.findById(id)
+        PullRequest pr = pullRequestRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("pull request not found"));
         pr.setStatus("merged");
         pr.setMergedAt(Instant.now());

@@ -14,11 +14,11 @@ import java.time.Instant;
 public class TaskComment {
 
     @Id
-    private ObjectId id;
+    private String  id;
 
     @Field("task_id")
     @Indexed
-    private ObjectId taskId;
+    private String  taskId;
 
     @Field("repo_owner")
     private String repoOwner;

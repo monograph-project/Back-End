@@ -4,7 +4,9 @@ import com.final_project.versioncontrolservice.dto.*;
 import com.final_project.versioncontrolservice.exception.BadRequestException;
 import com.final_project.versioncontrolservice.exception.NotFoundException;
 import com.final_project.versioncontrolservice.model.ContributorStatus;
+import com.final_project.versioncontrolservice.model.Invitation;
 import com.final_project.versioncontrolservice.model.RepositoryDocument;
+import com.final_project.versioncontrolservice.repo.InvitationRepository;
 import com.final_project.versioncontrolservice.repo.RepositoryRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,8 +24,7 @@ public class RepositoryService {
     private final RepositoryRepository repositoryRepository;
     private final MinioStorageService minio;
     private final AuthService authService;
-
-
+    private final InvitationRepository invitationRepository;
     public RepositoryDocument loadMeta(String userName, String repo) {
         return repositoryRepository
             .findByOwner_UsernameIgnoreCaseAndRepositoryNameIgnoreCase(userName.trim(), repo.trim())
@@ -59,7 +60,6 @@ public class RepositoryService {
        RepositoryDocument saved = repositoryRepository.save(repo);
 
 
-       log.info(saved.getRepositoryName());
         minio.ensureBuckets();
         minio.writeLayoutHead(saved.getOwner().getUsername(), saved.getRepositoryName());
         minio.writeLayoutBranchRef(saved.getOwner().getUsername(), saved.getRepositoryName(), "main", "");
@@ -184,13 +184,20 @@ public class RepositoryService {
     }
 
     public RepositoryDTO removeBlockUserFromRepository(String ownerId, String gustUser, String repositoryName){
-        RepositoryDocument repo = repositoryRepository.findByOwner_UsernameIgnoreCaseAndRepositoryNameIgnoreCase(ownerId,repositoryName)
+        ContributorUser owner = authService.getContributorUser(ownerId);
+        if (owner == null){
+            throw new NotFoundException("The Usr owner not found");
+        }
+
+        RepositoryDocument repo = repositoryRepository.findByOwner_UsernameIgnoreCaseAndRepositoryNameIgnoreCase(owner.getUsername(),repositoryName)
                 .orElseThrow(() -> new NotFoundException("There is no such repo"));
         List<ContributorUser> currentContributor =  repo.getCollaborators().stream().filter((cont) -> !cont.getId().equals(gustUser)).toList();
         repo.setCollaborators(currentContributor);
         RepositoryDocument saved =  repositoryRepository.save(repo);
+        removeInvitation(owner.getUsername(), gustUser,repositoryName);
         return RepositoryDTO
                 .builder()
+                .owner(saved.getOwner().getUsername())
                 .cloneUrl(saved.getCloneUrl())
                 .visibility(saved.getVisibility())
                 .repositoryName(saved.getRepositoryName())
@@ -198,6 +205,12 @@ public class RepositoryService {
                 .collaborators(saved.getCollaborators())
                 .description(saved.getDescription())
                 .build();
+    }
+    public void removeInvitation(String owner, String guestUser, String repo){
+
+        Invitation invitation =  invitationRepository.findByHostUser_UsernameIgnoreCaseAndRepository_UserNameIgnoreCaseAndRepository_RepositoryNameIgnoreCase(owner,guestUser,repo)
+                .orElseThrow(() -> new NotFoundException("Not Found"));
+        invitationRepository.delete(invitation);
     }
     
 }

@@ -1,7 +1,11 @@
 package com.final_project.versioncontrolservice.model;
 
+import com.final_project.versioncontrolservice.dto.PullRequestUser;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import org.bson.types.ObjectId;
+import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
@@ -9,31 +13,27 @@ import org.springframework.data.mongodb.core.mapping.Field;
 import java.time.Instant;
 
 @Data
-@Document(collection = "pull_requests")
-public class PullRequestDocument {
-
+@AllArgsConstructor
+@Builder
+@Document(collection = "pull_request")
+public class PullRequest {
     @Id
-    private ObjectId id;
-
+    private String id;
     @Field("repo_owner")
-    private String repoOwner;
-
+    private PullRequestUser repoOwner;
     @Field("repo_name")
     private String repoName;
 
-    private String author;
-
+    private PullRequestUser author;
     @Field("source_branch")
     private String sourceBranch;
-
     @Field("target_branch")
     private String targetBranch;
-
     private String title;
     private String description;
-    private String status;
+    private PullRequestStatus status;
+    @CreatedDate
     private Instant createdAt;
-
     @Field("merged_at")
     private Instant mergedAt;
 }

@@ -2,27 +2,28 @@ package com.final_project.versioncontrolservice.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.final_project.versioncontrolservice.model.PullRequestDocument;
+import com.final_project.versioncontrolservice.model.PullRequest;
+import com.final_project.versioncontrolservice.model.PullRequestStatus;
 
 import java.time.Instant;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record PullRequestResponse(
         @JsonProperty("id") String id,
-        @JsonProperty("repo_owner") String repoOwner,
+        @JsonProperty("repo_owner") PullRequestUser repoOwner,
         @JsonProperty("repo_name") String repoName,
-        String author,
+        PullRequestUser author,
         @JsonProperty("source_branch") String sourceBranch,
         @JsonProperty("target_branch") String targetBranch,
         String title,
         String description,
-        String status,
+        PullRequestStatus status,
         @JsonProperty("created_at") Instant createdAt,
         @JsonProperty("merged_at") Instant mergedAt
 ) {
-    public static PullRequestResponse from(PullRequestDocument d) {
+    public static PullRequestResponse from(PullRequest d) {
         return new PullRequestResponse(
-                d.getId().toHexString(),
+                d.getId(),
                 d.getRepoOwner(),
                 d.getRepoName(),
                 d.getAuthor(),

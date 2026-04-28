@@ -1,10 +1,13 @@
-package com.final_project.versioncontrolservice.websocket;
-import com.final_project.versioncontrolservice.service.WebSocketNotificationService;
+package com.final_project.notification_service.websocket;
+import com.final_project.notification_service.service.WebSocketNotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Component;
-import org.springframework.web.socket.messaging.*;
+import org.springframework.web.socket.messaging.SessionConnectedEvent;
+import org.springframework.web.socket.messaging.SessionDisconnectEvent;
+import org.springframework.web.socket.messaging.SessionSubscribeEvent;
+import org.springframework.web.socket.messaging.SessionUnsubscribeEvent;
 
 import java.util.Map;
 
@@ -59,7 +62,7 @@ public class WebSocketEventListener {
 //public ResponseEntity<PullRequestResponse> create(...) {
 //    // ... existing code ...
 //
-//    PullRequest pr = pullRequestApplicationService.create(...);
+//    PullRequestDocument pr = pullRequestApplicationService.create(...);
 //
 //    // Send WebSocket notification
 //    PullRequestEvent prEvent = PullRequestEvent.builder()
