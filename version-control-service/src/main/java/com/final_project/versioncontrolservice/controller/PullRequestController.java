@@ -36,7 +36,7 @@ public class PullRequestController {
     public ResponseEntity<PullRequestResponse> create(
             @PathVariable String owner,
             @PathVariable String repo,
-            @RequestParam CreatePullRequest request
+            @RequestBody CreatePullRequest request
             ) {
         return ResponseEntity.ok(pullRequestApplicationService.create(
                 owner,

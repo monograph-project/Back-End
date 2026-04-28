@@ -8,12 +8,14 @@ import com.final_project.versioncontrolservice.model.PullRequestStatus;
 import com.final_project.versioncontrolservice.repo.PullRequestRepository;
 import com.final_project.versioncontrolservice.model.RepositoryDocument;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class PullRequestApplicationService {
@@ -23,7 +25,7 @@ public class PullRequestApplicationService {
     private final RepositoryService repositoryService;
     private final AuthService authService;
     public PullRequestResponse create(
-            String author,
+            String owner,
             String repo,
             CreatePullRequest request
     ) {
@@ -31,12 +33,12 @@ public class PullRequestApplicationService {
         if (authorContributor == null) {
             throw new NotFoundException("Contributor Not Found");
         }
-        ContributorUser repoOwner = authService.getContributorUser(repo);
+        UserDTO repoOwner = authService.getUserByUsername(owner);
         if (repoOwner == null) {
-            throw new NotFoundException("Repo Not Found");
+            throw new NotFoundException("User Not Found");
         }
 
-        RepositoryDocument currentDocument = repositoryService.loadMeta(author, repo);
+        RepositoryDocument currentDocument = repositoryService.loadMeta(owner, repo);
         if (currentDocument == null) {
             throw new NotFoundException("The Current Repository does not exist");
         }
@@ -53,8 +55,12 @@ public class PullRequestApplicationService {
 
        PullRequest pullRequest = PullRequest
                .builder()
-               .sourceBranch(headSource)
-               .targetBranch(headTarget)
+               .repoName(repo)
+               .sourceBranch(request.getSourceBranch())
+               .sourceHash(headSource)
+               .targetBranch(request.getTargetBranch())
+               .targetHash(headTarget)
+               .status(PullRequestStatus.OPENED)
                .author(
                        PullRequestUser
                                .builder()
@@ -90,9 +96,9 @@ public class PullRequestApplicationService {
         if (document == null) {
             throw new  NotFoundException("The Current Repository does not exist");
         }
-
         List<PullRequest> list =  pullRequestRepository
                 .findByRepoOwner_UsernameIgnoreCaseAndRepoNameIgnoreCase(document.getOwner().getUsername(), document.getRepositoryName());
+
         return list
                 .stream()
                 .map(PullRequestResponse::from).collect(Collectors.toList());
@@ -138,7 +144,16 @@ public class PullRequestApplicationService {
 
         if (sourceHash.equals(targetHash)) {
             markMerged(pullRequest.getId());
-            return null;
+
+            return MergeResponse.builder()
+                    .mergedAt(Instant.now())
+                    .pullRequestId(pullRequest.getId())
+                    .status(PullRequestStatus.MERGED)
+                    .targetBranch(pullRequest.getTargetBranch())
+                    .sourceBranch(pullRequest.getSourceBranch())
+                    .newHead(targetHash)
+                    .message("Already up to date")
+                    .build();
         }
 
         boolean canFf;
@@ -155,7 +170,7 @@ public class PullRequestApplicationService {
 
         RepositoryDocument mergedRepository = repositoryService.loadMeta(document.getOwner().getUsername(), document.getRepositoryName());
         repositoryService.updateBranchRef(mergedRepository, pullRequest.getTargetBranch(), sourceHash);
-        markMerged(mergedRepository.getId());
+        markMerged(pullRequest.getId());
 
         return MergeResponse
                 .builder()
