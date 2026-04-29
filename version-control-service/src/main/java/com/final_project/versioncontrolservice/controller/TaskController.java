@@ -12,6 +12,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -68,13 +70,14 @@ public class TaskController {
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<SubmissionResponse> submitTask(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @PathVariable String owner,
             @PathVariable String repo,
             @PathVariable int number,
-            @RequestBody TaskService.SubmissionRequest request) {
+            @RequestBody TaskService.SubmissionRequest request,
+            @AuthenticationPrincipal Jwt jwt
+            ) {
 
-        ContributorUser user = authService.getContributorUser(authorization);
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
         return ResponseEntity.ok(taskService.submitTask(owner, repo, number, request, user.getUsername()));
     }
 
@@ -86,12 +89,13 @@ public class TaskController {
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<MilestoneService.TaskResponse> reviewTask(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @PathVariable String owner,
             @PathVariable String repo,
             @PathVariable int number,
-            @RequestBody TaskService.ReviewRequest request) {
-        ContributorUser user = authService.getContributorUser(authorization);
+            @RequestBody TaskService.ReviewRequest request,
+            @AuthenticationPrincipal Jwt jwt
+            ) {
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
         return ResponseEntity.ok(taskService.reviewTask(owner, repo, number, request, user.getUsername()));
     }
 
@@ -102,10 +106,11 @@ public class TaskController {
     @GetMapping(path = "/repos/{owner}/{repo}/dashboard",
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<TaskService.StudentDashboard> getDashboard(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @PathVariable String owner,
-            @PathVariable String repo) {
-        ContributorUser user = authService.getContributorUser(authorization);
+            @PathVariable String repo,
+            @AuthenticationPrincipal Jwt jwt
+            ) {
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
         return ResponseEntity.ok(taskService.getStudentDashboard(owner, repo, user.getUsername()));
     }
 

@@ -10,6 +10,8 @@ import lombok.Data;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.charset.StandardCharsets;
@@ -32,16 +34,15 @@ public class FileViewController {
      */
     @GetMapping(value = "/contents/**", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<FileContentResponse> getFileContent(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @PathVariable String owner,
             @PathVariable String repo,
             @RequestParam(defaultValue = "main") String ref,
-            HttpServletRequest request
-    ) {
-        ContributorUser user = authService.getContributorUser(authorization)
-                ;
-        var meta = vicRepositoryService.loadMeta(owner, repo);
+            HttpServletRequest request,
+            @AuthenticationPrincipal Jwt jwt
+            ) {
 
+        var meta = vicRepositoryService.loadMeta(owner, repo);
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
         // Check permissions
         String username = user != null ? user.getUsername() : "";
         if (!RepoAccessRules.canRead(meta, username)) {
@@ -70,13 +71,13 @@ public class FileViewController {
      */
     @GetMapping(value = "/blame/**", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<BlameEntry>> getBlame(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @PathVariable String owner,
             @PathVariable String repo,
             @RequestParam(defaultValue = "main") String ref,
-            HttpServletRequest request
+            HttpServletRequest request,
+            @AuthenticationPrincipal Jwt jwt
     ) {
-        ContributorUser user = authService.getContributorUser(authorization)
+        ContributorUser user = authService.getContributorUser(jwt.getSubject())
                 ;
         var meta = vicRepositoryService.loadMeta(owner, repo);
 
@@ -104,14 +105,14 @@ public class FileViewController {
      */
     @GetMapping(value = "/commits", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<CommitResponse>> getFileHistory(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @PathVariable String owner,
             @PathVariable String repo,
             @RequestParam(required = false) String path,
             @RequestParam(defaultValue = "main") String ref,
-            @RequestParam(defaultValue = "20") int limit
+            @RequestParam(defaultValue = "20") int limit,
+            @AuthenticationPrincipal Jwt jwt
     ) {
-        ContributorUser user = authService.getContributorUser(authorization)
+        ContributorUser user = authService.getContributorUser(jwt.getSubject())
                 ;
         var meta = vicRepositoryService.loadMeta(owner, repo);
 
@@ -135,13 +136,13 @@ public class FileViewController {
      */
     @GetMapping(value = "/tree", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<TreeEntry>> getTree(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @AuthenticationPrincipal Jwt jwt,
             @PathVariable String owner,
             @PathVariable String repo,
             @RequestParam(defaultValue = "main") String ref,
             @RequestParam(defaultValue = "") String path
     ) {
-        ContributorUser user = authService.getContributorUser(authorization)
+        ContributorUser user = authService.getContributorUser(jwt.getSubject())
                 ;
         var meta = vicRepositoryService.loadMeta(owner, repo);
 
@@ -165,13 +166,13 @@ public class FileViewController {
      */
     @GetMapping(value = "/compare/{base}...{head}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<CompareResponse> compareCommits(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @AuthenticationPrincipal Jwt jwt,
             @PathVariable String owner,
             @PathVariable String repo,
             @PathVariable String base,
             @PathVariable String head
     ) {
-        ContributorUser user = authService.getContributorUser(authorization)
+        ContributorUser user = authService.getContributorUser(jwt.getSubject())
                 ;
         var meta = vicRepositoryService.loadMeta(owner, repo);
 

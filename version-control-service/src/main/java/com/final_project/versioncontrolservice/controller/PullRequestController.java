@@ -1,9 +1,7 @@
 package com.final_project.versioncontrolservice.controller;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.final_project.versioncontrolservice.dto.ContributorUser;
-import com.final_project.versioncontrolservice.dto.CreatePullRequest;
-import com.final_project.versioncontrolservice.dto.MergeResponse;
+import com.final_project.versioncontrolservice.dto.*;
 import com.final_project.versioncontrolservice.model.PullRequest;
 import com.final_project.versioncontrolservice.model.RepositoryDocument;
 import com.final_project.versioncontrolservice.service.AuthService;
@@ -12,7 +10,6 @@ import com.final_project.versioncontrolservice.service.RepoAccessRules;
 import com.final_project.versioncontrolservice.service.RepositoryService;
 import com.final_project.versioncontrolservice.exception.ForbiddenException;
 import com.final_project.versioncontrolservice.exception.BadRequestException;
-import com.final_project.versioncontrolservice.dto.PullRequestResponse;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -27,6 +24,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/repos")
 public class PullRequestController {
+
 
     private final AuthService authService;
     private final RepositoryService vicRepositoryService;
@@ -71,5 +69,35 @@ public class PullRequestController {
             @PathVariable String id
     ) {
         return ResponseEntity.ok(pullRequestApplicationService.merge(id, owner, repo));
+    }
+
+    @GetMapping(
+            path = "/{owner}/{repo}/pulls/{id}/conflicts",
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<MergeConflictResponse> conflicts(
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @PathVariable String id
+    ) {
+        return ResponseEntity.ok(
+                pullRequestApplicationService.getConflicts(id, owner, repo)
+        );
+    }
+
+    @PostMapping(
+            path = "/{owner}/{repo}/pulls/{id}/conflicts/resolve",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<MergeResponse> resolveConflicts(
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @PathVariable String id,
+            @RequestBody ResolveConflictRequest request
+    ) {
+        return ResponseEntity.ok(
+                pullRequestApplicationService.resolveConflicts(id, owner, repo, request)
+        );
     }
 }

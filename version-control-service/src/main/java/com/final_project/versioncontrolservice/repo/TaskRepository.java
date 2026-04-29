@@ -17,7 +17,7 @@ public interface TaskRepository extends MongoRepository<Task, String> {
             String repoName
     );
 
-    Optional<Task> findByRepoOwner_UserNameAndRepoNameAndNumber(
+    Optional<Task> findByRepoOwner_UserNameAndRepoNameAndNumberOrderByNumber(
             String repoOwner,
             String repoName,
             Integer number

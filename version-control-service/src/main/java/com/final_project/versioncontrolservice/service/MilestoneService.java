@@ -71,6 +71,7 @@ public class MilestoneService {
                 .createdBy(username)
                 .status("open")
 
+
                 // Academic fields
                 .maxScore(request.getMaxScore())
                 .passingScore(request.getPassingScore())

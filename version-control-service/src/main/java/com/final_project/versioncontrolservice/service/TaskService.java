@@ -55,6 +55,7 @@ public class TaskService {
                 .status(TaskStatus.OPEN)
                 .repoName(meta.getRepositoryName())
                 .assignedAt(Instant.now())
+                .number(number)
                 .repoOwner(MilestoneTaskUser
                         .builder()
                         .email(ownerUser.getEmail())
@@ -98,7 +99,7 @@ public class TaskService {
         Task saved = taskRepository.save(task);
 
         // Send notification
-        sendTaskNotification(owner, repo, saved, "created", username);
+//        sendTaskNotification(owner, repo, saved, "created", username);
 
         return MilestoneService.TaskResponse.fromDocument(saved);
     }
@@ -242,7 +243,7 @@ public class TaskService {
         task.setEarnedScore(request.getScore());
 
         if (request.isApproved()) {
-            task.setStatus(TaskStatus.CANCELLED);
+            task.setStatus(TaskStatus.COMPLETED);
             task.setCompletedAt(Instant.now());
         } else {
             task.setStatus(TaskStatus.PROGRESS);  // Back to in_progress for revisions
@@ -316,7 +317,7 @@ public class TaskService {
     }
 
     private Task getTask(String owner, String repo, int number) {
-        return taskRepository.findByRepoOwner_UserNameAndRepoNameAndNumber(owner, repo, number)
+        return taskRepository.findByRepoOwner_UserNameAndRepoNameAndNumberOrderByNumber(owner, repo, number)
                 .orElseThrow(() -> new NotFoundException("task #" + number + " not found"));
     }
 

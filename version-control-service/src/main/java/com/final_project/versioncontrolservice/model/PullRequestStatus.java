@@ -6,6 +6,7 @@ public enum PullRequestStatus {
     MERGED("merge"),
     DRAFT("draft"),
     READY_FOR_REVIEW("ready_for_review"),
+    CONFLICTING("conflicting"),
     CONFLICTED("conflicted");
 
     private String status;
