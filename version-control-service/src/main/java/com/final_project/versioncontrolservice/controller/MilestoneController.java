@@ -46,10 +46,6 @@ public class MilestoneController {
             @PathVariable String owner,
             @PathVariable String repo,
             @RequestParam(defaultValue = "open") String state) {
-
-        ContributorUser user = authService.getContributorUser(authorization);
-        String username = user != null ? user.getUsername() : "";
-
         List<MilestoneService.MilestoneResponse> milestones = milestoneService.getMilestones(owner, repo);
 
         // Filter by state if specified
@@ -68,7 +64,6 @@ public class MilestoneController {
     @GetMapping(path = "/repos/{owner}/{repo}/milestones/{number}",
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<MilestoneService.MilestoneResponse> getMilestone(
-            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
             @PathVariable String owner,
             @PathVariable String repo,
             @PathVariable int number) {
