@@ -41,8 +41,6 @@ public class MilestoneService {
         if  (creatorUser == null) {
             throw new NotFoundException("User not found");
         }
-
-
         // Validate permissions
 
         RepositoryDocument meta = vicRepositoryService.loadMeta(ownerUser.getUsername(), repo);

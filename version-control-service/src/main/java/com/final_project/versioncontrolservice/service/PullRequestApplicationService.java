@@ -473,7 +473,7 @@ public class PullRequestApplicationService {
 
                 .repositoryId(repository.getId())
                 .repositoryName(repository.getRepositoryName())
-                .repositoryUrl("/api/v1/repos" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName()+"/"+pullRequest.getId())
+                .repositoryUrl("/api/v1/repos/" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName()+"/"+pullRequest.getId())
 
                 .actorUserId(pullRequest.getAuthor().getId())
                 .actorName(pullRequest.getAuthor().getUsername())
@@ -485,24 +485,24 @@ public class PullRequestApplicationService {
 
                 .sourceBranch(pullRequest.getSourceBranch())
                 .targetBranch(pullRequest.getTargetBranch())
-
                 .pullRequestId(pullRequest.getId())
                 .pullRequestTitle(pullRequest.getTitle())
-                .pullRequestUrl("/repositories/" + repository.getOwner().getUsername()
+                .pullRequestUrl("/api/v1/repos/" + repository.getOwner().getUsername()
                         + "/" + repository.getRepositoryName()
-                        + "/pull-requests/" + pullRequest.getId())
-
-                .recipients(List.of(
-                        RepositoryMemberRecipient.builder()
-                                .userId(pullRequest.getRepoOwner().getId())
-                                .name(pullRequest.getRepoOwner().getUsername())
-                                .email(pullRequest.getRepoOwner().getEmail())
-                                .role("OWNER")
-                                .build()
+                        + "/pulls/" + pullRequest.getId())
+                .recipients(
+                        repository
+                                .getCollaborators()
+                                .stream()
+                                .map((repo -> {
+                                    RepositoryMemberRecipient.builder()
+                                            .userId(repo.getId())
+                                            .name(repo.getUsername())
+                                            .email(repo.getEmail())
+                                            .role(repo.getRole()).build()
+                                }))
                 ))
-
                 .occurredAt(LocalDateTime.now())
-
                 .metadata(Map.of(
                         "actionUrl", "/api/v1/repos" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName()+"/"+pullRequest.getId(),
                         "displayType", "PULL_REQUEST_OPENED",
@@ -542,13 +542,17 @@ public class PullRequestApplicationService {
                 .pullRequestTitle(pullRequest.getTitle())
                 .pullRequestUrl("/api/v1/repos/"+repository.getOwner().getUsername()+"/"+repository.getRepositoryName()+"/pulls/"+pullRequest.getId())
 
-                .recipients(List.of(
-                        RepositoryMemberRecipient.builder()
-                                .userId(pullRequest.getRepoOwner().getId())
-                                .name(pullRequest.getRepoOwner().getUsername())
-                                .email(pullRequest.getRepoOwner().getEmail())
-                                .role("OWNER")
-                                .build()
+                .recipients(
+                        repository
+                                .getCollaborators()
+                                .stream()
+                                .map((repo -> {
+                                    RepositoryMemberRecipient.builder()
+                                            .userId(repo.getId())
+                                            .name(repo.getUsername())
+                                            .email(repo.getEmail())
+                                            .role(repo.getRole()).build()
+                                }))
                 ))
 
                 .occurredAt(LocalDateTime.now())
