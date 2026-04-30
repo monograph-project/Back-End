@@ -1,8 +1,12 @@
 package com.final_project.notification_service.config;
 
 
+import com.final_project.notification_service.websocket.StompPrincipal;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
+import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
+import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 import org.springframework.web.socket.server.support.DefaultHandshakeHandler;
 
 import java.security.Principal;
@@ -34,7 +38,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*")
                 .setHandshakeHandler(new CustomHandshakeHandler())
-                .addInterceptors(new AuthHandshakeInterceptor())
                 .withSockJS(); // Fallback for browsers that don't support WebSocket
 
         // Additional endpoint for native WebSocket clients (like Go CLI)

@@ -39,8 +39,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationMapper mapper;
     private final EmailService emailService;
     private final RateLimitService rateLimitService;
-
-    // ── Sending ──────────────────────────────────────────────────────────────
+    private final WebSocketNotificationService webSocketNotificationService;
 
     @Override
     @Transactional
@@ -66,7 +65,7 @@ public class NotificationServiceImpl implements NotificationService {
                 .recipientEmail(req.getRecipientEmail())
                 .recipientName(req.getRecipientName())
                 .type(req.getType())
-                .channel(req.getChannel() != null ? req.getChannel() : NotificationChannel.EMAIL)
+                .channel(req.getChannel() != null ? req.getChannel() : NotificationChannel.IN_APP)
                 .status(NotificationStatus.PENDING)
                 .subject(req.getSubject())
                 .body(req.getBody())
@@ -245,15 +244,25 @@ public class NotificationServiceImpl implements NotificationService {
         Notification saved = repository.save(notification);
 
         try {
-            saved.setStatus(NotificationStatus.PROCESSING);
-            repository.save(saved);
+            saved.setStatus(NotificationStatus.PENDING);
 
-            dispatchEmail(saved, saved.getRecipientEmail());
+            if (saved.getChannel() == NotificationChannel.EMAIL) {
+                dispatchEmail(saved, saved.getRecipientEmail());
+            } else if (
+                    saved.getChannel() == NotificationChannel.IN_APP ||
+                            saved.getChannel() == NotificationChannel.PUSH
+            ) {
+                webSocketNotificationService.sendToUser(saved);
+            } else {
+                saved.markFailed("Unsupported channel: " + saved.getChannel());
+                return repository.save(saved);
+            }
 
             saved.markSent();
+
         } catch (Exception ex) {
-            log.error("Failed to process notification id={}. Error={}", saved.getId(), ex.getMessage());
             saved.markFailed(ex.getMessage());
+            log.error("Notification failed id={}", saved.getId(), ex);
         }
 
         return repository.save(saved);

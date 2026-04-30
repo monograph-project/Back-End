@@ -18,7 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @RestController
-@RequestMapping("/repos/{owner}/{repo}")
+@RequestMapping("api/v1/repos/{owner}/{repo}")
 @AllArgsConstructor
 public class FileViewController {
 

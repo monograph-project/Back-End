@@ -55,7 +55,7 @@ public class CommentRepliedProcessor implements NotificationProcessor<CommentRep
                 .recipientEmail(event.getOriginalCommenterEmail())
                 .recipientName(event.getOriginalCommenterName())
                 .type(NotificationType.BLOG_COMMENT_REPLY)
-                .channel(NotificationChannel.EMAIL)
+                .channel(NotificationChannel.IN_APP)
                 .status(NotificationStatus.PROCESSING)
                 .subject(subject)
                 .body("Comment reply notification sent.")

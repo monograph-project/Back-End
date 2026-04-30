@@ -6,6 +6,7 @@ import com.final_project.versioncontrolservice.exception.NotFoundException;
 import com.final_project.versioncontrolservice.model.ContributorStatus;
 import com.final_project.versioncontrolservice.model.Invitation;
 import com.final_project.versioncontrolservice.model.RepositoryDocument;
+import com.final_project.versioncontrolservice.model.RepositoryFileIndex;
 import com.final_project.versioncontrolservice.repo.InvitationRepository;
 import com.final_project.versioncontrolservice.repo.RepositoryRepository;
 import lombok.AllArgsConstructor;
@@ -13,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +27,7 @@ public class RepositoryService {
     private final MinioStorageService minio;
     private final AuthService authService;
     private final InvitationRepository invitationRepository;
+    private final RepositoryFileIndexService fileIndex;
     public RepositoryDocument loadMeta(String userName, String repo) {
         return repositoryRepository
             .findByOwner_UsernameIgnoreCaseAndRepositoryNameIgnoreCase(userName.trim(), repo.trim())
@@ -117,7 +120,7 @@ public class RepositoryService {
         minio.putObjectIfAbsent(meta.getOwner().getUsername(), meta.getRepositoryName(), hash.trim(), data);
     }
 
-    public void updateBranchRef(RepositoryDocument meta, String branch, String hash) {
+    public void updateBranchRef(RepositoryDocument meta, String branch, String hash) throws IOException {
         branch = branch.trim();
         if (branch.isEmpty()) {
             throw new BadRequestException("owner, repo, branch and hash are required");
@@ -136,6 +139,7 @@ public class RepositoryService {
         meta.getBranchHeads().put(branch, hash.trim());
         repositoryRepository.save(meta);
         minio.writeLayoutBranchRef(meta.getOwner().getUsername(), meta.getRepositoryName(), branch, hash.trim());
+        fileIndex.rebuildIndex(meta, branch, hash.trim());
     }
 
 //    public String listBranchHash(RepositoryDocument meta, String branch) {

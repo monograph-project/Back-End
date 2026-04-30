@@ -6,6 +6,11 @@ spring:
     username: ${RABBIT_USERNAME}
     host: ${RABBIT_HOST}
     port: ${RABBIT_PORT}
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
   security:
     oauth2:
       resourceserver:

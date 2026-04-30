@@ -252,9 +252,15 @@ public class ArticleService {
      * Publish an article (transition from DRAFT to PUBLISHED)
      */
     @Transactional
-    public ArticleResponse publishArticle(String articleId, String authorId, PublishArticleRequest request) {
+    public ArticleResponse publishArticle(String articleId, String authorId, PublishArticleRequest request, String user) {
+        UserProfileResponse actor = userServiceClient.getUserProfile(user);
+        if (actor == null) {
+            throw new UnauthorizedException("Invliad Credentials");
+        }
+
         Article article = getArticleByIdOrThrow(articleId);
         UserAuthorResponse author = userServiceClient.getUserAuthor(authorId);
+
         if(author == null) {
             throw new ResourceNotFoundException("Author Not Exist");
         }
@@ -278,9 +284,14 @@ public class ArticleService {
                         .occurredAt(LocalDateTime.now())
                         .authorEmail(author.getEmail())
                         .authorName(author.getUserName())
+                        .actorName(actor.getDisplayName())
+                        .actorUserId(actor.getId())
+                        .actorEmail(actor.getEmail())
                         .authorUserId(author.getId())
+
                         .blogPostId(article.getId())
                         .blogPostUrl("current:post")
+
                         .blogPostTitle(article.getTitle())
                         .eventType(ArticleEventType.ARTICLE_PUBLISHED)
                         .build()
@@ -326,6 +337,7 @@ public class ArticleService {
 
     /**
      * Get user's articles with pagination
+     * for admin only
      */
     @Transactional(readOnly = true)
     public PaginatedResponse<ArticlePreviewResponse> getUserArticles(String authorId, int page, int pageSize) {
@@ -391,16 +403,20 @@ public class ArticleService {
      * Post a comment on an article
      */
     @Transactional
-    public CommentResponse postComment(String articleId, String authorId, CreateCommentRequest request) {
+    public CommentResponse postComment(String articleId, String writerId, CreateCommentRequest request) {
         Article article = getArticleByIdOrThrow(articleId);
-        UserAuthorResponse author = userServiceClient.getUserAuthor(authorId);
-        if(author == null){
+        UserAuthorResponse writer = userServiceClient.getUserAuthor(writerId);
+        if(writer == null){
             throw new ResourceNotFoundException("User Not Found");
+        }
+        UserAuthorResponse author = userServiceClient.getUserAuthor(article.getAuthorId());
+        if (author == null){
+            throw new ResourceNotFoundException("Not FOund user");
         }
         Comment comment = Comment.builder()
                 .articleId(articleId)
                 .parentCommentId(null)  // Top-level comment
-                .authorId(authorId)
+                .authorId(writer.getId())
                 .body(request.getBody())
                 .status(CommentStatus.PUBLISHED)
                 .engagement(Comment.Engagement.builder()
@@ -427,11 +443,17 @@ public class ArticleService {
                         .eventType(ArticleEventType.COMMENT_CREATED)
                         .blogPostTitle(article.getTitle())
                         .blogPostId(articleId)
-                        .blogPostUrl("posturl")
-                        .actorEmail(author.getEmail())
-                        .actorName(author.getUserName())
-                        .actorUserId(author.getId())
-                        .profile(author.getProfile())
+                        .blogPostUrl("/api/v1/articles/"+articleId+"/comments")
+
+
+                        .authorUserId(author.getId())
+                        .authorName(author.getUserName())
+                        .authorEmail(author.getEmail())
+
+                        .actorEmail(writer.getEmail())
+                        .actorName(writer.getUserName())
+                        .actorUserId(writer.getId())
+                        .profile(writer.getProfile())
                         .commentSnippet(saved.getBody())
                         .authorUserId(article.getAuthorId())
                         .build()
@@ -447,17 +469,31 @@ public class ArticleService {
      */
     @Transactional
     public CommentResponse replyToComment(String articleId, String parentCommentId,
-                                          String authorId, CreateCommentRequest request) {
+                                          String writerId, CreateCommentRequest request) {
         Article article = getArticleByIdOrThrow(articleId);
         Comment parentComment = getCommentByIdOrThrow(parentCommentId);
-        UserProfileResponse replier = userServiceClient.getUserProfile(authorId);
+        UserProfileResponse replier = userServiceClient.getUserProfile(writerId);
+
+        if (replier == null){
+            throw new  ResourceNotFoundException("User Not Found");
+        }
+
+        UserProfileResponse owner = userServiceClient.getUserProfile(article.getAuthorId());
+        if (owner == null){
+            throw new ResourceNotFoundException("Not Found");
+        }
 
         Comment reply = Comment.builder()
                 .articleId(articleId)
                 .parentCommentId(parentCommentId)
-                .authorId(authorId)
+                .authorId(replier.getId())
                 .body(request.getBody())
                 .status(CommentStatus.PUBLISHED)
+                .author(Comment.Author
+                        .builder()
+                        .displayName(replier.getDisplayName())
+                        .profileImageUrl(replier.getProfileImageUrl())
+                        .build())
                 .engagement(Comment.Engagement.builder()
                         .likes(0L)
                         .replyCount(0L)
@@ -477,8 +513,6 @@ public class ArticleService {
         articleRepository.save(article);
         invalidateCache(articleId);
 
-        log.info("Reply posted on comment: {}", parentCommentId);
-
         // COMMENT_REPLIED
         kafkaProducer.produce(
                 BlogInteractionEvent.builder()
@@ -488,7 +522,7 @@ public class ArticleService {
 
                         .blogPostId(articleId)
                         .blogPostTitle(article.getTitle())
-                        .blogPostUrl("posturl")
+                        .blogPostUrl("/api/v1/articles/"+articleId+"/comments/"+parentCommentId+"/replies")
 
                         .commentId(reply.getId())
                         .parentCommentId(parentComment.getId())
@@ -499,7 +533,9 @@ public class ArticleService {
                         .actorEmail(replier.getEmail())
                         .profile(replier.getProfileImageUrl())
                         // For replies, author is the original comment owner, not article owner
-                        .authorUserId(parentComment.getId())
+                        .authorUserId(owner.getId())
+                        .authorEmail(owner.getEmail())
+                        .authorName(owner.getUsername())
                         .build()
         );
         return mapCommentToResponse(saved);
@@ -565,8 +601,6 @@ public class ArticleService {
         if (article == null){
             throw new ResourceNotFoundException("Article Not Found");
         }
-
-
         UserProfileResponse user = userServiceClient.getUserProfile(userId);
         if (user == null){
             throw new ResourceNotFoundException("user Not Found");
@@ -608,7 +642,7 @@ public class ArticleService {
 
                         .blogPostId(articleId)
                         .blogPostTitle(article.getTitle())
-                        .blogPostUrl("posturl")
+                        .blogPostUrl("/api/v1/articles/"+articleId)
 
                         .actorUserId(user.getId())
                         .actorName(user.getUsername())
@@ -656,7 +690,6 @@ public class ArticleService {
         if (authorResponse == null){
             throw new ResourceNotFoundException("User Not Found");
         }
-
         Share share = Share.builder()
                 .userId(userId)
                 .articleId(articleId)
@@ -685,11 +718,9 @@ public class ArticleService {
                         .eventId(UUID.randomUUID().toString())
                         .eventType(ArticleEventType.ARTICLE_SHARED)
                         .occurredAt(LocalDateTime.now())
-
                         .blogPostId(articleId)
                         .blogPostTitle(article.getTitle())
-                        .blogPostUrl("posturl")
-
+                        .blogPostUrl("/api/v1/articles/"+articleId)
                         .actorUserId(user.getId())
                         .actorName(user.getUsername())
                         .actorEmail(user.getEmail())
@@ -698,6 +729,7 @@ public class ArticleService {
                         .authorUserId(article.getAuthorId())
                         .authorName(authorResponse.getUserName())
                         .authorEmail(authorResponse.getEmail())
+
                         .sharePlatform(share.getPlatform().name())
 
                         .build()

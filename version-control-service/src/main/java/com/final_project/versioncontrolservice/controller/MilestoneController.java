@@ -8,6 +8,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,14 +27,15 @@ public class MilestoneController {
      * Create a new milestone
      * POST /repos/{owner}/{repo}/milestones
      */
-    @PostMapping(path = "/repos/{owner}/{repo}/milestones/{writer}",
+    @PostMapping(path = "/repos/{owner}/{repo}/milestones",
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<MilestoneService.MilestoneResponse> createMilestone(
             @PathVariable String owner,
             @PathVariable String repo,
-            @PathVariable String writer,
+            @AuthenticationPrincipal Jwt jwt,
             @RequestBody MilestoneService.MilestoneRequest request) {
+        String writer = jwt.getSubject();
         return ResponseEntity.ok(milestoneService.createMilestone(owner, repo, request, writer));
     }
     /**
@@ -86,5 +89,33 @@ public class MilestoneController {
             @RequestBody MilestoneService.MilestoneRequest request
             ) {
         return ResponseEntity.ok(milestoneService.updateMilestone(owner, repo,number, request));
+    }
+    @PatchMapping(path = "/repos/{owner}/{repo}/milestones/{number}/open",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<MilestoneService.MilestoneResponse> closeMilestone(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @PathVariable int number,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        String username = jwt.getSubject();
+        return ResponseEntity.ok(milestoneService.closeMilestone(owner, repo,number,username));
+
+    }
+
+    @PatchMapping(path = "/repos/{owner}/{repo}/milestones/{number}/re-open",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<MilestoneService.MilestoneResponse> reOpenMilestone(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @PathVariable int number,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        String username = jwt.getSubject();
+        return ResponseEntity.ok(milestoneService.reopenMilestone(owner, repo,number,username));
     }
 }

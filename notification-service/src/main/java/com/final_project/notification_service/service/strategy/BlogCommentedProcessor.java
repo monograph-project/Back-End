@@ -49,13 +49,12 @@ public class BlogCommentedProcessor implements NotificationProcessor<BlogComment
                         "baseUrl",          props.getNotification().getBaseUrl()
                 )
         );
-
         Notification notification = Notification.builder()
                 .recipientUserId(event.getAuthorUserId())
                 .recipientEmail(event.getAuthorEmail())
                 .recipientName(event.getAuthorName())
                 .type(NotificationType.BLOG_NEW_COMMENT)
-                .channel(NotificationChannel.EMAIL)
+                .channel(NotificationChannel.IN_APP)
                 .status(NotificationStatus.PROCESSING)
                 .subject(subject)
                 .body("New comment notification sent.")
