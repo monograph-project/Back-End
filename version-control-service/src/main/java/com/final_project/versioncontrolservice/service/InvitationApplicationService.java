@@ -2,8 +2,12 @@ package com.final_project.versioncontrolservice.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 import com.final_project.versioncontrolservice.dto.*;
+import com.final_project.versioncontrolservice.event.RepositoryOperationEvent;
+import com.final_project.versioncontrolservice.kafka.KafkaProducer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import com.final_project.versioncontrolservice.model.*;
@@ -21,7 +25,7 @@ public class InvitationApplicationService {
     private final InvitationRepository invitationRepository;
     private final AuthService authService;
     private final RepositoryService repositoryService;
-
+    private final KafkaProducer kafkaProducer;
     public InvitationResponse create(InvitationRequest request) {
 
         ContributorUser guest = authService.getContributorUser(request.getGuest());
@@ -80,6 +84,26 @@ public class InvitationApplicationService {
                 .expiresAt(LocalDateTime.now().plusDays(1))
                 .build();
        Invitation saved =  invitationRepository.save(invitation);
+       kafkaProducer.produce(RepositoryOperationEvent
+               .builder()
+                       .eventId(UUID.randomUUID().toString())
+                       .eventType(RepositoryEventType.REPOSITORY_INVITATION_SENT)
+                       .actorEmail(host.getEmail())
+                       .actorName(host.getUsername())
+                       .actorUserId(host.getId())
+
+                       .invitedUserEmail(guest.getEmail())
+                       .invitedUserId(guest.getId())
+                       .metadata(Map.of(
+                               "operationBy", host.getUsername(),
+                               "message", host.getUsername() + " invited to join " + invitation.getRepository().getRepositoryName()
+                       ))
+                       .invitedUserName(host.getUsername())
+                       .ownerUserId(repo.getOwner())
+                       .repositoryId(repo.getId())
+                       .occurredAt(LocalDateTime.now())
+                       .repositoryName(repo.getRepositoryName())
+               .build());
         return InvitationResponse.from(saved);
     }
 
@@ -138,6 +162,23 @@ public class InvitationApplicationService {
         );
         invitation.setStatus(InvitationStatus.ACCEPTED);
         invitationRepository.save(invitation);
+        kafkaProducer.produce(RepositoryOperationEvent
+                .builder()
+                        .eventId(UUID.randomUUID().toString())
+                        .eventType(RepositoryEventType.REPOSITORY_INVITATION_ACCEPTED)
+                        .actorEmail(invitation.getGuestUser().getEmail())
+                        .actorName(invitation.getGuestUser().getUsername())
+                        .actorUserId(invitation.getGuestUser().getId())
+
+                        .metadata(Map.of(
+                                "operationBy", invitation.getHostUser().getUsername(),
+                                "message", invitation.getGuestUser().getUsername() + " accepted the invitation to join " + invitation.getRepository().getRepositoryName()
+                        ))
+                        .ownerUserId(invitation.getHostUser().getId())
+                        .ownerEmail(invitation.getHostUser().getEmail())
+                        .ownerUserId(invitation.getHostUser().getUsername())
+
+                .build());
         return InvitationResponse.from(invitation);
     }
 
@@ -153,6 +194,23 @@ public class InvitationApplicationService {
             throw new BadRequestException("Invitation is not pending");
         }
 
+        kafkaProducer.produce(RepositoryOperationEvent
+                .builder()
+                .eventId(UUID.randomUUID().toString())
+                .eventType(RepositoryEventType.REPOSITORY_INVITATION_DECLINED)
+                .actorEmail(invitation.getGuestUser().getEmail())
+                .actorName(invitation.getGuestUser().getUsername())
+                .actorUserId(invitation.getGuestUser().getId())
+
+                .metadata(Map.of(
+                        "operationby", invitation.getHostUser().getUsername(),
+                        "message", invitation.getGuestUser().getUsername() + " rejected the invitation to join " + invitation.getRepository().getRepositoryName()
+                ))
+                .ownerUserId(invitation.getHostUser().getId())
+                .ownerEmail(invitation.getHostUser().getEmail())
+                .ownerUserId(invitation.getHostUser().getUsername())
+
+                .build());
         invitation.setStatus(InvitationStatus.REJECTED);
         Invitation saved =  invitationRepository.save(invitation);
         return InvitationResponse.from(saved);

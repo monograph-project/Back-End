@@ -34,7 +34,7 @@ public class Comment {
     @Indexed
     private String authorId;
 
-    private Author author;  // denormalized for quick access
+    private Author author;  // denormalized for quick access that one comment on a post owner of this comment
 
     private String body;
 

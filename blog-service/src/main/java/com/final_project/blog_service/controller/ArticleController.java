@@ -237,9 +237,11 @@ public class ArticleController {
     public ResponseEntity<ArticleResponse> publishArticle(
             @PathVariable String articleId,
             @Valid @RequestBody PublishArticleRequest request,
-            @PathVariable String authorId
+            @PathVariable String authorId,
+            @AuthenticationPrincipal Jwt jwt
     ) {
-        ArticleResponse response = articleService.publishArticle(articleId, authorId, request);
+        String user = jwt.getSubject();
+        ArticleResponse response = articleService.publishArticle(articleId, authorId, request, user);
         return ResponseEntity.ok(response);
     }
 

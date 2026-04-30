@@ -17,6 +17,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -30,11 +31,13 @@ public class PullRequestController {
     private final RepositoryService vicRepositoryService;
     private final PullRequestApplicationService pullRequestApplicationService;
 
+
     @PostMapping(path = "/{owner}/{repo}/pulls", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<PullRequestResponse> create(
             @PathVariable String owner,
             @PathVariable String repo,
             @RequestBody CreatePullRequest request
+
             ) {
         return ResponseEntity.ok(pullRequestApplicationService.create(
                 owner,
@@ -67,7 +70,7 @@ public class PullRequestController {
             @PathVariable String owner,
             @PathVariable String repo,
             @PathVariable String id
-    ) {
+    ) throws IOException {
         return ResponseEntity.ok(pullRequestApplicationService.merge(id, owner, repo));
     }
 
@@ -95,7 +98,7 @@ public class PullRequestController {
             @PathVariable String repo,
             @PathVariable String id,
             @RequestBody ResolveConflictRequest request
-    ) {
+    ) throws IOException {
         return ResponseEntity.ok(
                 pullRequestApplicationService.resolveConflicts(id, owner, repo, request)
         );

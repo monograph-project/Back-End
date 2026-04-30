@@ -3,6 +3,7 @@ package com.final_project.notification_service.kafka.consumer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.final_project.notification_service.event.BlogInteractionEvent;
 import com.final_project.notification_service.service.IdempotencyService;
+import com.final_project.notification_service.service.strategy.BlogInteractionProcessor;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Component;
 public class BlogInteractionConsumer {
     private final IdempotencyService idempotencyService;
     private final ObjectMapper objectMapper;
+    private final BlogInteractionProcessor processor;
 
     @KafkaListener(
             topics = "${app.kafka.topics.article-operation}",
@@ -40,6 +42,7 @@ public class BlogInteractionConsumer {
                 ack.acknowledge();
                 return;
             }
+            processor.process(event);
             ack.acknowledge();
         }catch (Exception ex){
             log.error("Failed to process BLOG_COMMENTED event. Key={} Error={}", record.key(), ex.getMessage(), ex);

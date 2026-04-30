@@ -19,6 +19,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 @Slf4j
@@ -50,12 +51,6 @@ public class RepositoryController {
 
         var meta = repositoryService.loadMeta(owner, repo);
         String userName =  jwt.getClaim("preferred_username");
-        log.info(userName);
-        //
-//        String username = authService.getContributorUser(authorization).getUsername();
-//        if (!RepoAccessRules.canRead(meta, username)) {
-//            throw new ForbiddenException("forbidden");
-//        }
         return repositoryService.listRefs(meta);
     }
 
@@ -68,9 +63,6 @@ public class RepositoryController {
     ) {
         var meta = repositoryService.loadMeta(owner, repo);
         ContributorUser user = authService.getContributorUser(jwt.getSubject());
-//        if (!RepoAccessRules.canRead(meta, user.getUsername())) {
-//            throw new ForbiddenException("forbidden");
-//        }
         byte[] data = repositoryService.readObjectRaw(meta, hash.trim());
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM).body(data);
     }
@@ -89,9 +81,6 @@ public class RepositoryController {
     ) {
         ContributorUser user = authService.getContributorUser(jwt.getSubject());
         var meta = repositoryService.loadMeta(owner, repo);
-//        if (!RepoAccessRules.canWrite(meta, user.getUsername())) {
-//            throw new ForbiddenException("forbidden");
-//        }
         repositoryService.writeObject(meta, hash.trim(), body);
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("status", "stored"));
     }
@@ -107,7 +96,7 @@ public class RepositoryController {
             @PathVariable String branch,
             @RequestBody UpdateBranchBody body,
             @AuthenticationPrincipal Jwt jwt
-    ) {
+    ) throws IOException {
         ContributorUser user = authService.getContributorUser(jwt.getSubject());
         var meta = repositoryService.loadMeta(owner, repo);
         repositoryService.updateBranchRef(meta, branch, body.hash().trim());

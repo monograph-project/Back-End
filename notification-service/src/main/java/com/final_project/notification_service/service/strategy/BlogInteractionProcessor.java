@@ -1,17 +1,13 @@
 package com.final_project.notification_service.service.strategy;
-import com.final_project.notification_service.config.AppProperties;
 import com.final_project.notification_service.event.BlogInteractionEvent;
 import com.final_project.notification_service.model.Notification;
 import com.final_project.notification_service.model.NotificationChannel;
 import com.final_project.notification_service.model.NotificationStatus;
 import com.final_project.notification_service.model.NotificationType;
-import com.final_project.notification_service.service.EmailService;
 import com.final_project.notification_service.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-
-import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -19,8 +15,6 @@ import java.util.Map;
 public class BlogInteractionProcessor implements NotificationProcessor<BlogInteractionEvent> {
 
     private final NotificationService notificationService;
-    private final EmailService emailService;
-    private final AppProperties props;
 
     @Override
     public void process(BlogInteractionEvent event) {
@@ -110,13 +104,6 @@ public class BlogInteractionProcessor implements NotificationProcessor<BlogInter
             String referenceId,
             String referenceType
     ) {
-        emailService.sendHtmlEmail(
-                event.getAuthorEmail(),
-                subject,
-                "article-notification",
-                buildArticleTemplateModel(event)
-        );
-
         saveNotification(
                 event,
                 notificationType,
@@ -126,84 +113,6 @@ public class BlogInteractionProcessor implements NotificationProcessor<BlogInter
                 referenceType
         );
     }
-
-    private Map<String, Object> buildArticleTemplateModel(BlogInteractionEvent event) {
-        String headerTitle;
-        String headerSubtitle;
-        String mainMessage;
-        String actionText;
-        String messageBoxTitle;
-
-        switch (event.getEventType()) {
-            case COMMENT_CREATED -> {
-                headerTitle = "New Comment";
-                headerSubtitle = "Someone commented on your article";
-                mainMessage = safe(event.getActorName()) + " commented on your article.";
-                actionText = "View Comment";
-                messageBoxTitle = "Comment";
-            }
-            case COMMENT_REPLIED -> {
-                headerTitle = "New Reply";
-                headerSubtitle = "Someone replied to your comment";
-                mainMessage = safe(event.getActorName()) + " replied to your comment.";
-                actionText = "View Reply";
-                messageBoxTitle = "Reply";
-            }
-            case ARTICLE_LIKED -> {
-                headerTitle = "Article Liked";
-                headerSubtitle = "Someone liked your article";
-                mainMessage = safe(event.getActorName()) + " liked your article.";
-                actionText = "Open Article";
-                messageBoxTitle = "Activity";
-            }
-            case ARTICLE_SHARED -> {
-                headerTitle = "Article Shared";
-                headerSubtitle = "Someone shared your article";
-                mainMessage = safe(event.getActorName()) + " shared your article"
-                        + (event.getSharePlatform() != null ? " on " + event.getSharePlatform() : "")
-                        + ".";
-                actionText = "Open Article";
-                messageBoxTitle = "Share";
-            }
-            case ARTICLE_PUBLISHED -> {
-                headerTitle = "Article Published";
-                headerSubtitle = "Your article is now public";
-                mainMessage = "Your article was approved and published.";
-                actionText = "View Published Article";
-                messageBoxTitle = "Publication";
-            }
-            default -> {
-                headerTitle = "Article Update";
-                headerSubtitle = "There is new activity on your article";
-                mainMessage = "There is a new update related to your article.";
-                actionText = "Open Article";
-                messageBoxTitle = "Details";
-            }
-        }
-
-        return Map.ofEntries(
-                Map.entry("emailTitle", headerTitle),
-                Map.entry("eventType", event.getEventType().name()),
-                Map.entry("headerTitle", headerTitle),
-                Map.entry("headerSubtitle", headerSubtitle),
-                Map.entry("recipientName", safe(event.getAuthorName())),
-                Map.entry("mainMessage", mainMessage),
-                Map.entry("postTitle", safe(event.getBlogPostTitle())),
-                Map.entry("postUrl", safe(event.getBlogPostUrl())),
-                Map.entry("actionUrl", safe(event.getBlogPostUrl())),
-                Map.entry("actionText", actionText),
-                Map.entry("actorName", safe(event.getActorName())),
-                Map.entry("actorEmail", safe(event.getActorEmail())),
-                Map.entry("commentSnippet", truncate(event.getCommentSnippet(), 200)),
-                Map.entry("messageBoxTitle", messageBoxTitle),
-                Map.entry("sharePlatform", safe(event.getSharePlatform())),
-                Map.entry("adminName", safe(event.getAdminName())),
-                Map.entry("profile", safe(event.getProfile())),
-                Map.entry("occurredAt", event.getOccurredAt() == null ? "" : event.getOccurredAt().toString()),
-                Map.entry("baseUrl", props.getNotification().getBaseUrl())
-        );
-    }
-
     private void saveNotification(
             BlogInteractionEvent event,
             NotificationType type,
@@ -214,10 +123,10 @@ public class BlogInteractionProcessor implements NotificationProcessor<BlogInter
     ) {
         Notification notification = Notification.builder()
                 .recipientUserId(event.getAuthorUserId())
-                .recipientEmail(event.getAuthorEmail())
-                .recipientName(event.getAuthorName())
+                .recipientEmail("no-email@gmail.com")
+                .recipientName("unknown")
                 .type(type)
-                .channel(NotificationChannel.EMAIL)
+                .channel(NotificationChannel.IN_APP)
                 .status(NotificationStatus.PROCESSING)
                 .subject(subject)
                 .body(body)

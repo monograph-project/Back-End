@@ -2,12 +2,11 @@ package com.final_project.versioncontrolservice.service;
 
 import com.final_project.versioncontrolservice.dto.MilestoneTaskUser;
 import com.final_project.versioncontrolservice.dto.UserDTO;
+import com.final_project.versioncontrolservice.event.RepositoryOperationEvent;
 import com.final_project.versioncontrolservice.exception.ForbiddenException;
 import com.final_project.versioncontrolservice.exception.NotFoundException;
-import com.final_project.versioncontrolservice.model.Milestone;
-import com.final_project.versioncontrolservice.model.Task;
-import com.final_project.versioncontrolservice.model.RepositoryDocument;
-import com.final_project.versioncontrolservice.model.TaskStatus;
+import com.final_project.versioncontrolservice.kafka.KafkaProducer;
+import com.final_project.versioncontrolservice.model.*;
 import com.final_project.versioncontrolservice.repo.MilestoneRepository;
 import com.final_project.versioncontrolservice.repo.TaskRepository;
 import lombok.AllArgsConstructor;
@@ -28,7 +27,7 @@ public class MilestoneService {
     private final MilestoneRepository milestoneRepository;
     private final TaskRepository taskRepository;
     private final RepositoryService vicRepositoryService;
-
+    private final KafkaProducer kafkaProducer;
     /**
      * Create a new milestone
      */

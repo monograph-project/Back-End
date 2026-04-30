@@ -1,21 +1,23 @@
 package com.final_project.versioncontrolservice.service;
 
 import com.final_project.versioncontrolservice.dto.*;
+import com.final_project.versioncontrolservice.event.RepositoryOperationEvent;
 import com.final_project.versioncontrolservice.exception.BadRequestException;
 import com.final_project.versioncontrolservice.exception.NotFoundException;
-import com.final_project.versioncontrolservice.model.PullRequest;
-import com.final_project.versioncontrolservice.model.PullRequestConflict;
-import com.final_project.versioncontrolservice.model.PullRequestStatus;
+import com.final_project.versioncontrolservice.kafka.KafkaProducer;
+import com.final_project.versioncontrolservice.model.*;
 import com.final_project.versioncontrolservice.repo.PullRequestConflictRepository;
 import com.final_project.versioncontrolservice.repo.PullRequestRepository;
-import com.final_project.versioncontrolservice.model.RepositoryDocument;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -30,6 +32,7 @@ public class PullRequestApplicationService {
     private final CommitGraphService commitGraphService;
     private final RepositoryService repositoryService;
     private final AuthService authService;
+    private final KafkaProducer kafkaProducer;
     public PullRequestResponse create(
             String owner,
             String repo,
@@ -93,6 +96,7 @@ public class PullRequestApplicationService {
                )
                .build();
         PullRequest saved = pullRequestRepository.save(pullRequest);
+        publishPullRequestOpenedEvent(saved, currentDocument);
         return PullRequestResponse.from(saved);
     }
 
@@ -124,7 +128,7 @@ public class PullRequestApplicationService {
 
 
 
-    public MergeResponse merge(String pullId, String owner, String repoName) {
+    public MergeResponse merge(String pullId, String owner, String repoName) throws IOException {
         RepositoryDocument document = repositoryService.loadMeta(owner, repoName);
         if (document == null) {
             throw new  NotFoundException("The Current Repository does not exist");
@@ -253,8 +257,9 @@ public class PullRequestApplicationService {
             pullRequestConflictRepository.save(conflict);
 
             pullRequest.setStatus(PullRequestStatus.CONFLICTING);
-            pullRequestRepository.save(pullRequest);
+            PullRequest saved =  pullRequestRepository.save(pullRequest);
 
+            publishPullRequestMergedEvent(saved, document);
             throw new BadRequestException("Merge conflict detected. Resolve conflicts first.");
         }
 
@@ -339,7 +344,7 @@ public class PullRequestApplicationService {
             String owner,
             String repoName,
             ResolveConflictRequest request
-    ) {
+    ) throws IOException {
         RepositoryDocument document = repositoryService.loadMeta(owner, repoName);
 
         PullRequest pullRequest = pullRequestRepository
@@ -455,5 +460,108 @@ public class PullRequestApplicationService {
         if (content == null || content.isEmpty()) return false;
 
         return content.contains("\u0000") || !content.chars().allMatch(c -> c >= 32 || c == '\n' || c == '\r' || c == '\t');
+    }
+
+
+    private void publishPullRequestOpenedEvent(
+            PullRequest pullRequest,
+            RepositoryDocument repository
+    ) {
+        RepositoryOperationEvent event = RepositoryOperationEvent.builder()
+                .eventId(UUID.randomUUID().toString())
+                .eventType(RepositoryEventType.PULL_REQUEST_OPENED)
+
+                .repositoryId(repository.getId())
+                .repositoryName(repository.getRepositoryName())
+                .repositoryUrl("/api/v1/repos" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName()+"/"+pullRequest.getId())
+
+                .actorUserId(pullRequest.getAuthor().getId())
+                .actorName(pullRequest.getAuthor().getUsername())
+                .actorEmail(pullRequest.getAuthor().getEmail())
+
+                .ownerUserId(pullRequest.getRepoOwner().getId())
+                .ownerName(pullRequest.getRepoOwner().getUsername())
+                .ownerEmail(pullRequest.getRepoOwner().getEmail())
+
+                .sourceBranch(pullRequest.getSourceBranch())
+                .targetBranch(pullRequest.getTargetBranch())
+
+                .pullRequestId(pullRequest.getId())
+                .pullRequestTitle(pullRequest.getTitle())
+                .pullRequestUrl("/repositories/" + repository.getOwner().getUsername()
+                        + "/" + repository.getRepositoryName()
+                        + "/pull-requests/" + pullRequest.getId())
+
+                .recipients(List.of(
+                        RepositoryMemberRecipient.builder()
+                                .userId(pullRequest.getRepoOwner().getId())
+                                .name(pullRequest.getRepoOwner().getUsername())
+                                .email(pullRequest.getRepoOwner().getEmail())
+                                .role("OWNER")
+                                .build()
+                ))
+
+                .occurredAt(LocalDateTime.now())
+
+                .metadata(Map.of(
+                        "actionUrl", "/api/v1/repos" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName()+"/"+pullRequest.getId(),
+                        "displayType", "PULL_REQUEST_OPENED",
+                        "description", pullRequest.getDescription() == null ? "" : pullRequest.getDescription(),
+                        "message", pullRequest.getAuthor().getUsername()
+                                + " opened a pull request: "
+                                + pullRequest.getTitle()
+                ))
+                .build();
+
+        kafkaProducer.produce(event);
+    }
+
+    private void publishPullRequestMergedEvent(
+            PullRequest pullRequest,
+            RepositoryDocument repository
+    ) {
+        RepositoryOperationEvent event = RepositoryOperationEvent.builder()
+                .eventId(UUID.randomUUID().toString())
+                .eventType(RepositoryEventType.PULL_REQUEST_MERGED)
+
+                .repositoryId(repository.getId())
+                .repositoryName(repository.getRepositoryName())
+                .repositoryUrl("/api/v1/repos/"+repository.getOwner().getUsername()+"/"+repository.getRepositoryName()+"/contents/?ref=main+")
+                .actorUserId(pullRequest.getAuthor().getId())
+                .actorName(pullRequest.getAuthor().getUsername())
+                .actorEmail(pullRequest.getAuthor().getEmail())
+
+                .ownerUserId(pullRequest.getRepoOwner().getId())
+                .ownerName(pullRequest.getRepoOwner().getUsername())
+                .ownerEmail(pullRequest.getRepoOwner().getEmail())
+
+                .sourceBranch(pullRequest.getSourceBranch())
+                .targetBranch(pullRequest.getTargetBranch())
+
+                .pullRequestId(pullRequest.getId())
+                .pullRequestTitle(pullRequest.getTitle())
+                .pullRequestUrl("/api/v1/repos/"+repository.getOwner().getUsername()+"/"+repository.getRepositoryName()+"/pulls/"+pullRequest.getId())
+
+                .recipients(List.of(
+                        RepositoryMemberRecipient.builder()
+                                .userId(pullRequest.getRepoOwner().getId())
+                                .name(pullRequest.getRepoOwner().getUsername())
+                                .email(pullRequest.getRepoOwner().getEmail())
+                                .role("OWNER")
+                                .build()
+                ))
+
+                .occurredAt(LocalDateTime.now())
+
+                .metadata(Map.of(
+                        "actionUrl", "/api/v1/repos/"+repository.getOwner().getUsername()+"/"+repository.getRepositoryName()+"/pulls/"+pullRequest.getId(),
+                        "displayType", "PULL_REQUEST_MERGED",
+                        "message", pullRequest.getAuthor().getUsername()
+                                + " merged pull request: "
+                                + pullRequest.getTitle()
+                ))
+                .build();
+
+        kafkaProducer.produce(event);
     }
 }
