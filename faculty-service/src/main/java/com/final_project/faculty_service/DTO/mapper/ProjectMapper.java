@@ -15,8 +15,6 @@ public class ProjectMapper implements BaseMapper<ProjectRequest, ProjectResponse
         Project project = new Project();
 
         project.setProjectName(request.getProjectName());
-        project.setProjectRepository(request.getProjectRepository());
-
         Teacher teacher =  new Teacher();
         teacher.setId(request.getTeacher());
         project.setTeacher(teacher);

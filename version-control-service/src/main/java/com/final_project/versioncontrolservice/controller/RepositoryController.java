@@ -103,6 +103,12 @@ public class RepositoryController {
         return new UpdateBranchResponse("updated", branch.trim());
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<RepositoryDTO> getRepoById(
+            @PathVariable String id
+    ){
+        return ResponseEntity.ok(repositoryService.getRepositoryById(id));
+    }
     @PostMapping(path = "/{owner}/{repo}/invitations/{guest}")
     public ResponseEntity<InvitationResponse> create(
             @PathVariable String owner,

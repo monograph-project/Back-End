@@ -6,19 +6,23 @@ import com.final_project.faculty_service.DTO.response.PageResponse;
 import com.final_project.faculty_service.services.EmployeeService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+@Slf4j
 @AllArgsConstructor
 @RestController
 @RequestMapping("/api/employee")
+
 public class EmployeeController {
     private final EmployeeService employeeService;
 
     @GetMapping
     public ResponseEntity<PageResponse<EmployeeResponse>> findAll(Pageable pageable){
+        log.info("data "+ pageable.first());
         return new ResponseEntity<>(employeeService.findAll(pageable), HttpStatus.OK);
     }
 

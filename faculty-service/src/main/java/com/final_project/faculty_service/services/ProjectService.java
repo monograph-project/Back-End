@@ -1,5 +1,6 @@
 package com.final_project.faculty_service.services;
 
+import com.final_project.faculty_service.DTO.RepositoryDTO;
 import com.final_project.faculty_service.DTO.mapper.ProjectMapper;
 import com.final_project.faculty_service.DTO.request.ProjectRequest;
 import com.final_project.faculty_service.DTO.response.PageResponse;
@@ -25,6 +26,7 @@ public class ProjectService {
     private final TeacherRepository teacherRepository;
     private final GroupRepository groupRepository;
     private final ProjectMapper projectMapper;
+    private final VersionContolService versionContolService;
     public PageResponse<ProjectResponse> findAll(Pageable pageable) {
         Page<Project> projectPage = projectRepository.findByIsDeletedIsFalse(pageable);
         List<ProjectResponse> projectResponses = projectPage
@@ -52,8 +54,14 @@ public class ProjectService {
         project.setTeacher(teacher);
         Group group = groupRepository.findByIdAndIsDeletedIsFalse(request.getGroup())
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found"));
+        RepositoryDTO rep = versionContolService.getRpoById(request.getProjectRepository());
+        if(rep == null){
+            throw new ResourceNotFoundException("Repository Doesn't exist");
+        }
+        project.setProjectRepository(rep);
         project.setGroup(group);
         project.setId(id);
+
         projectRepository.save(project);
         return projectMapper.toResponse(project);
     }
@@ -69,8 +77,13 @@ public class ProjectService {
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found"));
         Teacher teacher = teacherRepository.findByIdAndIsDeletedIsFalse(request.getTeacher())
                 .orElseThrow(() -> new ResourceNotFoundException("Teacher not found"));
+        RepositoryDTO repo = versionContolService.getRpoById(request.getProjectRepository());
+        if (repo == null){
+            throw new ResourceNotFoundException("Repo doesn't exist");
+        }
 
         Project project = projectMapper.toEntity(request);
+        project.setProjectRepository(repo);
         project.setTeacher(teacher);
         project.setGroup(group);
         projectRepository.save(project);

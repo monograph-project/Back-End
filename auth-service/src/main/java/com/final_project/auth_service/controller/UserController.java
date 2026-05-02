@@ -48,7 +48,7 @@ public class UserController {
      * @return Created user DTO
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER')")
     @Operation(summary = "Create a new user", description = "Creates a new user with the provided information")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "User created successfully"),
@@ -71,7 +71,7 @@ public class UserController {
      * @return User DTO
      */
     @GetMapping("/author/{id}")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'FACULTY_USER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'FACULTY_USER', 'ADMIN_USER')")
     @Operation(summary = "Get user by ID", description = "Retrieves user information by unique identifier")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "User found"),
@@ -90,7 +90,7 @@ public class UserController {
      * @return User DTO
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER', 'STUDENT_USER', 'TEACHER_USER', 'EMPLOYEE_USER')")
     @Operation(summary = "Get user by ID", description = "Retrieves user information by unique identifier")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "User found"),
@@ -111,6 +111,7 @@ public class UserController {
      * @param id User ID
      * @return User DTO
      */
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER', 'STUDENT_USER', 'TEACHER_USER', 'EMPLOYEE_USER')")
     @GetMapping("/contributor/{id}")
     @Operation(summary = "Get user by ID", description = "Retrieves user information by unique identifier")
     @ApiResponses({
@@ -130,6 +131,7 @@ public class UserController {
      * @param username Username
      * @return User DTO
      */
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER', 'STUDENT_USER', 'TEACHER_USER', 'EMPLOYEE_USER')")
     @GetMapping("/by-username/{username}")
     @Operation(summary = "Get user by username", description = "Retrieves user information by username")
     @ApiResponses({
@@ -150,7 +152,7 @@ public class UserController {
      * @return User DTO
      */
     @GetMapping("/by-email/{email}")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER', 'STUDENT_USER', 'TEACHER_USER', 'EMPLOYEE_USER')")
     @Operation(summary = "Get user by email", description = "Retrieves user information by email address")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "User found"),
@@ -171,7 +173,7 @@ public class UserController {
      * @return Updated user DTO
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR') or #id == authentication.name")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER','REGULAR_USER')")
     @Operation(summary = "Update user", description = "Updates user information")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "User updated successfully"),
@@ -191,8 +193,9 @@ public class UserController {
      *
      * @param id User ID
      */
+
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ADMIN_USER')")
     @Operation(summary = "Delete user", description = "Deletes a user (soft delete)")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "User deleted successfully"),
@@ -212,7 +215,7 @@ public class UserController {
      * @return Page of user DTOs
      */
     @GetMapping("/search")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER')")
     @Operation(summary = "Search users", description = "Searches users by email, username, or name")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Search completed")
@@ -228,6 +231,7 @@ public class UserController {
      *
      * @return List of active user DTOs
      */
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'EMPLOYEE_USER', 'ADMIN_USER')")
     @GetMapping
     @Operation(summary = "Get all active users", description = "Retrieves all active users")
     @ApiResponses({
@@ -246,7 +250,7 @@ public class UserController {
      * @param id User ID
      */
     @PostMapping("/{id}/suspend")
-    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ADMIN_USER')")
     @Operation(summary = "Suspend user", description = "Suspends a user account")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "User suspended"),
@@ -265,7 +269,7 @@ public class UserController {
      * @param id User ID
      */
     @PostMapping("/{id}/activate")
-    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ADMIN_USER')")
     @Operation(summary = "Activate user", description = "Activates a user account")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "User activated"),
@@ -285,7 +289,7 @@ public class UserController {
      * @param durationMinutes Lock duration in minutes
      */
     @PostMapping("/{id}/lock")
-    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ADMIN_USER')")
     @Operation(summary = "Lock user account", description = "Locks a user account for specified duration")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "User locked"),
