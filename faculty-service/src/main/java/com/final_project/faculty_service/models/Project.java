@@ -1,5 +1,6 @@
 package com.final_project.faculty_service.models;
 
+import com.final_project.faculty_service.DTO.RepositoryDTO;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.DBRef;
@@ -15,6 +16,6 @@ public class Project {
     private Group group;
     @DBRef
     private Teacher teacher;
-    private String projectRepository;
+    private RepositoryDTO projectRepository;
     private boolean isDeleted;
 }

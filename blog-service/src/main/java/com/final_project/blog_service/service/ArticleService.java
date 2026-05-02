@@ -839,11 +839,32 @@ public class ArticleService {
     }
     private ArticleResponse mapToResponse(Article article) {
 
+        UserProfileResponse author = userServiceClient.getUserProfile(article.getAuthorId());
+        Long total = articleRepository.countByAuthorIdAndStatus(article.getAuthorId(), ArticleStatus.PUBLISHED);
         return ArticleResponse.builder()
                 .id(article.getId())
+                .author(AuthorResponse
+                        .builder()
+                        .displayName(author.getDisplayName())
+                        .id(author.getId())
+                        .profileImageUrl(author.getProfileImageUrl())
+                        .totalArticles(total)
+                        .build())
                 .slug(article.getSlug())
                 .title(article.getTitle())
                 .subtitle(article.getSubtitle())
+                .content(ContentResponse
+                        .builder()
+                        .blocks(article
+                                .getContent()
+                                .getBlocks()
+                                .stream()
+                                .map(block -> ContentBlockResponse
+                                        .builder()
+                                        .data(objectMapper.valueToTree(block.getData()))
+                                        .type(block.getType())
+                                        .build()).toList())
+                        .build())
                 .metadata(MetadataResponse.builder()
                         .tags(article.getMetadata().getTags())
                         .category(article.getMetadata().getCategory())
@@ -853,6 +874,7 @@ public class ArticleService {
                 )
                 .status(article.getStatus())
                 .visibility(article.getVisibility())
+
                 .stats(
                         StatsResponse.builder()
                         .views(article.getStats().getViews())
@@ -887,9 +909,18 @@ public class ArticleService {
     }
 
     private ArticlePreviewResponse mapToPreview(Article article) {
+        UserProfileResponse user = userServiceClient.getUserProfile(article.getAuthorId());
+        long total = articleRepository.countByAuthorIdAndStatus(article.getAuthorId(), ArticleStatus.PUBLISHED);
         return ArticlePreviewResponse.builder()
                 .id(article.getId())
                 .slug(article.getSlug())
+                .author(AuthorResponse
+                        .builder()
+                        .profileImageUrl(user.getProfileImageUrl())
+                        .displayName(user.getDisplayName())
+                        .id(user.getId())
+                        .totalArticles(total)
+                        .build())
                 .title(article.getTitle())
                 .subtitle(article.getSubtitle())
                 .coverImageUrl(article.getMetadata().getCoverImageUrl())
@@ -1211,24 +1242,7 @@ public class ArticleService {
     /**
      * Map Article entity to ArticleResponse DTO
      */
-    private ArticleResponse mapToResponse(Article article, UserProfileResponse author) {
-        return ArticleResponse.builder()
-                .id(article.getId())
-                .slug(article.getSlug())
-                .title(article.getTitle())
-                .subtitle(article.getSubtitle())
-                .content(mapContentToResponse(article.getContent()))
-                .metadata(mapMetadataToResponse(article.getMetadata()))
-                .status(article.getStatus())
-                .visibility(article.getVisibility())
-                .stats(mapStatsToResponse(article.getStats()))
-                .author(mapAuthorResponse(author))
-                .publishedAt(article.getPublishedAt())
-                .updatedAt(article.getUpdatedAt())
-                .createdAt(article.getCreatedAt())
-                .estimatedReadTime(article.getContent().getEstimatedReadTime())
-                .build();
-    }
+
 
     private ContentResponse mapContentToResponse(Content content) {
         return ContentResponse.builder()

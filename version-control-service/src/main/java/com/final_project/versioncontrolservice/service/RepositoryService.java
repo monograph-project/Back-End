@@ -11,6 +11,7 @@ import com.final_project.versioncontrolservice.repo.InvitationRepository;
 import com.final_project.versioncontrolservice.repo.RepositoryRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.common.errors.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -196,6 +197,20 @@ public class RepositoryService {
         contributorUser.setContributorStatus(ContributorStatus.ACCEPTED);
         meta.getCollaborators().add(contributorUser);
         repositoryRepository.save(meta);
+    }
+
+    public RepositoryDTO getRepositoryById(String id){
+        RepositoryDocument repo = repositoryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("The Repository doesn't exist"));
+        return RepositoryDTO
+                .builder()
+                .owner(repo.getOwner().getUsername())
+                .visibility(repo.getVisibility())
+                .collaborators(repo.getCollaborators())
+                .description(repo.getDescription())
+                .repositoryName(repo.getRepositoryName())
+                .cloneUrl(repo.getCloneUrl())
+                .build();
     }
 
     public RepositoryDTO repositoryByOwnerAndRepoName(String ownerName, String repositoryName){

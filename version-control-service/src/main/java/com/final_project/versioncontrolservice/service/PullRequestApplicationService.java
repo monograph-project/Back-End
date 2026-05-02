@@ -494,14 +494,13 @@ public class PullRequestApplicationService {
                         repository
                                 .getCollaborators()
                                 .stream()
-                                .map((repo -> {
-                                    RepositoryMemberRecipient.builder()
+                                .map((repo -> RepositoryMemberRecipient.builder()
                                             .userId(repo.getId())
                                             .name(repo.getUsername())
                                             .email(repo.getEmail())
                                             .role(repo.getRole()).build()
-                                }))
-                ))
+                                )).toList()
+                )
                 .occurredAt(LocalDateTime.now())
                 .metadata(Map.of(
                         "actionUrl", "/api/v1/repos" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName()+"/"+pullRequest.getId(),
@@ -541,22 +540,18 @@ public class PullRequestApplicationService {
                 .pullRequestId(pullRequest.getId())
                 .pullRequestTitle(pullRequest.getTitle())
                 .pullRequestUrl("/api/v1/repos/"+repository.getOwner().getUsername()+"/"+repository.getRepositoryName()+"/pulls/"+pullRequest.getId())
-
                 .recipients(
                         repository
                                 .getCollaborators()
                                 .stream()
-                                .map((repo -> {
-                                    RepositoryMemberRecipient.builder()
+                                .map((repo -> RepositoryMemberRecipient.builder()
                                             .userId(repo.getId())
                                             .name(repo.getUsername())
                                             .email(repo.getEmail())
                                             .role(repo.getRole()).build()
-                                }))
-                ))
-
+                                )).toList()
+                )
                 .occurredAt(LocalDateTime.now())
-
                 .metadata(Map.of(
                         "actionUrl", "/api/v1/repos/"+repository.getOwner().getUsername()+"/"+repository.getRepositoryName()+"/pulls/"+pullRequest.getId(),
                         "displayType", "PULL_REQUEST_MERGED",
