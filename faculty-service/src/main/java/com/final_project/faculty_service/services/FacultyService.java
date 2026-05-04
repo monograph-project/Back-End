@@ -2,34 +2,48 @@ package com.final_project.faculty_service.services;
 
 import com.final_project.faculty_service.DTO.mapper.FacultyMapper;
 import com.final_project.faculty_service.DTO.request.FacultyRequest;
+import com.final_project.faculty_service.DTO.response.DepartmentResponse;
 import com.final_project.faculty_service.DTO.response.FacultyResponse;
 import com.final_project.faculty_service.DTO.response.PageResponse;
 import com.final_project.faculty_service.helper.Helper;
-import com.final_project.faculty_service.models.Employee;
-import com.final_project.faculty_service.models.Faculty;
-import com.final_project.faculty_service.models.FacultyPosition;
-import com.final_project.faculty_service.models.University;
+import com.final_project.faculty_service.models.*;
 import com.final_project.faculty_service.repository.EmployeeRepository;
 import com.final_project.faculty_service.repository.FacultyRepository;
 import com.final_project.faculty_service.repository.UniversityRepository;
 import com.final_project.faculty_service.services.exception.ResourceBadRequest;
 import com.final_project.faculty_service.services.exception.ResourceNotFoundException;
 import lombok.AllArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.List;
 import java.util.Optional;
 
 @Service
-@AllArgsConstructor
 public class FacultyService {
     private final FacultyRepository facultyRepository;
     private final UniversityRepository universityRepository;
     private final EmployeeRepository employeeRepository;
     private final SequenceGeneratorService sequenceGeneratorService;
     private final FacultyMapper facultyMapper;
+    private final WebClient fileWebClient;
+
+    public FacultyService(FacultyRepository facultyRepository, UniversityRepository universityRepository, EmployeeRepository employeeRepository, SequenceGeneratorService sequenceGeneratorService, FacultyMapper facultyMapper,  @Qualifier("fileServiceClient") WebClient fileWebClient) {
+        this.facultyRepository = facultyRepository;
+        this.universityRepository = universityRepository;
+        this.employeeRepository = employeeRepository;
+        this.sequenceGeneratorService = sequenceGeneratorService;
+        this.facultyMapper = facultyMapper;
+        this.fileWebClient = fileWebClient;
+    }
+
     public PageResponse<FacultyResponse> findAll(Pageable pageable) {
         Page<Faculty> facultyPage = facultyRepository.findByIsDeletedIsFalse(pageable);
         List<FacultyResponse> facs = facultyPage.getContent()
@@ -47,6 +61,22 @@ public class FacultyService {
                 .build();
     }
 
+    public FacultyResponse updateLogo(String de, MultipartFile logo){
+        Faculty st = facultyRepository.findByIdAndIsDeletedIsFalse(de)
+                .orElseThrow(() -> new ResourceNotFoundException("University Not Found with "+de));
+        MultipartBodyBuilder bodyBuilder = new  MultipartBodyBuilder();
+        bodyBuilder.part("file", logo.getResource());
+        String updatedLogo =  fileWebClient.post()
+                .uri("/file/faculty/logo/{id}", st.getId())
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(bodyBuilder.build()))
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
+        st.setLogo(updatedLogo);
+        facultyRepository.save(st);
+        return facultyMapper.toResponse(st);
+    }
     public FacultyResponse createFaculty(FacultyRequest facultyRequest){
         Faculty faculty =  facultyMapper.toEntity(facultyRequest);
 

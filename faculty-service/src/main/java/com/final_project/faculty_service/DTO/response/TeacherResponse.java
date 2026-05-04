@@ -24,7 +24,7 @@ public class TeacherResponse {
     private TeacherDepartmentResponse department;
     private String code;
     private Date enrollmentDate;
-
+    private String imageUrl;
     private String createdBy;
     private String  createdAt;
     private String  updatedAt;

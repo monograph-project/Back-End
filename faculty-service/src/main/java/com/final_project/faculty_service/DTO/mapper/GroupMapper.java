@@ -39,6 +39,14 @@ public class GroupMapper implements BaseMapper<GroupRequest, GroupResponse, Grou
         groupResponse.setId(group.getId());
         groupResponse.setName(group.getName());
 
+        groupResponse.setAcademicYearResponse(AcademicYearResponse
+                .builder()
+                        .id(group.getAcademicYear().getId())
+                        .calendarType(group.getAcademicYear().getCalendarType())
+                        .endDate(group.getAcademicYear().getEndDate())
+                        .startDate(group.getAcademicYear().getStartDate())
+                        .name(group.getAcademicYear().getName())
+                .build());
         Student leader = new  Student();
         leader.setId(group.getGroupLeader().getId());
         groupResponse.setGroupLeader(new StudentResponseGroupResponse(

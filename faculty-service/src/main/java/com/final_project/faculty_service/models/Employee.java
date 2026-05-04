@@ -25,6 +25,7 @@ public class Employee {
     private String fatherName;
     private String grandFatherName;
     private Address address;
+    private String imageUrl;
     @Indexed(unique = true)
     private String email;
     private String phone;

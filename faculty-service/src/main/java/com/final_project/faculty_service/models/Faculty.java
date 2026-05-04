@@ -37,4 +37,5 @@ public class Faculty {
     private boolean isDeleted;
     @CreatedBy
     private String createdBy;
+    private String logo;
 }

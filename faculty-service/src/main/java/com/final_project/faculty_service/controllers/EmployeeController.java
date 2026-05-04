@@ -1,6 +1,7 @@
 package com.final_project.faculty_service.controllers;
 
 import com.final_project.faculty_service.DTO.request.EmployeeRequest;
+import com.final_project.faculty_service.DTO.response.DepartmentResponse;
 import com.final_project.faculty_service.DTO.response.EmployeeResponse;
 import com.final_project.faculty_service.DTO.response.PageResponse;
 import com.final_project.faculty_service.services.EmployeeService;
@@ -11,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
 @AllArgsConstructor
@@ -22,8 +24,18 @@ public class EmployeeController {
 
     @GetMapping
     public ResponseEntity<PageResponse<EmployeeResponse>> findAll(Pageable pageable){
-        log.info("data "+ pageable.first());
+
         return new ResponseEntity<>(employeeService.findAll(pageable), HttpStatus.OK);
+    }
+
+    @GetMapping("/faculty/{id}")
+    public ResponseEntity<PageResponse<EmployeeResponse>> getAllEmployeeByFaculty(Pageable pageable, @PathVariable String id){
+        return new ResponseEntity<>(employeeService.getEmployeesByFaculty(pageable, id), HttpStatus.OK);
+    }
+    @PostMapping("/profile/{id}")
+    public ResponseEntity<EmployeeResponse> updateLogo(@PathVariable String id,
+                                                         @RequestParam("file") MultipartFile profile){
+        return new ResponseEntity<>(employeeService.updatelogo(id ,profile), HttpStatus.OK);
     }
 
     @PostMapping

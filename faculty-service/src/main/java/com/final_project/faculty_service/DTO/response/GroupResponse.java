@@ -10,4 +10,5 @@ public class GroupResponse {
     private String name;
     private List<StudentResponseGroupResponse> groupMembers;
     private StudentResponseGroupResponse groupLeader;
+    private AcademicYearResponse academicYearResponse;
 }

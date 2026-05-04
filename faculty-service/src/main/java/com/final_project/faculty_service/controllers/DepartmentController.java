@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/department")
@@ -43,5 +44,9 @@ public class DepartmentController {
         return ResponseEntity.noContent().build();
     }
 
-
+    @PostMapping("/logo/{id}")
+    public ResponseEntity<DepartmentResponse> updateLogo(@PathVariable String id,
+                                                         @RequestParam("file") MultipartFile logo){
+        return new ResponseEntity<>(departmentService.updateLogo(id ,logo), HttpStatus.OK);
+    }
 }

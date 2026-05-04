@@ -39,4 +39,5 @@ public class Department {
     private LocalDateTime updatedAt;
     @CreatedBy
     private String createdBy;
+    private String logo;
 }

@@ -17,4 +17,5 @@ public class GroupRequest {
     private List<@NotBlank(message = "Member Id cannot be empty") String> groupMembers;
     @NotBlank(message = "group leader is required")
     private String   groupLeader;
+    private String academicYear;
 }

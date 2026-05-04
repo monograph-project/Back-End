@@ -12,6 +12,7 @@ import com.final_project.versioncontrolservice.repo.RepositoryRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.common.errors.ResourceNotFoundException;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +20,7 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -255,5 +257,29 @@ public class RepositoryService {
                 .orElseThrow(() -> new NotFoundException("Not Found"));
         invitationRepository.delete(invitation);
     }
-    
+
+    public  List<RepositoryResponse> getOwnerRepos(String ownerId) {
+       ContributorUser contributorUser =  authService.getContributorUser(ownerId);
+        List<RepositoryDocument> repos = repositoryRepository.findAllByOwner_Username(contributorUser.getUsername());
+        return repos.stream().map(rep ->  RepositoryResponse
+                .builder()
+                .id(rep.getId())
+                .createdAt(rep.getCreatedAt())
+                .updatedAt(rep.getUpdatedAt())
+                .branchHeads(rep.getBranchHeads())
+                .repositoryName(rep.getRepositoryName())
+                .cloneUrl(rep.getCloneUrl())
+                .collaborators(rep.getCollaborators())
+                .description(rep.getDescription())
+                .owner(
+                        UserDTO.builder()
+                                .id(rep.getOwner().getId())
+                                .email(rep.getOwner().getEmail())
+                                .emailVerified(rep.getOwner().getEmailVerified())
+                                .username(rep.getOwner().getUsername())
+                                .status(rep.getOwner().getStatus())
+                                .build()
+                )
+                .build()).collect(Collectors.toList());
+    }
 }

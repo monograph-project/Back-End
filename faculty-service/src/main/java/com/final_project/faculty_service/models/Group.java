@@ -29,4 +29,7 @@ public class Group {
     private LocalDateTime updatedAt;
     @CreatedBy
     private String createdBy;
+
+    @DBRef
+    private AcademicYear academicYear;
 }

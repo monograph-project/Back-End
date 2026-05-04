@@ -42,6 +42,13 @@ public class RepositoryController {
     }
 
 
+    @GetMapping("/owner/{ownerId}")
+    public ResponseEntity<List<RepositoryResponse>> getOwnerRepos(
+            @PathVariable String ownerId
+    ) {
+        return ResponseEntity.ok(repositoryService.getOwnerRepos(ownerId));
+    }
+
     @GetMapping(path = "/{owner}/{repo}/info/refs", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> infoRefs(
             @PathVariable String owner,

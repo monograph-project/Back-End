@@ -17,4 +17,5 @@ public class DepartmentResponse {
     private String  updateAt;
     private String  createdAt;
     private String  createdBy;
+    private String logo;
 }

@@ -18,4 +18,5 @@ public class FacultyResponse {
     private String createAt;
     private String shortName;
     private String createdBy;
+    private String logo;
 }

@@ -45,7 +45,7 @@ public class EmployeeMapper implements BaseMapper<EmployeeRequest, EmployeeRespo
         res.setAddress(employee.getAddress());
         res.setEducationRank(employee.getEducationRank());
         res.setFacultyPosition(employee.getFacultyPosition());
-
+        res.setHireDate(employee.getHireDate());
         return res;
     }
 }

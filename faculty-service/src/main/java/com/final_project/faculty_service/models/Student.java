@@ -17,9 +17,7 @@ import java.util.Date;
 public class Student {
     @Id
     private String id;
-
     @DBRef
-
     @NotBlank( message = " You have to provide the Batch Number")
     private Batch batch;
     private String firstName;

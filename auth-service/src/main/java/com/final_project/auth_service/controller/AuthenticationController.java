@@ -135,7 +135,6 @@ public class AuthenticationController {
      * @return Success response
      */
     @PostMapping("/change-password/{userId}")
-    @PreAuthorize("hasAnyRole('FACULTY_USER', 'OPERATOR', 'PLATFORM_ADMIN')")
     @SecurityRequirement(name = "Bearer Token")
     @Operation(summary = "Change password", description = "Change user password (requires current password)")
     @ApiResponses({
@@ -285,7 +284,6 @@ public class AuthenticationController {
      * @return Current user information
      */
     @GetMapping("/me")
-    @PreAuthorize("hasAnyRole('FACULTY_USER', 'ADMIN')")
     @SecurityRequirement(name = "Bearer Token")
     @Operation(summary = "Get current user", description = "Get information about currently authenticated user")
     @ApiResponses({

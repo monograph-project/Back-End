@@ -2,6 +2,7 @@ package com.final_project.faculty_service.controllers;
 
 
 import com.final_project.faculty_service.DTO.request.FacultyRequest;
+import com.final_project.faculty_service.DTO.response.DepartmentResponse;
 import com.final_project.faculty_service.DTO.response.FacultyResponse;
 import com.final_project.faculty_service.DTO.response.PageResponse;
 import com.final_project.faculty_service.services.FacultyService;
@@ -11,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 
 @RequestMapping("/api/faculty")
@@ -27,6 +29,12 @@ public class FacultyController {
     @PostMapping
     public ResponseEntity<FacultyResponse> createFaculty(@Valid @RequestBody FacultyRequest faculty){
         return new ResponseEntity<>(facultyService.createFaculty(faculty), HttpStatus.CREATED);
+    }
+
+    @PostMapping("/logo/{id}")
+    public ResponseEntity<FacultyResponse> updateLogo(@PathVariable String id,
+                                                         @RequestParam("file") MultipartFile logo){
+        return new ResponseEntity<>(facultyService.updateLogo(id ,logo), HttpStatus.OK);
     }
     @GetMapping("/{id}")
     public ResponseEntity<FacultyResponse> getFacultyById(@Valid @PathVariable String  id){

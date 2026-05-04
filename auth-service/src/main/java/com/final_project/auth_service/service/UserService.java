@@ -90,7 +90,6 @@ public class UserService {
     @Transactional(readOnly = true)
     public List<UserDTO> getAllActiveUsers() {
         return keycloakService.getUsers().stream()
-                .filter(user -> Boolean.TRUE.equals(user.isEnabled()))
                 .map(this::toDTO)
                 .toList();
     }

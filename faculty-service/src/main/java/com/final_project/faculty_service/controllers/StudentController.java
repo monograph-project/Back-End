@@ -1,6 +1,7 @@
 package com.final_project.faculty_service.controllers;
 
 import com.final_project.faculty_service.DTO.request.StudentRequest;
+import com.final_project.faculty_service.DTO.response.EmployeeResponse;
 import com.final_project.faculty_service.DTO.response.PageResponse;
 import com.final_project.faculty_service.DTO.response.StudentResponse;
 import com.final_project.faculty_service.services.StudentService;
@@ -10,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/student")
@@ -20,6 +22,17 @@ public class StudentController {
     @GetMapping
     public ResponseEntity<PageResponse<StudentResponse>> getAll(Pageable pageable){
         return ResponseEntity.ok(studentService.findAll(pageable));
+    }
+
+    @GetMapping("/faculty/{id}")
+    public ResponseEntity<PageResponse<StudentResponse>> getStudentsByFaculty(Pageable pageable,@PathVariable String id){
+        return ResponseEntity.ok(studentService.getStudentsByFaculty(pageable, id));
+    }
+
+    @PostMapping("/profile/{id}")
+    public ResponseEntity<StudentResponse> updateLogo(@PathVariable String id,
+                                                       @RequestParam("file") MultipartFile profile){
+        return new ResponseEntity<>(studentService.updateProfile(id ,profile), HttpStatus.OK);
     }
     @PostMapping
     public ResponseEntity<StudentResponse> create(@Valid @RequestBody StudentRequest request){
@@ -32,6 +45,10 @@ public class StudentController {
     @PutMapping("/{id}")
     public ResponseEntity<StudentResponse> update(@PathVariable String id,@Valid  @RequestBody StudentRequest request){
         return new ResponseEntity<>(studentService.update(id, request), HttpStatus.OK);
+    }
+    @PutMapping("/user/{id}")
+    public ResponseEntity<StudentResponse> getStudentByKeycloakId(@PathVariable String id){
+        return new ResponseEntity<>(studentService.getStudentByKeycloak(id), HttpStatus.OK);
     }
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable String id){

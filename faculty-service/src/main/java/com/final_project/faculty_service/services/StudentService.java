@@ -24,15 +24,21 @@ import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationOperation;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.List;
 import java.util.Map;
 
 @Service
-@AllArgsConstructor
 public class StudentService {
     private final AuthService authService;
     private final StudentRepository studentRepository;
@@ -41,6 +47,18 @@ public class StudentService {
     private final SequenceGeneratorService sequenceGeneratorService;
     private final BatchRepository batchRepository;
     private final StudentMapper studentMapper;
+    private final WebClient fileWebClient;
+
+    public StudentService(AuthService authService, StudentRepository studentRepository, SemesterRepository semesterRepository, DepartmentRepository departmentRepository, SequenceGeneratorService sequenceGeneratorService, BatchRepository batchRepository, StudentMapper studentMapper, @Qualifier("fileServiceClient") WebClient fileWebClient) {
+        this.authService = authService;
+        this.studentRepository = studentRepository;
+        this.semesterRepository = semesterRepository;
+        this.departmentRepository = departmentRepository;
+        this.sequenceGeneratorService = sequenceGeneratorService;
+        this.batchRepository = batchRepository;
+        this.studentMapper = studentMapper;
+        this.fileWebClient = fileWebClient;
+    }
     public PageResponse<StudentResponse> findAll(Pageable pageable) {
         Page<Student> studentPage = studentRepository.findByIsDeletedIsFalse(pageable);
         List<StudentResponse> studentResponses = studentPage
@@ -58,6 +76,39 @@ public class StudentService {
                 .build();
     }
 
+    public PageResponse<StudentResponse> getStudentsByFaculty(Pageable pageable, String id) {
+        List<AggregationOperation> operations = List.of(
+                Aggregation.lookup(
+                        "department",
+                        "department.$id",
+                        "_id",
+                        "departmentData"
+                ),
+                Aggregation.unwind("departmentData"),
+                Aggregation.match(
+                        Criteria.where("isDeleted").is(false)
+                                .and("departmentData.isDeleted").is(false)
+                                .and("departmentData.faculty.$id").is(id)
+                )
+        );
+
+        Page<Student> studentPage = studentRepository.findAllByAggregation(operations, pageable);
+
+        List<StudentResponse> studentResponses = studentPage
+                .getContent()
+                .stream()
+                .map(studentMapper::toResponse)
+                .toList();
+
+        return PageResponse.<StudentResponse>builder()
+                .data(studentResponses)
+                .page(studentPage.getNumber())
+                .size(studentPage.getSize())
+                .totalElements(studentPage.getTotalElements())
+                .totalPages(studentPage.getTotalPages())
+                .last(studentPage.isLast())
+                .build();
+    }
     public StudentResponse update(String id , StudentRequest studentRequest){
         Student currentStudent = studentRepository.findByIdAndIsDeletedIsFalse(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
@@ -81,6 +132,11 @@ public class StudentService {
         return studentMapper.toResponse(current);
     }
 
+    public  StudentResponse getStudentByKeycloak(String userId){
+        Student student = studentRepository.findStudentByKeycloakId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
+        return studentMapper.toResponse(student);
+    }
     public StudentResponse create(StudentRequest studentRequest){
         boolean isExistByEmail =   studentRepository.existsStudentByEmailAndIsDeletedIsFalse(studentRequest.getEmail());
         if (isExistByEmail){
@@ -143,6 +199,22 @@ public class StudentService {
                         .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
         curr.setDeleted(true);
         studentRepository.save(curr);
+    }
+    public StudentResponse updateProfile(String student, MultipartFile logo){
+        Student st = studentRepository.findByIdAndIsDeletedIsFalse(student)
+                .orElseThrow(() -> new ResourceNotFoundException("University Not Found with "+student));
+        MultipartBodyBuilder bodyBuilder = new  MultipartBodyBuilder();
+        bodyBuilder.part("file", logo.getResource());
+        String updatedLogo =  fileWebClient.post()
+                .uri("/file/student/profile/{id}", st.getId())
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(BodyInserters.fromMultipartData(bodyBuilder.build()))
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
+        st.setProfilePicture(updatedLogo);
+        studentRepository.save(st);
+        return studentMapper.toResponse(st);
     }
 
 

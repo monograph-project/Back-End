@@ -37,6 +37,7 @@ public interface RepositoryRepository extends MongoRepository<RepositoryDocument
             String role
     );
 
+    List<RepositoryDocument> findAllByOwner_Username(String username);
     // Delete repo by owner + name
     void deleteByOwner_UsernameIgnoreCaseAndRepositoryNameIgnoreCase(
             String username,
