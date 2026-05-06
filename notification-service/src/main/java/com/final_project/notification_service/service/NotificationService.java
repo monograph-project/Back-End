@@ -49,13 +49,10 @@ public interface NotificationService {
 
     long countUnreadByUser(String userId);
 
-    // ── Admin operations ─────────────────────────────────────────────────────
 
     void retryFailedNotifications();
 
     void deleteOldSentNotifications(LocalDateTime before);
-
-    // ── Internal (used by processors) ────────────────────────────────────────
 
     Notification saveAndProcess(Notification notification);
 }

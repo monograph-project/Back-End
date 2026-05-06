@@ -30,6 +30,4 @@ public class Group {
     @CreatedBy
     private String createdBy;
 
-    @DBRef
-    private AcademicYear academicYear;
 }

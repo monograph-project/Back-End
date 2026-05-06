@@ -28,10 +28,18 @@ public class ProjectController {
         return new ResponseEntity<>(projectService.create(request), HttpStatus.CREATED);
     }
 
+    @PostMapping("/{id}/repo/{repo}")
+    public ResponseEntity<ProjectResponse> connectProjectWithRpo(
+            @PathVariable String id,
+            @PathVariable String repo
+    ){
+        return new ResponseEntity<>(projectService.connectProjectWithRepsitory(id, repo), HttpStatus.CREATED);
+    }
     @GetMapping("/{id}")
     public ResponseEntity<ProjectResponse> findById(@PathVariable String id){
         return new ResponseEntity<>(projectService.findById(id), HttpStatus.OK);
     }
+
 
     @GetMapping("/{id}/student/{student}")
     public ResponseEntity<ProjectResponse> getProjectByStudentId(@PathVariable String id, @PathVariable String student){

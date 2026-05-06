@@ -8,11 +8,9 @@ import com.final_project.faculty_service.DTO.request.StudentRequest;
 import com.final_project.faculty_service.DTO.response.AuthResponse;
 import com.final_project.faculty_service.DTO.response.PageResponse;
 import com.final_project.faculty_service.DTO.response.StudentResponse;
+import com.final_project.faculty_service.DTO.response.UniversityResponse;
 import com.final_project.faculty_service.helper.Helper;
-import com.final_project.faculty_service.models.Batch;
-import com.final_project.faculty_service.models.Department;
-import com.final_project.faculty_service.models.Semester;
-import com.final_project.faculty_service.models.Student;
+import com.final_project.faculty_service.models.*;
 import com.final_project.faculty_service.repository.BatchRepository;
 import com.final_project.faculty_service.repository.DepartmentRepository;
 import com.final_project.faculty_service.repository.SemesterRepository;
@@ -201,7 +199,7 @@ public class StudentService {
         studentRepository.save(curr);
     }
     public StudentResponse updateProfile(String student, MultipartFile logo){
-        Student st = studentRepository.findByIdAndIsDeletedIsFalse(student)
+        Student st = studentRepository.findStudentByKeycloakIdAndIsDeletedIsFalse(student)
                 .orElseThrow(() -> new ResourceNotFoundException("University Not Found with "+student));
         MultipartBodyBuilder bodyBuilder = new  MultipartBodyBuilder();
         bodyBuilder.part("file", logo.getResource());
@@ -214,7 +212,14 @@ public class StudentService {
                 .block();
         st.setProfilePicture(updatedLogo);
         studentRepository.save(st);
+        authService.updateProfile(st.getKeycloakId(), updatedLogo);
         return studentMapper.toResponse(st);
+    }
+    public List<StudentResponse> searchStudent(String keyword){
+        List<Student> students = studentRepository.searchByKeyword(keyword);
+        return students.stream()
+                .map(studentMapper::toResponse)
+                .toList();
     }
 
 

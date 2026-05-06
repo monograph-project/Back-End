@@ -65,8 +65,6 @@ public class GroupService {
         if (groupRepository.existsByGroupLeader_IdAndIsDeletedIsFalse(leader.getId())){
             throw new ResourceExist("Already Assigned to a Group As Member");
         }
-        AcademicYear academicYear = academicYearRepository.findById(request.getAcademicYear())
-                .orElseThrow(() -> new ResourceNotFoundException("academic Year response not found"));
 
         List<Student> members = studentRepository.findAllByIdAndIsDeletedIsFalse(request.getGroupMembers())
                 .orElseThrow(() -> new ResourceNotFoundException("There is No Members yet"));
@@ -91,7 +89,6 @@ public class GroupService {
                 throw new RuntimeException("Leader Must Be Part of Member");
         }
         Group group = groupMapper.toEntity(request);
-        group.setAcademicYear(academicYear);
         group.setGroupLeader(leader);
         group.setGroupMembers(members); // directly set List<Student>
 

@@ -1,6 +1,7 @@
 package com.final_project.notification_service.service.strategy;
 import com.final_project.notification_service.config.AppProperties;
 import com.final_project.notification_service.event.PasswordChangedEvent;
+import com.final_project.notification_service.event.ResetPasswordEvent;
 import com.final_project.notification_service.model.Notification;
 import com.final_project.notification_service.model.NotificationChannel;
 import com.final_project.notification_service.model.NotificationStatus;
@@ -16,35 +17,25 @@ import java.util.Map;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class PasswordChangedProcessor implements NotificationProcessor<PasswordChangedEvent> {
+public class ResetPasswordProcessor implements NotificationProcessor<ResetPasswordEvent> {
 
     private final NotificationService notificationService;
     private final EmailService emailService;
-    private final AppProperties props;
-
     @Override
-    public void process(PasswordChangedEvent event) {
-        log.info("Processing PASSWORD_CHANGED for userId={} changeType={}",
+    public void process(ResetPasswordEvent event) {
+        log.info("Processing ResetPassword for userId={} changeType={}",
                 event.getUserId(), event.getChangeType());
-
-        String subject = "RESET".equals(event.getChangeType())
-                ? "Your password has been reset"
-                : "Your password was changed";
-
-        String securityUrl = props.getNotification().getBaseUrl() + "/security";
-
+        String subject = "Your password has been reset";
         emailService.sendHtmlEmail(
                 event.getEmail(),
                 subject,
-                "password-changed",
+                "password-reset",
                 Map.of(
                         "firstName",    event.getFirstName(),
                         "changeType",   event.getChangeType(),
                         "ipAddress",    event.getIpAddress() != null ? event.getIpAddress() : "unknown",
                         "occurredAt",   event.getOccurredAt().toString(),
-                        "securityUrl",  securityUrl,
-                        "baseUrl",      props.getNotification().getBaseUrl()
-
+                        "securityUrl",  event.getResetToken()
                 )
         );
 
@@ -52,19 +43,19 @@ public class PasswordChangedProcessor implements NotificationProcessor<PasswordC
                 .recipientUserId(event.getUserId())
                 .recipientEmail(event.getEmail())
                 .recipientName(event.getFirstName())
-                .type(NotificationType.PASSWORD_CHANGED)
+                .type(NotificationType.PASSWORD_RESET)
                 .channel(NotificationChannel.EMAIL)
                 .status(NotificationStatus.PROCESSING)
                 .subject(subject)
                 .body("Password " + event.getChangeType().toLowerCase() + " security alert sent.")
-                .idempotencyKey("password-changed:" + event.getEventId())
+                .idempotencyKey("password-reset:" + event.getEventId())
                 .build();
 
         notificationService.saveAndProcess(notification);
     }
 
     @Override
-    public Class<PasswordChangedEvent> supportedEventType() {
-        return PasswordChangedEvent.class;
+    public Class<ResetPasswordEvent> supportedEventType() {
+        return ResetPasswordEvent.class;
     }
 }

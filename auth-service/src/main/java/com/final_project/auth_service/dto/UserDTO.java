@@ -75,16 +75,9 @@ public class UserDTO {
     @Schema(description = "Last update timestamp")
     private LocalDateTime updatedAt;
 
-    @JsonProperty("entity_id")
-    @Schema(description = "Entity that belongs to this user", example = "teacher account with id: 8902323")
-    private String entityId;
-
-    @JsonProperty("profile")
+    @JsonProperty("photoUrl")
     @Schema(description = "http:u023i23")
-    private String profile;
+    private String photoUrl;
 
-    @JsonProperty("user_type")
-    @Schema(description = "user type like teacher.. student")
-    private String userType;
 }
 

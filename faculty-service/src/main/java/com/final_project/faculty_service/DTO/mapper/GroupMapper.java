@@ -38,17 +38,16 @@ public class GroupMapper implements BaseMapper<GroupRequest, GroupResponse, Grou
         GroupResponse groupResponse = new GroupResponse();
         groupResponse.setId(group.getId());
         groupResponse.setName(group.getName());
-
-        groupResponse.setAcademicYearResponse(AcademicYearResponse
-                .builder()
-                        .id(group.getAcademicYear().getId())
-                        .calendarType(group.getAcademicYear().getCalendarType())
-                        .endDate(group.getAcademicYear().getEndDate())
-                        .startDate(group.getAcademicYear().getStartDate())
-                        .name(group.getAcademicYear().getName())
-                .build());
         Student leader = new  Student();
         leader.setId(group.getGroupLeader().getId());
+        groupResponse.setAcademicYear( AcademicYearResponse
+                .builder()
+                .id(group.getGroupLeader().getSemester().getAcademicYear().getId())
+                .calendarType(group.getGroupLeader().getSemester().getAcademicYear().getCalendarType())
+                .endDate(group.getGroupLeader().getSemester().getAcademicYear().getEndDate())
+                .startDate(group.getGroupLeader().getSemester().getAcademicYear().getStartDate())
+                .name(group.getGroupLeader().getSemester().getAcademicYear().getName())
+                .build());
         groupResponse.setGroupLeader(new StudentResponseGroupResponse(
             group.getGroupLeader().getId(),
             group.getGroupLeader().getFirstName(),
@@ -79,6 +78,7 @@ public class GroupMapper implements BaseMapper<GroupRequest, GroupResponse, Grou
                     group.getGroupLeader().getDepartment().getPhone()
             ),
             group.getGroupLeader().getStatus(),
+
             new BatchGroupResponse(
                     group.getGroupLeader().getBatch().getName(),
                     group.getGroupLeader().getBatch().getYear(),
@@ -90,8 +90,7 @@ public class GroupMapper implements BaseMapper<GroupRequest, GroupResponse, Grou
         List<StudentResponseGroupResponse> groupMemembers = group.getGroupMembers()
                 .stream()
                 .map(currentMemeber -> {
-                    StudentResponseGroupResponse studentResponseGroupResponse = new StudentResponseGroupResponse(
-
+                    return new StudentResponseGroupResponse(
                             currentMemeber.getId(),
                             currentMemeber.getFirstName(),
                             currentMemeber.getLastName(),
@@ -127,7 +126,6 @@ public class GroupMapper implements BaseMapper<GroupRequest, GroupResponse, Grou
                                     currentMemeber.getBatch().getType()
                             )
                     );
-                    return  studentResponseGroupResponse;
                 }).toList();
         groupResponse.setGroupMembers(groupMemembers);
         return groupResponse;

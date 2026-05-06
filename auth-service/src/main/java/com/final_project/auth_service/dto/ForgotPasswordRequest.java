@@ -21,4 +21,6 @@ public class ForgotPasswordRequest {
     @JsonProperty("email")
     @Schema(description = "Email address", example = "john.doe@example.com")
     private String email;
+//    only on the backend will inject
+    private String ip;
 }

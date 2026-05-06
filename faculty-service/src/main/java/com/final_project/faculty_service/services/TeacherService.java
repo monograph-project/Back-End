@@ -43,7 +43,7 @@ public class TeacherService {
     private final DepartmentRepository departmentRepository;
     private final TeacherRepository teacherRepository;
     private final TeacherMapper teacherMapper;
-
+    private final SequenceGeneratorService sequenceGeneratorService;
     private final WebClient fileWebClient;
     private final StudentRepository studentRepository;
     private AuthService authService;
@@ -54,8 +54,10 @@ public class TeacherService {
             TeacherMapper teacherMapper,
             @Qualifier("fileServiceClient") WebClient fileWebClient,
             StudentRepository studentRepository,
-            AuthService authService
+            AuthService authService,
+            SequenceGeneratorService sequenceGeneratorService
     ){
+        this.sequenceGeneratorService = sequenceGeneratorService;
         this.teacherRepository = teacherRepository;
         this.departmentRepository = departmentRepository;
         this.teacherMapper = teacherMapper;
@@ -159,6 +161,8 @@ public class TeacherService {
 
         mappedTeacher.setDepartment(department);
         mappedTeacher.setKeycloakId(response.getId());
+        long sequ = sequenceGeneratorService.generateSequence("sequence_teacher");
+        mappedTeacher.setCode(mappedTeacher.getDepartment().getCode()+"-"+sequ);
         Teacher result =  teacherRepository.save(mappedTeacher);
         return teacherMapper.toResponse(result);
     }
@@ -183,7 +187,7 @@ public class TeacherService {
         return signupRequest;
     }
     public TeacherResponse updateProfile(String teacher, MultipartFile logo){
-        Teacher st = teacherRepository.findByIdAndIsDeletedIsFalse(teacher)
+        Teacher st = teacherRepository.findTeacherByKeycloakIdAndIsDeletedIsFalse(teacher)
                 .orElseThrow(() -> new ResourceNotFoundException("University Not Found with "+teacher));
         MultipartBodyBuilder bodyBuilder = new  MultipartBodyBuilder();
         bodyBuilder.part("file", logo.getResource());
@@ -196,7 +200,15 @@ public class TeacherService {
                 .block();
         st.setImageUrl(updatedLogo);
         teacherRepository.save(st);
+        authService.updateProfile(st.getKeycloakId(), updatedLogo);
         return teacherMapper.toResponse(st);
+    }
+
+    public List<TeacherResponse> searchTeacher(String keyword){
+        List<Teacher> teachers = teacherRepository.searchByKeyword(keyword);
+        return teachers.stream()
+                .map(teacherMapper::toResponse)
+                .toList();
     }
 
 

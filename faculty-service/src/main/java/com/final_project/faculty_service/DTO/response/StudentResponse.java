@@ -22,7 +22,7 @@ public class StudentResponse {
     private String phone;
     private Date enrollmentDate;
     private String kankorId;
-    private String profilePicture;
+    private String photoUrl;
     private StudentSemesterResponse semester;
     private StudentDepartmentSemesterResponse department;
     private StudentStatus status;

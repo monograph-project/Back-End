@@ -14,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @Slf4j
 @AllArgsConstructor
 @RestController
@@ -28,6 +30,12 @@ public class EmployeeController {
         return new ResponseEntity<>(employeeService.findAll(pageable), HttpStatus.OK);
     }
 
+    @GetMapping("/search")
+    public ResponseEntity<List<EmployeeResponse>> searchEmployees(@RequestParam("keyword") String keyword) {
+        List<EmployeeResponse> results = employeeService.searchUniversities(keyword);
+        return ResponseEntity.ok(results);
+    }
+
     @GetMapping("/faculty/{id}")
     public ResponseEntity<PageResponse<EmployeeResponse>> getAllEmployeeByFaculty(Pageable pageable, @PathVariable String id){
         return new ResponseEntity<>(employeeService.getEmployeesByFaculty(pageable, id), HttpStatus.OK);
@@ -35,7 +43,7 @@ public class EmployeeController {
     @PostMapping("/profile/{id}")
     public ResponseEntity<EmployeeResponse> updateLogo(@PathVariable String id,
                                                          @RequestParam("file") MultipartFile profile){
-        return new ResponseEntity<>(employeeService.updatelogo(id ,profile), HttpStatus.OK);
+        return new ResponseEntity<>(employeeService.updateProfile(id ,profile), HttpStatus.OK);
     }
 
     @PostMapping

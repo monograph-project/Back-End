@@ -33,25 +33,103 @@ public class ProjectMapper implements BaseMapper<ProjectRequest, ProjectResponse
         projectResponse.setProjectName(entity.getProjectName());
         projectResponse.setProjectRepository(entity.getProjectRepository());
         projectResponse.setGroup(
-                new ProjectGroupResponse(
-                        entity.getGroup().getId(),
-                        entity.getGroup().getName(),
-                        entity.getGroup()
-                                .getGroupMembers()
-                                .stream()
-                                .map((member) -> {
-                                   return  new GroupMemberResponse(
-                                            member.getId(),
-                                           member.getFirstName(),
-                                           member.getLastName(),
-                                           member.getCode(),
-                                           member.getEmail(),
-                                           member.getPhone(),
-                                           member.getKankorId(),
-                                           member.getProfilePicture()
-                                    );
-                                }).toList()
-                )
+                GroupResponse
+                        .builder()
+                        .id(entity.getGroup().getId())
+                        .name(entity.getGroup().getName())
+                        .groupLeader(new StudentResponseGroupResponse(
+                                entity.getGroup().getGroupLeader().getId(),
+                                entity.getGroup().getGroupLeader().getFirstName(),
+                                entity.getGroup().getGroupLeader().getLastName(),
+                                entity.getGroup().getGroupLeader().getCode(),
+                                        entity.getGroup().getGroupLeader().getEmail(),
+                                entity.getGroup().getGroupLeader().getPhone(),
+                                entity.getGroup().getGroupLeader().getKankorId(),
+                                entity.getGroup().getGroupLeader().getProfilePicture(),
+                                new SemesterGroupResponse(
+                                        new AcademicYearGroupResponse(
+                                                entity.getGroup().getGroupLeader().getSemester().getAcademicYear().getName(),
+                                                entity.getGroup().getGroupLeader().getSemester().getAcademicYear().getStartDate(),
+                                                entity.getGroup().getGroupLeader().getSemester().getAcademicYear().getEndDate()
+                                        ),
+                                        entity.getGroup().getGroupLeader().getSemester().getType(),
+                                        entity.getGroup().getGroupLeader().getSemester().getName(),
+                                        entity.getGroup().getGroupLeader().getSemester().getStartDate(),
+                                        entity.getGroup().getGroupLeader().getSemester().getEndDate(),
+                                        entity.getGroup().getGroupLeader().getSemester().getCode()
+                                ),
+                                new DepartmentGroupResponse(
+                                        entity.getGroup().getGroupLeader().getDepartment().getId(),
+                                        entity.getGroup().getGroupLeader().getDepartment().getName(),
+                                        entity.getGroup().getGroupLeader().getDepartment().getField(),
+                                        entity.getGroup().getGroupLeader().getDepartment().getCode(),
+                                        entity.getGroup().getGroupLeader().getDepartment().getEmail(),
+                                        entity.getGroup().getGroupLeader().getDepartment().getPhone()
+                                ),
+                                entity.getGroup().getGroupLeader().getStatus(),
+
+                                new BatchGroupResponse(
+                                        entity.getGroup().getGroupLeader().getBatch().getName(),
+                                        entity.getGroup().getGroupLeader().getBatch().getYear(),
+                                        entity.getGroup().getGroupLeader().getBatch().getType()
+                                )
+
+                        ))
+                        .groupMembers(
+                                entity
+                                        .getGroup()
+                                        .getGroupMembers()
+                                        .stream()
+
+                                        .map(
+                                                currentMemeber -> new StudentResponseGroupResponse(
+                                            currentMemeber.getId(),
+                                            currentMemeber.getFirstName(),
+                                            currentMemeber.getLastName(),
+                                            currentMemeber.getCode(),
+                                            currentMemeber.getEmail(),
+                                            currentMemeber.getPhone(),
+                                            currentMemeber.getKankorId(),
+                                            currentMemeber.getProfilePicture(),
+                                            new SemesterGroupResponse(
+                                                    new AcademicYearGroupResponse(
+                                                            currentMemeber.getSemester().getAcademicYear().getName(),
+                                                            currentMemeber.getSemester().getAcademicYear().getStartDate(),
+                                                            currentMemeber.getSemester().getAcademicYear().getEndDate()
+                                                    ),
+                                                    currentMemeber.getSemester().getType(),
+                                                    currentMemeber.getSemester().getName(),
+                                                    currentMemeber.getSemester().getStartDate(),
+                                                    currentMemeber.getSemester().getEndDate(),
+                                                    currentMemeber.getSemester().getCode()
+                                            ),
+                                            new DepartmentGroupResponse(
+                                                    currentMemeber.getDepartment().getId(),
+                                                    currentMemeber.getDepartment().getName(),
+                                                    currentMemeber.getDepartment().getField(),
+                                                    currentMemeber.getDepartment().getCode(),
+                                                    currentMemeber.getDepartment().getEmail(),
+                                                    currentMemeber.getDepartment().getPhone()
+                                            ),
+                                            currentMemeber.getStatus(),
+                                            new BatchGroupResponse(
+                                                    currentMemeber.getBatch().getName(),
+                                                    currentMemeber.getBatch().getYear(),
+                                                    currentMemeber.getBatch().getType()
+                                            ))).toList()
+
+
+                        )
+                        .academicYear(
+                                AcademicYearResponse
+                                .builder()
+                                .id(entity.getGroup().getGroupLeader().getSemester().getAcademicYear().getId())
+                                .calendarType(entity.getGroup().getGroupLeader().getSemester().getAcademicYear().getCalendarType())
+                                .endDate(entity.getGroup().getGroupLeader().getSemester().getAcademicYear().getEndDate())
+                                .startDate(entity.getGroup().getGroupLeader().getSemester().getAcademicYear().getStartDate())
+                                .name(entity.getGroup().getGroupLeader().getSemester().getAcademicYear().getName())
+                                .build())
+                        .build()
         );
         projectResponse.setTeacher(
                 new GroupTeacherResponse(

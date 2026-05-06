@@ -27,5 +27,5 @@ public class EmployeeResponse {
     private String updatedAt;
     private String createdAt;
     private String createdBy;
-    private String logo;
+    private String photoUrl;
 }

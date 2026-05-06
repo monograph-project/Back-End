@@ -28,6 +28,7 @@ public class TeacherMapper implements BaseMapper<TeacherRequest, TeacherResponse
         teacher.setEmail(request.getEmail());
         teacher.setPhone(request.getPhone());
         teacher.setEducationRank(request.getEducationRank());
+        teacher.setImageUrl(request.getProfileUrl());
         return teacher;
     }
 
@@ -62,6 +63,8 @@ public class TeacherMapper implements BaseMapper<TeacherRequest, TeacherResponse
                 teacher.getDepartment().getEmail(),
                 teacher.getDepartment().getPhone()
                 ));
+        teacherResponse.setCode(teacher.getCode());
+        teacherResponse.setPhotoUrl(teacher.getImageUrl());
         teacherResponse.setEducationRank(teacher.getEducationRank());
         return teacherResponse;
     }

@@ -76,6 +76,11 @@ public class KafkaConfig {
         return TopicBuilder.name(appProperties.getKafka().getTopics().getRepositoryOperation())
                 .partitions(1).replicas(1).build();
     }
+    @Bean
+    public NewTopic resetPasswordTopic(){
+        return TopicBuilder.name(appProperties.getKafka().getTopics().getResetPassword())
+                .partitions(1).replicas(1).build();
+    }
 
     // ── Consumer factory ─────────────────────────────────────────────────────
 

@@ -181,8 +181,6 @@ public class UserCacheService {
         }
     }
 
-    // ============= PRIVATE METHODS =============
-
     private void cacheUserProfile(String userId, UserProfileResponse profile) {
         String cacheKey = USER_CACHE_KEY + userId;
         try {
@@ -209,7 +207,7 @@ public class UserCacheService {
                 .displayName("[User Service Unavailable]")
                 .username("user_" + userId.substring(0, Math.min(8, userId.length())))
                 .email(null)
-                .profileImageUrl(null)
+                .profile(null)
                 .bio(null)
                 .totalArticles(0L)
                 .createdAt(null)

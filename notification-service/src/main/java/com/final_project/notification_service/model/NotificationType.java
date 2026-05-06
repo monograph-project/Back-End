@@ -3,6 +3,7 @@ public enum NotificationType {
     // Account lifecycle
     USER_REGISTERED,
     PASSWORD_CHANGED,
+    PASSWORD_RESET,
     EMAIL_VERIFIED,
     ACCOUNT_LOCKED,
 

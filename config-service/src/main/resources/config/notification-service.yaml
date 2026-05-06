@@ -1,6 +1,16 @@
 spring:
   application:
     name: notification-service
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_SERVER_URL}/realms/${KEYCLOAK_REALM}
+          jwk-set-uri: ${KEYCLOAK_SERVER_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/certs
   rabbitmq:
     password: ${RABBIT_PASSWORD}
     username: ${RABBIT_USERNAME}
@@ -148,3 +158,13 @@ resilience4j:
         max-attempts: 3
         wait-duration: 1s
         exponential-backoff-multiplier: 2
+eureka:
+  instance:
+    prefer-ip-address: true
+    ip-address: 127.0.0.1
+    hostname: localhost
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka/

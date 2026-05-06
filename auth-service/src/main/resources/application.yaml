@@ -29,3 +29,6 @@ google:
 
 app:
   default-role: ${APP_DEFAULT_ROLE:faculty-user}
+  app:
+    jwt:
+      secret: ${CUSTOME_SECRET}

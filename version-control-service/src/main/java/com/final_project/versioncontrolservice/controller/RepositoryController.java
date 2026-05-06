@@ -41,7 +41,12 @@ public class RepositoryController {
         return ResponseEntity.ok(repositoryService.createRepo(request));
     }
 
-
+    @GetMapping("/search")
+    public ResponseEntity<List<RepositoryResponse>> searchRepositories(
+            @RequestParam String keyword
+    ) {
+             return   ResponseEntity.ok(repositoryService.searchRepositories(keyword));
+    }
     @GetMapping("/owner/{ownerId}")
     public ResponseEntity<List<RepositoryResponse>> getOwnerRepos(
             @PathVariable String ownerId

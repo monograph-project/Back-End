@@ -13,6 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/student")
 @AllArgsConstructor
@@ -37,6 +39,13 @@ public class StudentController {
     @PostMapping
     public ResponseEntity<StudentResponse> create(@Valid @RequestBody StudentRequest request){
         return new ResponseEntity<>(studentService.create(request), HttpStatus.CREATED);
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<StudentResponse>> searchStudents(@RequestParam("keyword") String keyword) {
+        // Assuming your service method is named searchStudents
+        List<StudentResponse> results = studentService.searchStudent(keyword);
+        return ResponseEntity.ok(results);
     }
     @GetMapping("/{id}")
     public ResponseEntity<StudentResponse> getById(@PathVariable String  id){

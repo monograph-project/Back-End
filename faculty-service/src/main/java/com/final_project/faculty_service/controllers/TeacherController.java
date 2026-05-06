@@ -13,6 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/teacher")
 @AllArgsConstructor
@@ -48,7 +50,12 @@ public class TeacherController {
         return new ResponseEntity<>(teacherService.update(id, request), HttpStatus.OK);
     }
 
+    @GetMapping("/search")
+    public ResponseEntity<List<TeacherResponse>> searchTeachers(@RequestParam("keyword") String keyword) {
 
+        List<TeacherResponse> results = teacherService.searchTeacher(keyword);
+        return ResponseEntity.ok(results);
+    }
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable String id){
         teacherService.delete(id);

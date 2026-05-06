@@ -37,6 +37,32 @@ public class RepositoryService {
             .orElseThrow(() -> new NotFoundException("read repo metadata"));
     }
 
+    public List<RepositoryResponse> searchRepositories(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return List.of();
+        }
+        List<RepositoryDocument> results =  repositoryRepository.searchRepositories(keyword.trim());
+        return results.stream().map(saved -> RepositoryResponse
+                .builder()
+                .id(saved.getId())
+                .createdAt(saved.getCreatedAt())
+                .updatedAt(saved.getUpdatedAt())
+                .branchHeads(saved.getBranchHeads())
+                .repositoryName(saved.getRepositoryName())
+                .cloneUrl(saved.getCloneUrl())
+                .collaborators(saved.getCollaborators())
+                .description(saved.getDescription())
+                .owner(
+                        UserDTO.builder()
+                                .id(saved.getOwner().getId())
+                                .email(saved.getOwner().getEmail())
+                                .emailVerified(saved.getOwner().getEmailVerified())
+                                .username(saved.getOwner().getUsername())
+                                .status(saved.getOwner().getStatus())
+                                .build()
+                )
+                .build()).toList();
+    }
     public RepositoryResponse createRepo(CreateRepositoryRequest request) {
         UserDTO user = authService.getUserByUsername(request.getUserName());
         if (user == null) {

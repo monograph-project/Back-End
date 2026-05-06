@@ -104,6 +104,21 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
+    @PostMapping("/{id}/profile")
+    @Operation(summary = "update profile", description = "Retrieves user information by unique identifier")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "User found"),
+            @ApiResponse(responseCode = "404", description = "User not found"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    public ResponseEntity<Void> updateProfile(
+            @PathVariable String id,
+            @RequestBody String url
+            ) {
+        log.info("url : {}" , url);
+        userService.updateProfile(url, id);
+        return ResponseEntity.noContent().build();
+    }
 
     /**
      * Get user by ID.

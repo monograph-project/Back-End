@@ -12,4 +12,5 @@ public class ProjectGroupResponse {
     private String id;
     private String name;
     private List<GroupMemberResponse> groupMember;
+
 }

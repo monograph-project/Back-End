@@ -1,5 +1,13 @@
 package com.final_project.auth_service.config;
 
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.jwk.JWK;
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.KeyUse;
+import com.nimbusds.jose.jwk.OctetSequenceKey;
+import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
+import com.nimbusds.jose.jwk.source.JWKSource;
+import com.nimbusds.jose.proc.SecurityContext;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,6 +22,8 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
@@ -30,6 +40,8 @@ public class SecurityConfig {
 
     @Value("${spring.cors.allowed-origins:*}")
     private String allowedOrigins;
+    @Value("${app.jwt.secret:at-least-32-character-very-long-secret-key}")
+    private String jwtSecret;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -61,6 +73,18 @@ public class SecurityConfig {
                 );
 
         return http.build();
+    }
+
+    @Bean
+    public JwtEncoder jwtEncoder() {
+        // HMAC keys for HS256 must be at least 256 bits (32 characters)
+        JWK jwk = new OctetSequenceKey.Builder(jwtSecret.getBytes())
+                .keyID("internal-auth-key") // Help the encoder identify the key
+                .algorithm(com.nimbusds.jose.JWSAlgorithm.HS256) // Match the algorithm
+                .build();
+
+        JWKSource<SecurityContext> jwks = new ImmutableJWKSet<>(new JWKSet(jwk));
+        return new NimbusJwtEncoder(jwks);
     }
 
     @Bean

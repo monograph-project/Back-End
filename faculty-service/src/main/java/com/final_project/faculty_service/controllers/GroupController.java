@@ -1,9 +1,11 @@
 package com.final_project.faculty_service.controllers;
 
+import com.final_project.faculty_service.DTO.mapper.ProjectInvitationRequest;
 import com.final_project.faculty_service.DTO.request.GroupRequest;
 import com.final_project.faculty_service.DTO.response.GroupResponse;
 import com.final_project.faculty_service.DTO.response.PageResponse;
 import com.final_project.faculty_service.services.GroupService;
+import com.final_project.faculty_service.services.ProjectService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 @AllArgsConstructor
 public class GroupController {
     private final GroupService groupService;
+    private final ProjectService projectService;
 
     @GetMapping
     public ResponseEntity<PageResponse<GroupResponse>> findAll(Pageable pageable){
@@ -32,6 +35,10 @@ public class GroupController {
         return new ResponseEntity<>(groupService.findById(id), HttpStatus.OK);
     }
 
+    @GetMapping("/{id}/invite")
+    public ResponseEntity<GroupResponse> addMemebers(@RequestBody ProjectInvitationRequest request, @PathVariable String  id){
+        return new ResponseEntity<>(projectService.inviteMembers(id, request), HttpStatus.OK);
+    }
     @PutMapping("/{id}")
     public ResponseEntity<GroupResponse> update(@PathVariable String id, @Valid @RequestBody GroupRequest request){
         return new ResponseEntity<>(groupService.update(id, request), HttpStatus.OK);

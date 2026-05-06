@@ -172,8 +172,9 @@ public class AuthenticationController {
             @ApiResponse(responseCode = "200", description = "Password reset email sent"),
             @ApiResponse(responseCode = "404", description = "Email not found")
     })
-    public ResponseEntity<Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+    public ResponseEntity<Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request,  @RemoteIP String ip) {
         log.info("Forgot password request for: {}", request.getEmail());
+        request.setIp(ip);
         authenticationService.forgotPassword(request);
 
         Map<String, String> response = new HashMap<>();

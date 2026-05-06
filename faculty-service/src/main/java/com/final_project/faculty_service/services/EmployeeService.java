@@ -6,13 +6,11 @@ import com.final_project.faculty_service.DTO.mapper.EmployeeMapper;
 import com.final_project.faculty_service.DTO.request.EmployeeRequest;
 import com.final_project.faculty_service.DTO.request.SignupRequest;
 import com.final_project.faculty_service.DTO.request.TeacherRequest;
-import com.final_project.faculty_service.DTO.response.EmployeeResponse;
-import com.final_project.faculty_service.DTO.response.FacultyResponseEmployee;
-import com.final_project.faculty_service.DTO.response.PageResponse;
-import com.final_project.faculty_service.DTO.response.TeacherResponse;
+import com.final_project.faculty_service.DTO.response.*;
 import com.final_project.faculty_service.helper.Helper;
 import com.final_project.faculty_service.models.Employee;
 import com.final_project.faculty_service.models.Faculty;
+import com.final_project.faculty_service.models.Student;
 import com.final_project.faculty_service.models.Teacher;
 import com.final_project.faculty_service.repository.EmployeeRepository;
 import com.final_project.faculty_service.repository.FacultyRepository;
@@ -99,8 +97,8 @@ public class EmployeeService {
                 .build();
     }
 
-    public EmployeeResponse updatelogo(String em, MultipartFile logo){
-        Employee st = employeeRepository.findByIdAndIsDeletedIsFalse(em)
+    public EmployeeResponse updateProfile(String em, MultipartFile logo){
+        Employee st = employeeRepository.findEmployeeByKeycloakIdAndIsDeletedIsFalse(em)
                 .orElseThrow(() -> new ResourceNotFoundException("University Not Found with "+em));
         MultipartBodyBuilder bodyBuilder = new  MultipartBodyBuilder();
         bodyBuilder.part("file", logo.getResource());
@@ -113,8 +111,10 @@ public class EmployeeService {
                 .block();
         st.setImageUrl(updatedLogo);
         employeeRepository.save(st);
+        authService.updateProfile(st.getKeycloakId(), updatedLogo);
         return employeeMapper.toResponse(st);
     }
+
 
     public EmployeeResponse findById(String id) {
         Employee employee = getEmployeeOrThrow(id);
@@ -203,6 +203,13 @@ public class EmployeeService {
         signupRequest.setEmail(request.getEmail());
         signupRequest.setPhoneNumber(request.getPhone());
         return signupRequest;
+    }
+
+    public List<EmployeeResponse> searchUniversities(String keyword){
+        List<Employee> employees = employeeRepository.searchByKeyword(keyword);
+        return employees.stream()
+                .map(employeeMapper::toResponse)
+                .toList();
     }
 
 }
