@@ -170,6 +170,7 @@ public class TeacherService {
     public void delete(String id){
         Teacher curr = teacherRepository.findByIdAndIsDeletedIsFalse(id)
                         .orElseThrow(() -> new ResourceNotFoundException("Teacher not found:" + id));
+        authService.deleteUser(curr.getKeycloakId());
         curr.setDeleted(true);
         teacherRepository.save(curr);
     }

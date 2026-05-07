@@ -168,7 +168,7 @@ public class EmployeeService {
     }
     public void delete(String id) {
         Employee employee = getEmployeeOrThrow(id);
-
+        authService.deleteUser(employee.getKeycloakId());
         employee.setDeleted(true);
         employeeRepository.save(employee);
     }

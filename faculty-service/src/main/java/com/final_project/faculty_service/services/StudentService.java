@@ -195,12 +195,13 @@ public class StudentService {
     public void delete(String id){
         Student curr = studentRepository.findById(id)
                         .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
+        authService.deleteUser(curr.getKeycloakId());
         curr.setDeleted(true);
         studentRepository.save(curr);
     }
     public StudentResponse updateProfile(String student, MultipartFile logo){
         Student st = studentRepository.findStudentByKeycloakIdAndIsDeletedIsFalse(student)
-                .orElseThrow(() -> new ResourceNotFoundException("University Not Found with "+student));
+                .orElseThrow(() -> new ResourceNotFoundException("student Not Found with "+student));
         MultipartBodyBuilder bodyBuilder = new  MultipartBodyBuilder();
         bodyBuilder.part("file", logo.getResource());
         String updatedLogo =  fileWebClient.post()

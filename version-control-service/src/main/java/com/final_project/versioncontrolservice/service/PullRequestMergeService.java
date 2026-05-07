@@ -1,5 +1,6 @@
 package com.final_project.versioncontrolservice.service;
 import com.final_project.versioncontrolservice.exception.BadRequestException;
+import com.final_project.versioncontrolservice.model.PullRequestConflict;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -35,7 +36,7 @@ public class PullRequestMergeService {
         Map<String, TreeEntry> sourceTree = readTreeRecursive(owner, repo, sourceCommit.getTreeHash());
 
         Map<String, TreeEntry> merged = new TreeMap<>();
-        List<ConflictFile> conflicts = new ArrayList<>();
+        List<ConflictFileAnalysis> conflicts = new ArrayList<>();
 
         Set<String> allPaths = new TreeSet<>();
         allPaths.addAll(baseTree.keySet());
@@ -76,15 +77,16 @@ public class PullRequestMergeService {
             }
 
             // Both changed differently
-            conflicts.add(ConflictFile.builder()
-                    .path(path)
-                    .baseHash(baseBlob)
-                    .targetHash(targetBlob)
-                    .sourceHash(sourceBlob)
-                    .baseContent(readBlobAsStringOrEmpty(owner, repo, baseBlob))
-                    .targetContent(readBlobAsStringOrEmpty(owner, repo, targetBlob))
-                    .sourceContent(readBlobAsStringOrEmpty(owner, repo, sourceBlob))
-                    .build());
+            conflicts.add(buildConflictFile(
+                    path,
+                    baseBlob,
+                    targetBlob,
+                    sourceBlob,
+                    readBlobAsStringOrEmpty(owner, repo, baseBlob),
+                    readBlobAsStringOrEmpty(owner, repo, targetBlob),
+                    readBlobAsStringOrEmpty(owner, repo, sourceBlob)
+            ));
+
         }
 
         if (!conflicts.isEmpty()) {
@@ -164,6 +166,214 @@ public class PullRequestMergeService {
         }
 
         return writeTree(owner, repo, finalEntries);
+    }
+
+    private ConflictFileAnalysis buildConflictFile(
+            String path,
+            String baseHash,
+            String targetHash,
+            String sourceHash,
+            String baseContent,
+            String targetContent,
+            String sourceContent
+    ) {
+        boolean binary =
+                isBinaryContent(baseContent) ||
+                        isBinaryContent(targetContent) ||
+                        isBinaryContent(sourceContent);
+
+
+        List<ConflictSegmentAnalysis> segments = binary
+                ? List.of(
+                ConflictSegmentAnalysis.builder()
+                        .id(UUID.randomUUID().toString())
+                        .orderIndex(0)
+                        .type(PullRequestConflict.SegmentType.CONFLICT)
+                        .baseChunk(null)
+                        .sourceChunk(null)
+                        .targetChunk(null)
+                        .content(null)
+                        .build()
+        )
+                : buildSegmentsFromContents(baseContent, targetContent, sourceContent);
+
+
+        return ConflictFileAnalysis.builder()
+                .path(path)
+                .baseHash(baseHash)
+                .targetHash(targetHash)
+                .sourceHash(sourceHash)
+                .baseContent(baseContent)
+                .targetContent(targetContent)
+                .sourceContent(sourceContent)
+                .binary(binary)
+                .segments(segments)
+                .build();
+    }
+
+    private List<ConflictSegmentAnalysis> buildSegmentsFromContents(
+            String baseContent,
+            String targetContent,
+            String sourceContent
+    ) {
+        List<String> targetLines = splitLines(targetContent);
+        List<String> sourceLines = splitLines(sourceContent);
+
+        int[][] lcs = buildLcsTable(targetLines, sourceLines);
+
+        List<ConflictSegmentAnalysis> segments = new ArrayList<>();
+        List<String> plainBuffer = new ArrayList<>();
+
+        int ti = 0;
+        int si = 0;
+        int orderIndex = 0;
+
+        while (ti < targetLines.size() && si < sourceLines.size()) {
+            if (Objects.equals(targetLines.get(ti), sourceLines.get(si))) {
+                plainBuffer.add(targetLines.get(ti));
+                ti++;
+                si++;
+                continue;
+            }
+
+            if (!plainBuffer.isEmpty()) {
+                segments.add(ConflictSegmentAnalysis.builder()
+                        .id(UUID.randomUUID().toString())
+                        .orderIndex(orderIndex++)
+                        .type(PullRequestConflict.SegmentType.PLAIN)
+                        .content(joinLines(plainBuffer))
+                        .build());
+                plainBuffer.clear();
+            }
+
+            int targetStart = ti + 1;
+            int sourceStart = si + 1;
+
+            List<String> targetChunk = new ArrayList<>();
+            List<String> sourceChunk = new ArrayList<>();
+
+            while (ti < targetLines.size() && si < sourceLines.size()
+                    && !Objects.equals(targetLines.get(ti), sourceLines.get(si))) {
+                if (lcs[ti + 1][si] >= lcs[ti][si + 1]) {
+                    targetChunk.add(targetLines.get(ti));
+                    ti++;
+                } else {
+                    sourceChunk.add(sourceLines.get(si));
+                    si++;
+                }
+            }
+
+            while (ti < targetLines.size()
+                    && (si >= sourceLines.size()
+                    || lcs[ti + 1][si] > lcs[ti][si + 1])) {
+                targetChunk.add(targetLines.get(ti));
+                ti++;
+            }
+
+            while (si < sourceLines.size()
+                    && (ti >= targetLines.size()
+                    || lcs[ti][si + 1] > lcs[ti + 1][si])) {
+                sourceChunk.add(sourceLines.get(si));
+                si++;
+            }
+
+            segments.add(ConflictSegmentAnalysis.builder()
+                    .id(UUID.randomUUID().toString())
+                    .orderIndex(orderIndex++)
+                    .type(PullRequestConflict.SegmentType.CONFLICT)
+                    .targetStartLine(targetStart)
+                    .targetEndLine(targetChunk.isEmpty() ? targetStart - 1 : targetStart + targetChunk.size() - 1)
+                    .sourceStartLine(sourceStart)
+                    .sourceEndLine(sourceChunk.isEmpty() ? sourceStart - 1 : sourceStart + sourceChunk.size() - 1)
+                    .baseChunk("")
+                    .targetChunk(joinLines(targetChunk))
+                    .sourceChunk(joinLines(sourceChunk))
+                    .build());
+        }
+
+        while (ti < targetLines.size()) {
+            plainBuffer.add(targetLines.get(ti));
+            ti++;
+        }
+
+        while (si < sourceLines.size()) {
+            if (!plainBuffer.isEmpty()) {
+                segments.add(ConflictSegmentAnalysis.builder()
+                        .id(UUID.randomUUID().toString())
+                        .orderIndex(orderIndex++)
+                        .type(PullRequestConflict.SegmentType.PLAIN)
+                        .content(joinLines(plainBuffer))
+                        .build());
+                plainBuffer.clear();
+            }
+
+            List<String> sourceTail = new ArrayList<>();
+            int sourceStart = si + 1;
+            while (si < sourceLines.size()) {
+                sourceTail.add(sourceLines.get(si));
+                si++;
+            }
+
+            segments.add(ConflictSegmentAnalysis.builder()
+                    .id(UUID.randomUUID().toString())
+                    .orderIndex(orderIndex++)
+                    .type(PullRequestConflict.SegmentType.CONFLICT)
+                    .sourceStartLine(sourceStart)
+                    .sourceEndLine(sourceStart + sourceTail.size() - 1)
+                    .targetStartLine(targetLines.size() + 1)
+                    .targetEndLine(targetLines.size())
+                    .baseChunk("")
+                    .targetChunk("")
+                    .sourceChunk(joinLines(sourceTail))
+                    .build());
+        }
+
+        if (!plainBuffer.isEmpty()) {
+            segments.add(ConflictSegmentAnalysis.builder()
+                    .id(UUID.randomUUID().toString())
+                    .orderIndex(orderIndex)
+                    .type(PullRequestConflict.SegmentType.PLAIN)
+                    .content(joinLines(plainBuffer))
+                    .build());
+        }
+
+        return segments;
+    }
+
+    private List<String> splitLines(String content) {
+        if (content == null || content.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return new ArrayList<>(Arrays.asList(content.split("\\R", -1)));
+    }
+
+    private String joinLines(List<String> lines) {
+        if (lines == null || lines.isEmpty()) {
+            return "";
+        }
+        return String.join(System.lineSeparator(), lines);
+    }
+
+    private int[][] buildLcsTable(List<String> a, List<String> b) {
+        int[][] dp = new int[a.size() + 1][b.size() + 1];
+
+        for (int i = a.size() - 1; i >= 0; i--) {
+            for (int j = b.size() - 1; j >= 0; j--) {
+                if (Objects.equals(a.get(i), b.get(j))) {
+                    dp[i][j] = dp[i + 1][j + 1] + 1;
+                } else {
+                    dp[i][j] = Math.max(dp[i + 1][j], dp[i][j + 1]);
+                }
+            }
+        }
+
+        return dp;
+    }
+
+    private boolean isBinaryContent(String content) {
+        if (content == null || content.isEmpty()) return false;
+        return content.contains("\u0000") ||
+                !content.chars().allMatch(c -> c >= 32 || c == '\n' || c == '\r' || c == '\t');
     }
 
     private CommitInfo readCommit(String owner, String repo, String commitHash) {
@@ -344,14 +554,15 @@ public class PullRequestMergeService {
     @Builder
     public static class MergeAnalysis {
         private boolean hasConflicts;
-        private List<ConflictFile> conflicts;
+        private List<ConflictFileAnalysis> conflicts;
         private Map<String, TreeEntry> mergedEntries;
         private String mergedTreeHash;
     }
 
+
     @Data
     @Builder
-    public static class ConflictFile {
+    public static class ConflictFileAnalysis {
         private String path;
 
         private String baseHash;
@@ -361,7 +572,32 @@ public class PullRequestMergeService {
         private String baseContent;
         private String targetContent;
         private String sourceContent;
+
+        private boolean binary;
+        private List<ConflictSegmentAnalysis> segments;
     }
+
+    @Data
+    @Builder
+    public static class ConflictSegmentAnalysis {
+        private String id;
+        private int orderIndex;
+        private PullRequestConflict.SegmentType type;
+
+        private String content;
+
+        private Integer baseStartLine;
+        private Integer baseEndLine;
+        private Integer sourceStartLine;
+        private Integer sourceEndLine;
+        private Integer targetStartLine;
+        private Integer targetEndLine;
+
+        private String baseChunk;
+        private String sourceChunk;
+        private String targetChunk;
+    }
+
 
     @Data
     @Builder

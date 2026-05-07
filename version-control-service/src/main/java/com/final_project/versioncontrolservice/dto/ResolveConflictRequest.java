@@ -12,10 +12,13 @@ public class ResolveConflictRequest {
     @Data
     public static class FileResolution {
         private String path;
-        // SOURCE, TARGET, BOTH, CUSTOM
-        private PullRequestConflict.ConflictResolution resolution;
+        private List<BlockResolution> blocks;
+    }
 
-        // required only when resolution = CUSTOM
+    @Data
+    public static class BlockResolution {
+        private String blockId;
+        private PullRequestConflict.ConflictResolution resolution;
         private String customContent;
     }
 }

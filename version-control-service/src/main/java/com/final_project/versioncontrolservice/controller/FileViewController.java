@@ -100,6 +100,63 @@ public class FileViewController {
     }
 
     /**
+     * Get one commit by SHA
+     * GET /repos/{owner}/{repo}/commits/{commitSha}
+     */
+    @GetMapping(value = "/commits/{commitSha}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<CommitResponse> getCommitDetail(
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @PathVariable String commitSha,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
+        var meta = vicRepositoryService.loadMeta(owner, repo);
+
+        String username = user != null ? user.getUsername() : "";
+        if (!RepoAccessRules.canRead(meta, username)) {
+            throw new com.final_project.versioncontrolservice.exception.ForbiddenException("forbidden");
+        }
+
+        String resolved = resolveRef(meta, commitSha);
+        if (resolved.isEmpty()) {
+            throw new NotFoundException("commit not found: " + commitSha);
+        }
+
+        return ResponseEntity.ok(readCommitResponse(owner, repo, resolved));
+    }
+
+    /**
+     * Get unified diff between two commits
+     * GET /repos/{owner}/{repo}/diff/{baseSha}/{headSha}
+     */
+    @GetMapping(value = "/diff/{baseSha}/{headSha}", produces = MediaType.TEXT_PLAIN_VALUE)
+    public ResponseEntity<String> getDiffBetweenCommits(
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @PathVariable String baseSha,
+            @PathVariable String headSha,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
+        var meta = vicRepositoryService.loadMeta(owner, repo);
+
+        String username = user != null ? user.getUsername() : "";
+        if (!RepoAccessRules.canRead(meta, username)) {
+            throw new com.final_project.versioncontrolservice.exception.ForbiddenException("forbidden");
+        }
+
+        String baseHash = resolveRef(meta, baseSha);
+        String headHash = resolveRef(meta, headSha);
+
+        if (baseHash.isEmpty() || headHash.isEmpty()) {
+            throw new NotFoundException("ref not found");
+        }
+
+        return ResponseEntity.ok(buildRepositoryDiff(owner, repo, baseHash, headHash));
+    }
+
+    /**
      * Get file history (commits that modified this file)
      * GET /repos/{owner}/{repo}/commits?path=src/main.java&ref=main
      */
@@ -280,64 +337,40 @@ public class FileViewController {
     }
 
     private List<BlameEntry> calculateBlame(String owner, String repo, String commitHash, String filePath) {
-        Map<Integer, BlameEntry> lineMap = new HashMap<>();
+        try {
+            FileContentResponse targetFile = getFileAtCommit(owner, repo, commitHash, filePath);
+            List<String> currentLines = splitLines(targetFile.getContent());
 
-        // Walk commit history for this file
-        Set<String> visited = new HashSet<>();
-        Queue<String> queue = new LinkedList<>();
-        queue.add(commitHash);
+            CommitMeta targetMeta = readCommitMeta(owner, repo, commitHash);
 
-        while (!queue.isEmpty()) {
-            String currentHash = queue.poll();
-            if (visited.contains(currentHash)) continue;
-            visited.add(currentHash);
-
-            try {
-                // Get commit info
-                byte[] commitData = minioStorageService.getObjectBytes(owner, repo, currentHash);
-                VicObjectFormat.ParsedObject commitObj = VicObjectFormat.parseCompressed(commitData);
-                VicObjectFormat.CommitData commitInfo = VicObjectFormat.parseCommitContent(commitObj.content());
-
-                // Get author and timestamp
-                String commitContent = new String(commitObj.content(), StandardCharsets.UTF_8);
-                String author = extractHeader(commitContent, "author");
-                String[] authorParts = author.split(" ");
-                String authorName = String.join(" ", Arrays.copyOf(authorParts, authorParts.length - 1));
-
-                // Get file content at this commit
-                try {
-                    FileContentResponse fileContent = getFileAtCommit(owner, repo, currentHash, filePath);
-                    String[] lines = fileContent.getContent().split("\n", -1);
-
-                    for (int i = 0; i < lines.length; i++) {
-                        if (!lineMap.containsKey(i)) {
-                            BlameEntry entry = new BlameEntry(
-                                    currentHash.substring(0, 8),
-                                    authorName,
-                                    i + 1,
-                                    lines[i]
-                            );
-                            lineMap.put(i, entry);
-                        }
-                    }
-                } catch (NotFoundException e) {
-                    // File didn't exist at this commit
-                }
-
-                // Add parents to queue
-                queue.addAll(commitInfo.parents());
-            } catch (Exception e) {
-                // Skip problematic commits
+            List<LineState> states = new ArrayList<>();
+            for (String line : currentLines) {
+                states.add(new LineState(line, targetMeta));
             }
+
+            blameWalk(owner, repo, commitHash, filePath, states, new HashSet<>());
+
+            List<BlameEntry> result = new ArrayList<>();
+            for (int i = 0; i < states.size(); i++) {
+                CommitMeta meta = states.get(i).commitMeta;
+
+                result.add(new BlameEntry(
+                        meta.sha,
+                        meta.sha.length() >= 8 ? meta.sha.substring(0, 8) : meta.sha,
+                        meta.author,
+                        meta.message,
+                        meta.timestamp,
+                        i + 1,
+                        states.get(i).content
+                ));
+            }
+
+            return result;
+
+        } catch (Exception e) {
+            throw new NotFoundException("blame failed: " + e.getMessage());
         }
-
-        // Convert map to sorted list
-        List<BlameEntry> blame = new ArrayList<>(lineMap.values());
-        blame.sort(Comparator.comparingInt(BlameEntry::getLineNumber));
-
-        return blame;
     }
-
     private List<CommitResponse> getCommitHistory(String owner, String repo, String commitHash, String path, int limit) {
         List<CommitResponse> history = new ArrayList<>();
         Set<String> visited = new HashSet<>();
@@ -354,8 +387,6 @@ public class FileViewController {
                 VicObjectFormat.ParsedObject commitObj = VicObjectFormat.parseCompressed(commitData);
                 VicObjectFormat.CommitData commitInfo = VicObjectFormat.parseCommitContent(commitObj.content());
 
-                String commitContent = new String(commitObj.content(), StandardCharsets.UTF_8);
-
                 // Check if this commit affects the specified path
                 if (path != null && !path.isEmpty()) {
                     boolean affectsPath = doesCommitAffectPath(owner, repo, currentHash, path);
@@ -365,16 +396,7 @@ public class FileViewController {
                     }
                 }
 
-                CommitResponse response = new CommitResponse(
-                        currentHash,
-                        currentHash.substring(0, 8),
-                        extractHeader(commitContent, "author"),
-                        extractHeader(commitContent, "committer"),
-                        extractMessage(commitContent),
-                        commitInfo.parents()
-                );
-
-                history.add(response);
+                history.add(readCommitResponse(owner, repo, currentHash));
 
                 queue.addAll(commitInfo.parents());
             } catch (Exception e) {
@@ -391,11 +413,72 @@ public class FileViewController {
             VicObjectFormat.ParsedObject commitObj = VicObjectFormat.parseCompressed(commitData);
             VicObjectFormat.CommitData commitInfo = VicObjectFormat.parseCommitContent(commitObj.content());
 
-            // Try to find the file in this commit's tree
-            String blobHash = findBlobEntry(owner, repo, commitInfo.tree(), path);
-            return blobHash != null;
+            String currentBlobHash = findBlobHashByPath(owner, repo, commitInfo.tree(), path);
+
+            // If the file does not exist in this commit, this commit does not affect it
+            // for normal file history listing.
+            if (currentBlobHash == null) {
+                return false;
+            }
+
+            // Root commit: if file exists here, this commit introduced it.
+            if (commitInfo.parents() == null || commitInfo.parents().isEmpty()) {
+                return true;
+            }
+
+            // If any parent has the same blob hash, this commit did not change the file
+            // compared to that parent.
+            for (String parentHash : commitInfo.parents()) {
+                try {
+                    byte[] parentCommitData = minioStorageService.getObjectBytes(owner, repo, parentHash);
+                    VicObjectFormat.ParsedObject parentCommitObj = VicObjectFormat.parseCompressed(parentCommitData);
+                    VicObjectFormat.CommitData parentCommitInfo =
+                            VicObjectFormat.parseCommitContent(parentCommitObj.content());
+
+                    String parentBlobHash = findBlobHashByPath(owner, repo, parentCommitInfo.tree(), path);
+
+                    if (Objects.equals(currentBlobHash, parentBlobHash)) {
+                        return false;
+                    }
+
+                } catch (Exception ignored) {
+                    // If one parent cannot be read, continue checking other parents.
+                }
+            }
+
+            // Blob exists in current commit and differs from all readable parents,
+            // so this commit added or modified the file.
+            return true;
+
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    private String findBlobHashByPath(String owner, String repo, String treeHash, String path) {
+        if (path == null || path.isBlank()) {
+            return null;
+        }
+
+        try {
+            String normalizedPath = path.trim().replace("\\", "/");
+            String[] pathParts = normalizedPath.split("/");
+
+            String currentTree = treeHash;
+
+            for (int i = 0; i < pathParts.length - 1; i++) {
+                currentTree = findTreeEntry(owner, repo, currentTree, pathParts[i]);
+
+                if (currentTree == null) {
+                    return null;
+                }
+            }
+
+            String fileName = pathParts[pathParts.length - 1];
+            return findBlobEntry(owner, repo, currentTree, fileName);
+
+        } catch (Exception e) {
+            return null;
         }
     }
 
@@ -446,6 +529,28 @@ public class FileViewController {
         return entries;
     }
 
+    private String buildRepositoryDiff(String owner, String repo, String baseHash, String headHash) {
+        StringBuilder out = new StringBuilder();
+
+        CompareResponse compare = compareTrees(owner, repo, baseHash, headHash);
+        if (compare.getFiles() == null) {
+            return "";
+        }
+
+        for (FileDiff file : compare.getFiles()) {
+            String path = file.getPath();
+            String oldText = file.getBaseSha() == null ? "" : readBlobText(owner, repo, file.getBaseSha());
+            String newText = file.getHeadSha() == null ? "" : readBlobText(owner, repo, file.getHeadSha());
+
+            out.append(buildUnifiedPatch(path, oldText, newText));
+            if (out.length() == 0 || out.charAt(out.length() - 1) != '\n') {
+                out.append("\n");
+            }
+        }
+
+        return out.toString();
+    }
+
     private CompareResponse compareTrees(String owner, String repo, String baseHash, String headHash) {
         List<FileDiff> diffs = new ArrayList<>();
 
@@ -467,23 +572,60 @@ public class FileViewController {
             Map<String, String> headFiles = getAllFiles(owner, repo, headCommitInfo.tree(), "");
 
             // Compare files
-            Set<String> allPaths = new HashSet<>();
+            Set<String> allPaths = new TreeSet<>();
             allPaths.addAll(baseFiles.keySet());
             allPaths.addAll(headFiles.keySet());
-
             for (String path : allPaths) {
                 String baseFileHash = baseFiles.get(path);
                 String headFileHash = headFiles.get(path);
 
                 if (baseFileHash == null && headFileHash != null) {
-                    // Added
-                    diffs.add(new FileDiff(path, "added", null, headFileHash));
+                    String newText = readBlobText(owner, repo, headFileHash);
+                    String patch = buildUnifiedPatch(path, "", newText);
+                    int additions = countLines(newText);
+
+                    diffs.add(new FileDiff(
+                            path,
+                            "added",
+                            null,
+                            headFileHash,
+                            additions,
+                            0,
+                            patch
+                    ));
+
                 } else if (baseFileHash != null && headFileHash == null) {
-                    // Deleted
-                    diffs.add(new FileDiff(path, "deleted", baseFileHash, null));
-                } else if (!baseFileHash.equals(headFileHash)) {
-                    // Modified
-                    diffs.add(new FileDiff(path, "modified", baseFileHash, headFileHash));
+                    String oldText = readBlobText(owner, repo, baseFileHash);
+                    String patch = buildUnifiedPatch(path, oldText, "");
+                    int deletions = countLines(oldText);
+
+                    diffs.add(new FileDiff(
+                            path,
+                            "deleted",
+                            baseFileHash,
+                            null,
+                            0,
+                            deletions,
+                            patch
+                    ));
+
+                } else if (!Objects.equals(baseFileHash, headFileHash)) {
+                    String oldText = readBlobText(owner, repo, baseFileHash);
+                    String newText = readBlobText(owner, repo, headFileHash);
+                    String patch = buildUnifiedPatch(path, oldText, newText);
+
+                    int additions = countPatchAdds(patch);
+                    int deletions = countPatchDeletes(patch);
+
+                    diffs.add(new FileDiff(
+                            path,
+                            "modified",
+                            baseFileHash,
+                            headFileHash,
+                            additions,
+                            deletions,
+                            patch
+                    ));
                 }
             }
         } catch (Exception e) {
@@ -523,6 +665,105 @@ public class FileViewController {
 
         return files;
     }
+    private String readBlobText(String owner, String repo, String blobHash) {
+        if (blobHash == null || blobHash.isBlank()) {
+            return "";
+        }
+
+        try {
+            byte[] blobData = minioStorageService.getObjectBytes(owner, repo, blobHash);
+            VicObjectFormat.ParsedObject blobObj = VicObjectFormat.parseCompressed(blobData);
+
+            if (!"blob".equals(blobObj.type())) {
+                return "";
+            }
+
+            return new String(blobObj.content(), StandardCharsets.UTF_8);
+
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private String buildUnifiedPatch(String path, String oldText, String newText) {
+        List<String> oldLines = splitLines(oldText);
+        List<String> newLines = splitLines(newText);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("diff --git a/").append(path).append(" b/").append(path).append("\n");
+        sb.append("--- a/").append(path).append("\n");
+        sb.append("+++ b/").append(path).append("\n");
+        sb.append("@@ -1,").append(oldLines.size())
+                .append(" +1,").append(newLines.size())
+                .append(" @@\n");
+
+        int[][] lcs = buildLcsTable(oldLines, newLines);
+        int i = 0;
+        int j = 0;
+
+        while (i < oldLines.size() && j < newLines.size()) {
+            if (Objects.equals(oldLines.get(i), newLines.get(j))) {
+                sb.append(" ").append(oldLines.get(i)).append("\n");
+                i++;
+                j++;
+            } else if (lcs[i + 1][j] >= lcs[i][j + 1]) {
+                sb.append("-").append(oldLines.get(i)).append("\n");
+                i++;
+            } else {
+                sb.append("+").append(newLines.get(j)).append("\n");
+                j++;
+            }
+        }
+
+        while (i < oldLines.size()) {
+            sb.append("-").append(oldLines.get(i)).append("\n");
+            i++;
+        }
+
+        while (j < newLines.size()) {
+            sb.append("+").append(newLines.get(j)).append("\n");
+            j++;
+        }
+
+        return sb.toString();
+    }
+
+    private int countPatchAdds(String patch) {
+        int count = 0;
+
+        for (String line : patch.split("\n")) {
+            if (line.startsWith("+") && !line.startsWith("+++")) {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private int countPatchDeletes(String patch) {
+        int count = 0;
+
+        for (String line : patch.split("\n")) {
+            if (line.startsWith("-") && !line.startsWith("---")) {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private int countLines(String text) {
+        if (text == null || text.isEmpty()) {
+            return 0;
+        }
+
+        List<String> lines = splitLines(text);
+        if (lines.size() == 1 && lines.get(0).isEmpty()) {
+            return 0;
+        }
+        return lines.size();
+    }
+
 
     private String extractHeader(String content, String key) {
         for (String line : content.split("\n")) {
@@ -553,6 +794,192 @@ public class FileViewController {
         if (fileName.endsWith(".sql")) return "sql";
         return "text";
     }
+    private void blameWalk(
+            String owner,
+            String repo,
+            String childCommitHash,
+            String filePath,
+            List<LineState> states,
+            Set<String> visited
+    ) {
+        if (visited.contains(childCommitHash)) {
+            return;
+        }
+
+        visited.add(childCommitHash);
+
+        CommitMeta childMeta = readCommitMeta(owner, repo, childCommitHash);
+
+        if (childMeta.parents == null || childMeta.parents.isEmpty()) {
+            return;
+        }
+
+        // Simple first-parent blame.
+        // For merge commits, you can later improve this by checking all parents.
+        String parentHash = childMeta.parents.get(0);
+
+        List<String> parentLines;
+        try {
+            FileContentResponse parentFile = getFileAtCommit(owner, repo, parentHash, filePath);
+            parentLines = splitLines(parentFile.getContent());
+        } catch (NotFoundException e) {
+            // File did not exist in parent, so current commit introduced it.
+            return;
+        }
+
+        CommitMeta parentMeta = readCommitMeta(owner, repo, parentHash);
+
+        List<String> childLines = new ArrayList<>();
+        for (LineState state : states) {
+            childLines.add(state.content);
+        }
+
+        boolean[] unchangedChildLines = findUnchangedChildLines(parentLines, childLines);
+
+        for (int i = 0; i < states.size(); i++) {
+            LineState state = states.get(i);
+
+            if (unchangedChildLines[i] && state.commitMeta.sha.equals(childCommitHash)) {
+                state.commitMeta = parentMeta;
+            }
+        }
+
+        blameWalk(owner, repo, parentHash, filePath, states, visited);
+    }
+
+    private List<String> splitLines(String content) {
+        if (content == null || content.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        return new ArrayList<>(Arrays.asList(content.split("\n", -1)));
+    }
+
+    private CommitMeta readCommitMeta(String owner, String repo, String commitHash) {
+        try {
+            byte[] commitData = minioStorageService.getObjectBytes(owner, repo, commitHash);
+            VicObjectFormat.ParsedObject commitObj = VicObjectFormat.parseCompressed(commitData);
+            VicObjectFormat.CommitData commitInfo = VicObjectFormat.parseCommitContent(commitObj.content());
+
+            String commitContent = new String(commitObj.content(), StandardCharsets.UTF_8);
+
+            String authorHeader = extractHeader(commitContent, "author");
+            String authorName = extractAuthorName(authorHeader);
+            String timestamp = extractAuthorTimestamp(authorHeader);
+            String message = extractMessage(commitContent);
+
+            return new CommitMeta(
+                    commitHash,
+                    authorName,
+                    message,
+                    timestamp,
+                    commitInfo.parents()
+            );
+
+        } catch (Exception e) {
+            throw new NotFoundException("commit not found: " + commitHash);
+        }
+    }
+
+    private String extractAuthorName(String authorHeader) {
+        if (authorHeader == null || authorHeader.isBlank()) {
+            return "";
+        }
+
+        int emailStart = authorHeader.indexOf('<');
+        if (emailStart > 0) {
+            return authorHeader.substring(0, emailStart).trim();
+        }
+
+        return authorHeader.trim();
+    }
+
+    private String extractAuthorTimestamp(String authorHeader) {
+        if (authorHeader == null || authorHeader.isBlank()) {
+            return "";
+        }
+
+        int emailEnd = authorHeader.indexOf('>');
+        if (emailEnd < 0 || emailEnd + 1 >= authorHeader.length()) {
+            return "";
+        }
+
+        String tail = authorHeader.substring(emailEnd + 1).trim();
+        String[] parts = tail.split("\\s+");
+        if (parts.length < 1) {
+            return "";
+        }
+
+        try {
+            long epochSeconds = Long.parseLong(parts[0]);
+            return java.time.Instant.ofEpochSecond(epochSeconds).toString();
+        } catch (NumberFormatException e) {
+            return "";
+        }
+    }
+
+
+    private boolean[] findUnchangedChildLines(List<String> parentLines, List<String> childLines) {
+        boolean[] unchanged = new boolean[childLines.size()];
+
+        int[][] lcs = buildLcsTable(parentLines, childLines);
+
+        int i = 0;
+        int j = 0;
+
+        while (i < parentLines.size() && j < childLines.size()) {
+            if (Objects.equals(parentLines.get(i), childLines.get(j))) {
+                unchanged[j] = true;
+                i++;
+                j++;
+            } else if (lcs[i + 1][j] >= lcs[i][j + 1]) {
+                i++;
+            } else {
+                j++;
+            }
+        }
+
+        return unchanged;
+    }
+
+    private int[][] buildLcsTable(List<String> a, List<String> b) {
+        int[][] dp = new int[a.size() + 1][b.size() + 1];
+
+        for (int i = a.size() - 1; i >= 0; i--) {
+            for (int j = b.size() - 1; j >= 0; j--) {
+                if (Objects.equals(a.get(i), b.get(j))) {
+                    dp[i][j] = dp[i + 1][j + 1] + 1;
+                } else {
+                    dp[i][j] = Math.max(dp[i + 1][j], dp[i][j + 1]);
+                }
+            }
+        }
+
+        return dp;
+    }
+
+
+    private CommitResponse readCommitResponse(String owner, String repo, String commitHash) {
+        try {
+            byte[] commitData = minioStorageService.getObjectBytes(owner, repo, commitHash);
+            VicObjectFormat.ParsedObject commitObj = VicObjectFormat.parseCompressed(commitData);
+            VicObjectFormat.CommitData commitInfo = VicObjectFormat.parseCommitContent(commitObj.content());
+
+            String commitContent = new String(commitObj.content(), StandardCharsets.UTF_8);
+
+            return new CommitResponse(
+                    commitHash,
+                    commitHash.length() >= 8 ? commitHash.substring(0, 8) : commitHash,
+                    extractAuthorName(extractHeader(commitContent, "author")),
+                    extractAuthorName(extractHeader(commitContent, "committer")),
+                    extractMessage(commitContent),
+                    extractAuthorTimestamp(extractHeader(commitContent, "author")),
+                    commitInfo.parents()
+            );
+        } catch (Exception e) {
+            throw new NotFoundException("commit not found: " + commitHash);
+        }
+    }
 
     // ─── Response DTOs ────────────────────────────────────────────────────
 
@@ -573,7 +1000,10 @@ public class FileViewController {
     @AllArgsConstructor
     public static class BlameEntry {
         private String commitSha;
+        private String shortSha;
         private String author;
+        private String message;
+        private String timestamp;
         private int lineNumber;
         private String content;
     }
@@ -586,9 +1016,8 @@ public class FileViewController {
         private String author;
         private String committer;
         private String message;
+        private String timestamp;
         private List<String> parents;
-
-
     }
 
     @AllArgsConstructor
@@ -609,8 +1038,9 @@ public class FileViewController {
         private String status;
         private String baseSha;
         private String headSha;
-
-
+        private Integer additions;
+        private Integer deletions;
+        private String patch;
     }
 
     @Data
@@ -619,5 +1049,31 @@ public class FileViewController {
         private String baseCommit;
         private String headCommit;
         private List<FileDiff> files;
+    }
+
+    private static class LineState {
+        private final String content;
+        private CommitMeta commitMeta;
+
+        private LineState(String content, CommitMeta commitMeta) {
+            this.content = content;
+            this.commitMeta = commitMeta;
+        }
+    }
+
+    private static class CommitMeta {
+        private final String sha;
+        private final String author;
+        private final String message;
+        private final String timestamp;
+        private final List<String> parents;
+
+        private CommitMeta(String sha, String author, String message, String timestamp, List<String> parents) {
+            this.sha = sha;
+            this.author = author;
+            this.message = message;
+            this.timestamp = timestamp;
+            this.parents = parents;
+        }
     }
 }

@@ -118,4 +118,21 @@ public class AuthService {
                                 ))
                 ).toBodilessEntity().block();
     }
+    public ResponseEntity<Void> deleteUser(String id){
+        return authServiceClient.delete()
+                .uri("/api/v1/users/{id}",id)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(
+                                        new RuntimeException("Auth service client error: " + body)
+                                ))
+                )
+                .onStatus(HttpStatusCode::is5xxServerError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(
+                                        new RuntimeException("Auth service server error: " + body)
+                                ))
+                ).toBodilessEntity().block();
+    }
 }
