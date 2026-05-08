@@ -53,6 +53,21 @@ public class UserService {
         return toDTO(keycloakService.getUserById(userId));
     }
 
+
+    public void  updateProfile(String url, String id){
+        UserRepresentation user = keycloakService.getUserById(id);
+        if (user == null){
+            throw new UserNotFoundException("User Not Found");
+        }
+        Map<String, List<String>> attributes = user.getAttributes();
+        if (attributes == null) {
+            attributes = new HashMap<>();
+        }
+
+        attributes.put("profile", List.of(url));
+        user.setAttributes(attributes);
+        keycloakService.updateUser(id, user);
+    }
     @Transactional(readOnly = true)
     public UserDTO getUserById(String id) {
         return toDTO(keycloakService.getUserById(id));
@@ -90,7 +105,6 @@ public class UserService {
     @Transactional(readOnly = true)
     public List<UserDTO> getAllActiveUsers() {
         return keycloakService.getUsers().stream()
-                .filter(user -> Boolean.TRUE.equals(user.isEnabled()))
                 .map(this::toDTO)
                 .toList();
     }
@@ -207,9 +221,7 @@ public class UserService {
                 .emailVerified(user.isEmailVerified())
                 .twoFactorEnabled(false)
                 .roles(new java.util.LinkedHashSet<>(keycloakService.getUserRealmRoleNames(user.getId())))
-                .entityId(getFirstAttribute(user, "entity_id"))
-                .profile(getFirstAttribute(user, "profile"))
-                .userType(getFirstAttribute(user, "user_type"))
+                .photoUrl(getFirstAttribute(user, "profile"))
                 .build();
     }
 

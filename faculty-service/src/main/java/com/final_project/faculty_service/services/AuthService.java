@@ -5,9 +5,11 @@ import com.final_project.faculty_service.DTO.UserDto;
 import com.final_project.faculty_service.DTO.request.SignupRequest;
 
 import lombok.AllArgsConstructor;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -97,5 +99,40 @@ public class AuthService {
                 )
                 .bodyToMono(RoleDTO.class)
                 .block();
+    }
+    public @Nullable ResponseEntity<Void> updateProfile(String id, String url){
+        return authServiceClient.post()
+                .uri("/api/v1/users/{id}/profile",id)
+                .bodyValue(url)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(
+                                        new RuntimeException("Auth service client error: " + body)
+                                ))
+                )
+                .onStatus(HttpStatusCode::is5xxServerError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(
+                                        new RuntimeException("Auth service server error: " + body)
+                                ))
+                ).toBodilessEntity().block();
+    }
+    public ResponseEntity<Void> deleteUser(String id){
+        return authServiceClient.delete()
+                .uri("/api/v1/users/{id}",id)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(
+                                        new RuntimeException("Auth service client error: " + body)
+                                ))
+                )
+                .onStatus(HttpStatusCode::is5xxServerError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(
+                                        new RuntimeException("Auth service server error: " + body)
+                                ))
+                ).toBodilessEntity().block();
     }
 }

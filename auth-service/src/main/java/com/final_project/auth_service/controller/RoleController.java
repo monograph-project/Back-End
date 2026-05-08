@@ -41,14 +41,14 @@ public class RoleController {
     private final RoleService roleService;
 
     @PostMapping
-    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ADMIN_USER')")
     @Operation(summary = "Create realm role")
     public ResponseEntity<RoleDTO> createRole(@Valid @RequestBody CreateRoleRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(roleService.createRole(request));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ADMIN_USER')")
     @Operation(summary = "List realm roles")
     public ResponseEntity<Map<String, Object>> getAllRoles() {
         List<RoleDTO> roles = roleService.getAllRoles();
@@ -59,14 +59,14 @@ public class RoleController {
     }
 
     @PutMapping("/{roleName}")
-    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ADMIN_USER')")
     @Operation(summary = "Update realm role")
     public ResponseEntity<RoleDTO> updateRole(@PathVariable String roleName, @Valid @RequestBody UpdateRoleRequest request) {
         return ResponseEntity.ok(roleService.updateRole(roleName, request));
     }
 
     @DeleteMapping("/{roleName}")
-    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ADMIN_USER')")
     @Operation(summary = "Delete realm role")
     public ResponseEntity<Void> deleteRole(@PathVariable String roleName) {
         roleService.deleteRole(roleName);
@@ -74,7 +74,7 @@ public class RoleController {
     }
 
     @PostMapping("/{roleName}/assign-to-user/{userId}")
-    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ADMIN_USER')")
     @Operation(summary = "Assign realm role to user")
     @ApiResponses(@ApiResponse(responseCode = "200", description = "Role assigned successfully"))
     public ResponseEntity<Map<String, String>> assignRoleToUser(@PathVariable String roleName, @PathVariable String userId) {
@@ -83,7 +83,7 @@ public class RoleController {
     }
 
     @DeleteMapping("/{roleName}/remove-from-user/{userId}")
-    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ADMIN_USER')")
     @Operation(summary = "Remove realm role from user")
     public ResponseEntity<Map<String, String>> removeRoleFromUser(@PathVariable String roleName, @PathVariable String userId) {
         roleService.removeRoleFromUser(roleName, userId);
@@ -91,7 +91,7 @@ public class RoleController {
     }
 
     @GetMapping("/stats/count")
-    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ADMIN_USER')")
     @Operation(summary = "Realm role statistics")
     public ResponseEntity<Map<String, Object>> getRoleStats() {
         return ResponseEntity.ok(roleService.getRoleStatistics());

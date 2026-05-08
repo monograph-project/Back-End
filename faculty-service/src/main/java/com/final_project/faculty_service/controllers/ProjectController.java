@@ -11,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @AllArgsConstructor
 @RequestMapping("/api/project")
@@ -26,10 +28,44 @@ public class ProjectController {
         return new ResponseEntity<>(projectService.create(request), HttpStatus.CREATED);
     }
 
+    @PostMapping("/{id}/repo/{repo}")
+    public ResponseEntity<ProjectResponse> connectProjectWithRpo(
+            @PathVariable String id,
+            @PathVariable String repo
+    ){
+        return new ResponseEntity<>(projectService.connectProjectWithRepsitory(id, repo), HttpStatus.CREATED);
+    }
     @GetMapping("/{id}")
     public ResponseEntity<ProjectResponse> findById(@PathVariable String id){
         return new ResponseEntity<>(projectService.findById(id), HttpStatus.OK);
     }
+
+
+    @GetMapping("/{id}/student/{student}")
+    public ResponseEntity<ProjectResponse> getProjectByStudentId(@PathVariable String id, @PathVariable String student){
+        return new ResponseEntity<>(projectService.getProjectByStudentId(id, student), HttpStatus.OK);
+    }
+
+    @GetMapping("/{id}/teacher/{teacher}")
+    public ResponseEntity<ProjectResponse> getProjectByTeacherId(@PathVariable String id, @PathVariable String teacher){
+        return new ResponseEntity<>(projectService.getProjectByTeacherId(id, teacher), HttpStatus.OK);
+    }
+
+    @GetMapping("/student/{id}")
+    public ResponseEntity<List<ProjectResponse>> getProjectsByStudentId(@PathVariable String id){
+        return new ResponseEntity<>(projectService.getProjectsByStudentId(id), HttpStatus.OK);
+    }
+
+    @GetMapping("/teacher/{id}")
+    public ResponseEntity<List<ProjectResponse>> getProjectsByTeacherId(@PathVariable String id){
+        return new ResponseEntity<>(projectService.getProjectsByTeacherId(id), HttpStatus.OK);
+    }
+
+    @GetMapping("/teacher/{id}/student/{student}")
+    public ResponseEntity<ProjectResponse> findProjectByteacherAndStudent(@PathVariable String id, @PathVariable String student){
+        return new ResponseEntity<>(projectService.findProjectByteacherAndStudent(id, student), HttpStatus.OK);
+    }
+
 
     @PutMapping("/{id}")
     public ResponseEntity<ProjectResponse> update(@PathVariable String id,@Valid @RequestBody ProjectRequest request){

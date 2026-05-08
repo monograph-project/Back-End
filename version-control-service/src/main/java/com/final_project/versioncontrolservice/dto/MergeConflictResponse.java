@@ -2,6 +2,7 @@ package com.final_project.versioncontrolservice.dto;
 import lombok.Builder;
 import lombok.Data;
 import java.util.List;
+
 @Data
 @Builder
 public class MergeConflictResponse {
@@ -13,9 +14,30 @@ public class MergeConflictResponse {
     @Builder
     public static class ConflictFileDTO {
         private String path;
-        private String baseContent;
-        private String sourceContent;
-        private String targetContent;
         private boolean binary;
+        private List<SegmentDTO> segments;
+    }
+
+    @Data
+    @Builder
+    public static class SegmentDTO {
+        private String id;
+        private int orderIndex;
+        private String type;
+
+        private String content;
+
+        private Integer sourceStartLine;
+        private Integer sourceEndLine;
+        private Integer targetStartLine;
+        private Integer targetEndLine;
+
+        private String baseChunk;
+        private String sourceChunk;
+        private String targetChunk;
+
+        private boolean resolved;
+        private String resolvedChunk;
+        private String resolution;
     }
 }

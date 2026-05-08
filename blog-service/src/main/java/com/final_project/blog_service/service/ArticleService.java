@@ -492,7 +492,7 @@ public class ArticleService {
                 .author(Comment.Author
                         .builder()
                         .displayName(replier.getDisplayName())
-                        .profileImageUrl(replier.getProfileImageUrl())
+                        .profileImageUrl(replier.getProfile())
                         .build())
                 .engagement(Comment.Engagement.builder()
                         .likes(0L)
@@ -531,7 +531,7 @@ public class ArticleService {
                         .actorUserId(replier.getId())
                         .actorName(replier.getUsername())
                         .actorEmail(replier.getEmail())
-                        .profile(replier.getProfileImageUrl())
+                        .profile(replier.getProfile())
                         // For replies, author is the original comment owner, not article owner
                         .authorUserId(owner.getId())
                         .authorEmail(owner.getEmail())
@@ -647,7 +647,7 @@ public class ArticleService {
                         .actorUserId(user.getId())
                         .actorName(user.getUsername())
                         .actorEmail(user.getEmail())
-                        .profile(user.getProfileImageUrl())
+                        .profile(user.getProfile())
 
                         .authorUserId(article.getAuthorId())
                         .authorName(articleUser.getUserName())
@@ -724,7 +724,7 @@ public class ArticleService {
                         .actorUserId(user.getId())
                         .actorName(user.getUsername())
                         .actorEmail(user.getEmail())
-                        .profile(user.getProfileImageUrl())
+                        .profile(user.getProfile())
 
                         .authorUserId(article.getAuthorId())
                         .authorName(authorResponse.getUserName())
@@ -839,15 +839,16 @@ public class ArticleService {
     }
     private ArticleResponse mapToResponse(Article article) {
 
-        UserProfileResponse author = userServiceClient.getUserProfile(article.getAuthorId());
+        UserAuthorResponse author = userServiceClient.getUserAuthor(article.getAuthorId());
         Long total = articleRepository.countByAuthorIdAndStatus(article.getAuthorId(), ArticleStatus.PUBLISHED);
         return ArticleResponse.builder()
                 .id(article.getId())
                 .author(AuthorResponse
                         .builder()
-                        .displayName(author.getDisplayName())
+                        .displayName(author.getUserName())
+                        .email(author.getEmail())
                         .id(author.getId())
-                        .profileImageUrl(author.getProfileImageUrl())
+                        .profileImageUrl(author.getProfile())
                         .totalArticles(total)
                         .build())
                 .slug(article.getSlug())
@@ -909,15 +910,16 @@ public class ArticleService {
     }
 
     private ArticlePreviewResponse mapToPreview(Article article) {
-        UserProfileResponse user = userServiceClient.getUserProfile(article.getAuthorId());
+        UserAuthorResponse user = userServiceClient.getUserAuthor(article.getAuthorId());
         long total = articleRepository.countByAuthorIdAndStatus(article.getAuthorId(), ArticleStatus.PUBLISHED);
         return ArticlePreviewResponse.builder()
                 .id(article.getId())
                 .slug(article.getSlug())
                 .author(AuthorResponse
                         .builder()
-                        .profileImageUrl(user.getProfileImageUrl())
-                        .displayName(user.getDisplayName())
+                        .profileImageUrl(user.getProfile())
+                        .displayName(user.getUserName())
+                        .email(user.getEmail())
                         .id(user.getId())
                         .totalArticles(total)
                         .build())
@@ -982,28 +984,6 @@ public class ArticleService {
     }
 
     /**
-     * Process content blocks and validate file references
-     */
-//    private List<ContentBlock> processContentBlocks(List<FlexibleContentBlockRequest> blocks) {
-//        return blocks.stream()
-//                .map(block -> {
-//                    // Validate block data based on type
-//                    validateBlock(block);
-//                    // For image/video blocks, validate file exists
-//                    if ("image".equalsIgnoreCase(block.getType().getType()) || "video".equalsIgnoreCase(block.getType().getType())) {
-//                        validateFileReference(block.getFileId());
-//                    }
-//                    // Convert to entity
-//                    return
-//                            ContentBlock
-//                            .builder()
-//                            .type(block.getType())
-//                            .build();
-//                })
-//                .collect(toList());
-//    }
-
-    /**
      * Validate individual content block
      */
     private void validateBlock(FlexibleContentBlockRequest block) {
@@ -1053,33 +1033,6 @@ public class ArticleService {
                 throw new IllegalArgumentException("Unknown block type: " + block.getType());
         }
     }
-
-
-//    private ContentBlock convertFlexibleBlockToEntity(
-//            FlexibleContentBlockRequest blockRequest
-//    ) {
-//        if (blockRequest == null) {
-//            throw new IllegalArgumentException("Content block cannot be null");
-//        }
-//
-//
-//        // Validate block
-//        validateFlexibleContentBlock(blockRequest);
-//
-//        // For image/video blocks, validate file exists in File Service
-//        if ("image".equalsIgnoreCase(blockRequest.getType().getType()) || "video".equals(blockRequest.getType().getType().toLowerCase())) {
-//            validateFileReference(blockRequest.getFileId());
-//        }
-//
-//        // Convert DTO to JsonNode for flexible MongoDB storage
-//        JsonNode blockData = objectMapper.valueToTree(blockRequest);
-//        Map<String, Object> data = objectMapper.convertValue(blockData,new  com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>(){});
-//        // Create and return entity
-//        return ContentBlock.builder()
-//                .type(blockRequest.getType())
-//                .data(data)
-//                .build();
-//    }
 
     private ContentBlock convertContentBlockRequestToEntity(
             ContentBlockRequest blockRequest
@@ -1183,21 +1136,6 @@ public class ArticleService {
     /**
      * Validate file reference exists in File Service
      */
-//    private void validateFileReference(String fileId) {
-//        if (fileId == null || fileId.isBlank()) {
-//            throw new IllegalArgumentException("File ID cannot be null");
-//        }
-//        try {
-//            // Call File Service to verify file exists
-//            fileServiceClient.getFileMetadata(fileId);
-//            log.debug("File validated: {}", fileId);
-//        } catch (Exception e) {
-//            log.error("File validation failed: {} - {}", fileId, e.getMessage());
-//            throw new IllegalArgumentException(
-//                    "File not found or inaccessible: " + fileId + ". Upload file first."
-//            );
-//        }
-//    }
 
     private List<ContentBlock> mapBlocks(List<ArticleBlockRequest> requests) {
         return requests.stream()
@@ -1285,7 +1223,7 @@ public class ArticleService {
         return AuthorResponse.builder()
                 .id(user.getId())
                 .displayName(user.getDisplayName())
-                .profileImageUrl(user.getProfileImageUrl())
+                .profileImageUrl(user.getProfile())
                 .totalArticles(user.getTotalArticles() != null ? user.getTotalArticles() : 0L)
                 .build();
     }

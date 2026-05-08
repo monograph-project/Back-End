@@ -1,31 +1,43 @@
 package com.final_project.faculty_service.services;
 
 import com.final_project.faculty_service.DTO.RepositoryDTO;
+import com.final_project.faculty_service.DTO.mapper.GroupMapper;
+import com.final_project.faculty_service.DTO.mapper.ProjectInvitationRequest;
 import com.final_project.faculty_service.DTO.mapper.ProjectMapper;
 import com.final_project.faculty_service.DTO.request.ProjectRequest;
+import com.final_project.faculty_service.DTO.response.GroupMemberResponse;
+import com.final_project.faculty_service.DTO.response.GroupResponse;
 import com.final_project.faculty_service.DTO.response.PageResponse;
 import com.final_project.faculty_service.DTO.response.ProjectResponse;
 import com.final_project.faculty_service.models.Group;
 import com.final_project.faculty_service.models.Project;
+import com.final_project.faculty_service.models.Student;
 import com.final_project.faculty_service.models.Teacher;
 import com.final_project.faculty_service.repository.GroupRepository;
 import com.final_project.faculty_service.repository.ProjectRepository;
+import com.final_project.faculty_service.repository.StudentRepository;
 import com.final_project.faculty_service.repository.TeacherRepository;
+import com.final_project.faculty_service.services.exception.ResourceBadRequest;
 import com.final_project.faculty_service.services.exception.ResourceNotFoundException;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
 public class ProjectService {
     private  final ProjectRepository projectRepository;
+    private final GroupMapper groupMapper;
     private final TeacherRepository teacherRepository;
     private final GroupRepository groupRepository;
     private final ProjectMapper projectMapper;
+    private StudentRepository studentRepository;
     private final VersionContolService versionContolService;
     public PageResponse<ProjectResponse> findAll(Pageable pageable) {
         Page<Project> projectPage = projectRepository.findByIsDeletedIsFalse(pageable);
@@ -63,6 +75,109 @@ public class ProjectService {
         project.setId(id);
 
         projectRepository.save(project);
+        return projectMapper.toResponse(project);
+    }
+
+    public ProjectResponse connectProjectWithRepsitory(String projectId, String repositoryId){
+       RepositoryDTO currentRepo =  versionContolService.getRpoById(repositoryId);
+       if (currentRepo == null){
+           throw new ResourceNotFoundException("Rop Not Found");
+       }
+       Project project =  projectRepository.findByIdAndIsDeletedIsFalse(projectId).orElseThrow(() -> new ResourceNotFoundException("Project Not found"));
+       if (project.getProjectRepository().equals(currentRepo) || project.getProjectRepository().getId().equals(currentRepo.getId())){
+           throw new ResourceBadRequest("Already assign to this repo");
+       }
+       project.setProjectRepository(currentRepo);
+       Project result = projectRepository.save(project);
+       return projectMapper.toResponse(result);
+    }
+
+    public GroupResponse inviteMembers(String projectId, ProjectInvitationRequest request) {
+
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new RuntimeException("Project not found"));
+
+        Group group = project.getGroup();
+
+        if (group == null) {
+            throw new RuntimeException("Project has no group");
+        }
+
+        // Ensure list is initialized
+        if (group.getGroupMembers() == null) {
+            group.setGroupMembers(new ArrayList<>());
+        }
+
+        // Use Set for faster lookup
+        Set<String> existingMemberIds = group.getGroupMembers()
+                .stream()
+                .map(Student::getId)
+                .collect(Collectors.toSet());
+
+        List<String> requestedUserIds = request.getInvitations();
+
+        List<GroupMemberResponse> responses = new ArrayList<>();
+
+        for (String userId : requestedUserIds) {
+
+            // Already a member
+            if (existingMemberIds.contains(userId)) {
+                continue;
+            }
+
+            // Fetch student
+            Student student = studentRepository.findByIdAndIsDeletedIsFalse(userId)
+                    .orElseThrow(() -> new RuntimeException("Student not found: " + userId));
+
+            // Add to group
+            group.getGroupMembers().add(student);
+
+            // Update set to avoid duplicates in same request
+            existingMemberIds.add(userId);
+
+        }
+
+        // Save changes
+       Group currentProject =  groupRepository.save(group);
+
+        return groupMapper.toResponse(currentProject);
+    }
+
+    // group by student id
+    public ProjectResponse getProjectByStudentId(String projectId, String studentId){
+        studentRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("The student not found"));
+        Project project = projectRepository.findProjectByIdAndStudentInGroup(projectId, studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Not found"));
+        return projectMapper.toResponse(project);
+    }
+    public ProjectResponse getProjectByTeacherId(String projectId, String studentId){
+         teacherRepository.findById(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("The student not found"));
+        Project project = projectRepository.findProjectByIdAndTeacher(projectId, studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Not found"));
+        return projectMapper.toResponse(project);
+    }
+    public List<ProjectResponse> getProjectsByTeacherId(String teacherId){
+        Teacher teacher = teacherRepository.findByIdAndIsDeletedIsFalse(teacherId)
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher Not Found"));
+        List<Project> projects = projectRepository.findAllByTeacherId(teacherId);
+        return projects.stream().map(projectMapper::toResponse).collect(Collectors.toList());
+    }
+
+    public List<ProjectResponse> getProjectsByStudentId(String student){
+        Student student1 = studentRepository.findByIdAndIsDeletedIsFalse(student)
+                .orElseThrow(() -> new ResourceNotFoundException("The student not exist"));
+        List<Project> projects = projectRepository.findAllByStudentId(student1.getId());
+        return projects.stream().map(projectMapper::toResponse).collect(Collectors.toList());
+    }
+    public ProjectResponse findProjectByteacherAndStudent(String teacherId, String student){
+        Student student1 = studentRepository.findByIdAndIsDeletedIsFalse(student)
+                .orElseThrow(() -> new ResourceNotFoundException("The student not exist"));
+        Teacher teacher = teacherRepository.findByIdAndIsDeletedIsFalse(teacherId)
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher Not Found"));
+        Project project = projectRepository.findByTeacherIdAndStudentId(student1.getId(), teacher.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Not found"));
         return projectMapper.toResponse(project);
     }
 

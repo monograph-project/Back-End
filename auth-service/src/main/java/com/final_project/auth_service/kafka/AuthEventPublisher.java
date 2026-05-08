@@ -2,6 +2,7 @@ package com.final_project.auth_service.kafka;
 
 import com.final_project.auth_service.config.AppProperties;
 import com.final_project.auth_service.event.PasswordChangedEvent;
+import com.final_project.auth_service.event.ResetPasswordEvent;
 import com.final_project.auth_service.event.UserRegisteredEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,6 +46,23 @@ public class AuthEventPublisher {
                     }
                     else{
                         log.info("Published PASSWORD_CHANGED event. topic={} partition={} offset={} eventId={}",
+                                res.getRecordMetadata().topic(),
+                                res.getRecordMetadata().partition(),
+                                res.getRecordMetadata().offset(),
+                                event.getEventId());
+                    }
+                });
+    }
+    public void publishResetPasswordEvent(ResetPasswordEvent event){
+        String topic = appProperties.getKafka().getTopics().getResetPassword();
+        kafkaTemplate.send(topic, event.getEventId(), event)
+                .whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        log.error("Failed to publish PASSWORD_CHANGED event. userId={} eventId={}",
+                                event.getUserId(), event.getEventId(), ex);
+                    }
+                    else{
+                        log.info("Published PASSWORD_RESET event. topic={} partition={} offset={} eventId={}",
                                 res.getRecordMetadata().topic(),
                                 res.getRecordMetadata().partition(),
                                 res.getRecordMetadata().offset(),

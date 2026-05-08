@@ -41,6 +41,10 @@ public class SemesterService {
                 .build();
     }
 
+    public List<SemesterResponse> getSemestersByAcademicYearId(String academicYearId) {
+        List<Semester> semesters =  semesterRepository.findByAcademicYearIdAndIsDeletedFalse(academicYearId);
+        return semesters.stream().map(semesterMapper::toResponse).toList();
+    }
     public SemesterResponse update(String id , SemesterRequest request){
 
         Semester currentSemester = semesterRepository.findByIdAndIsDeletedIsFalse(id)

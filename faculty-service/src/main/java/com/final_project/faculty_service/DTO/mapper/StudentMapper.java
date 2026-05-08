@@ -38,7 +38,6 @@ public class StudentMapper implements BaseMapper<StudentRequest, StudentResponse
         Semester semester = new Semester();
         semester.setId(studentRequest.getSemester());
         student.setSemester(semester);
-
         student.setEnrollmentDate(studentRequest.getEnrollmentDate());
         student.setKankorId(studentRequest.getKankorId());
         student.setProfilePicture(studentRequest.getProfilePicture());
@@ -60,13 +59,13 @@ public class StudentMapper implements BaseMapper<StudentRequest, StudentResponse
         studentResponse.setGender(student.getGender());
         studentResponse.setDateOfBirth(student.getDateOfBirth());
         studentResponse.setAddress(student.getAddress());
-
+        studentResponse.setPhotoUrl(student.getProfilePicture());
         studentResponse.setEmail(student.getEmail());
         studentResponse.setPhone(student.getPhone());
 
         studentResponse.setEnrollmentDate(student.getEnrollmentDate());
         studentResponse.setKankorId(student.getKankorId());
-        studentResponse.setProfilePicture(student.getProfilePicture());
+        studentResponse.setPhotoUrl(student.getProfilePicture());
 
         studentResponse.setSemester(new StudentSemesterResponse(
                 new AcademicYearResponse(

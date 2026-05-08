@@ -15,6 +15,7 @@ import com.final_project.auth_service.dto.ResetPasswordRequest;
 import com.final_project.auth_service.dto.SignupRequest;
 import com.final_project.auth_service.dto.UserDTO;
 import com.final_project.auth_service.event.PasswordChangedEvent;
+import com.final_project.auth_service.event.ResetPasswordEvent;
 import com.final_project.auth_service.event.UserRegisteredEvent;
 import com.final_project.auth_service.exception.DuplicateUserException;
 import com.final_project.auth_service.exception.InvalidUserException;
@@ -31,16 +32,17 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +64,8 @@ public class AuthenticationService {
     private final KeycloakConfig keycloakConfig;
     private final AuthEventPublisher eventPublisher;
     private final JwtDecoder jwtDecoder;
+
+    private final JwtEncoder jwtEncoder;
 
     @Value("${app.default-role:faculty-user}")
     private String defaultRole;
@@ -187,16 +191,80 @@ public class AuthenticationService {
                 .build());
     }
 
+    private String generateShortLivedToken(Map<String, Object> customClaims, long durationMinutes) {
+        Instant now = Instant.now();
+
+        // 1. Explicitly define the Header with HS256
+        JwsHeader jwsHeader = JwsHeader.with(org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS256).build();
+
+        JwtClaimsSet.Builder claimsBuilder = JwtClaimsSet.builder()
+                .issuer("self")
+                .issuedAt(now)
+                .expiresAt(now.plusSeconds(durationMinutes * 60));
+
+        customClaims.forEach(claimsBuilder::claim);
+
+        // 2. Pass BOTH the header and the claims to the encoder
+        return this.jwtEncoder.encode(JwtEncoderParameters.from(jwsHeader, claimsBuilder.build())).getTokenValue();
+    }
+
     public void forgotPassword(ForgotPasswordRequest request) {
-        UserRepresentation user = keycloakService.findUserByEmail(request.getEmail())
-                .orElseThrow(() -> new UnauthorizedException("User not found for email"));
-        keycloakService.sendResetPasswordEmail(user.getId());
+        UserRepresentation user = resolveUser(request.getEmail());
+
+        Map<String, Object> claims = Map.of(
+                "sub", user.getId(),
+                "email", user.getEmail(),
+                "type", "PASSWORD_RESET"
+
+        );
+        String resetToken = generateShortLivedToken(claims, 15);
+
+        String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
+
+        String resetUrl = baseUrl+"/reset-password?token=" + resetToken;
+        eventPublisher.publishResetPasswordEvent(
+                ResetPasswordEvent
+                        .builder()
+                        .eventId(UUID.randomUUID().toString())
+                        .occurredAt(LocalDateTime.now())
+                        .userId(user.getId())
+                        .email(user.getEmail())
+                        .resetToken(resetUrl)
+                        .changeType("RESET")
+                        .userAgent("KDR-ECONONMY-FACULTY")
+                        .firstName(user.getFirstName())
+                        .ipAddress(request.getIp())
+                        .build()
+        );
+//        keycloakService.sendResetPasswordEmail(user.getId());
         auditLogService.logAuditEvent(user.getId(), "PASSWORD_RESET_REQUESTED", "USER", user.getId(), "Password reset email requested", "SUCCESS");
     }
 
     public void resetPassword(ResetPasswordRequest request) {
-        throw new UnsupportedOperationException("Use Keycloak reset-password action emails instead of local reset tokens.");
+        try {
+            // 1. Decode and verify the JWT (Signature and Expiry checked automatically)
+            Jwt jwt = jwtDecoder.decode(request.getResetToken());
+
+            // 2. Security Check: Ensure this is specifically a reset token
+            if (!"PASSWORD_RESET".equals(jwt.getClaim("type"))) {
+                throw new InvalidUserException("This token cannot be used for password reset");
+            }
+
+            String userId = jwt.getSubject(); // Extract user ID from 'sub' claim
+
+            // 3. Update the password in Keycloak
+            keycloakService.setPassword(userId, request.getNewPassword(), false);
+
+            // 4. Log the success
+            auditLogService.logAuditEvent(userId, "PASSWORD_RESET_SUCCESS", "USER", userId, "User successfully reset password via stateless token", "SUCCESS");
+
+        } catch (JwtException e) {
+            // Triggered if the token is tampered with, expired, or invalid
+            log.error("Invalid password reset token: {}", e.getMessage());
+            throw new InvalidUserException("The reset link is invalid or has expired. Please request a new one.");
+        }
     }
+
 
 
     public void verifyEmail(EmailVerificationRequest request) {
@@ -258,12 +326,26 @@ public class AuthenticationService {
     }
 
     private UserDTO toDTO(UserRepresentation user) {
+
+        String profilePicture = null;
+
+        Map<String, List<String>> attributes = user.getAttributes();
+
+        if (attributes != null && attributes.containsKey("profile")) {
+            List<String> values = attributes.get("profile");
+
+            if (values != null && !values.isEmpty()) {
+                profilePicture = values.get(0);
+            }
+        }
+
         return UserDTO.builder()
                 .id(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
+                .photoUrl(profilePicture) // 👈 set here
                 .status(Boolean.TRUE.equals(user.isEnabled()) ? "ACTIVE" : "DISABLED")
                 .emailVerified(user.isEmailVerified())
                 .roles(Set.copyOf(keycloakService.getUserRealmRoleNames(user.getId())))

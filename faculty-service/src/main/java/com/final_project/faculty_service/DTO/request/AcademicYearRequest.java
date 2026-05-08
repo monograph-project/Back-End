@@ -1,6 +1,7 @@
 package com.final_project.faculty_service.DTO.request;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.util.Date;
@@ -10,9 +11,9 @@ public class AcademicYearRequest
 {
     @NotBlank( message = "provide the name of academic year")
     private String name;
-    @NotBlank(message = "required the start date")
+    @NotNull(message = "required the start date")
     private Date startDate;
-    @NotBlank(message = "required the end date")
+    @NotNull(message = "required the end date")
     private Date endDate;
 
     private String calendarType;

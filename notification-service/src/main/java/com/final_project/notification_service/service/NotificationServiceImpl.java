@@ -252,7 +252,7 @@ public class NotificationServiceImpl implements NotificationService {
                     saved.getChannel() == NotificationChannel.IN_APP ||
                             saved.getChannel() == NotificationChannel.PUSH
             ) {
-                webSocketNotificationService.sendToUser(saved);
+                webSocketNotificationService.sendToUser(saved.getRecipientUserId(), mapper.toResponse(saved));
             } else {
                 saved.markFailed("Unsupported channel: " + saved.getChannel());
                 return repository.save(saved);

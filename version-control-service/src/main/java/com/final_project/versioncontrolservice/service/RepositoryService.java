@@ -12,6 +12,7 @@ import com.final_project.versioncontrolservice.repo.RepositoryRepository;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.common.errors.ResourceNotFoundException;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +20,7 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -35,6 +37,32 @@ public class RepositoryService {
             .orElseThrow(() -> new NotFoundException("read repo metadata"));
     }
 
+    public List<RepositoryResponse> searchRepositories(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return List.of();
+        }
+        List<RepositoryDocument> results =  repositoryRepository.searchRepositories(keyword.trim());
+        return results.stream().map(saved -> RepositoryResponse
+                .builder()
+                .id(saved.getId())
+                .createdAt(saved.getCreatedAt())
+                .updatedAt(saved.getUpdatedAt())
+                .branchHeads(saved.getBranchHeads())
+                .repositoryName(saved.getRepositoryName())
+                .cloneUrl(saved.getCloneUrl())
+                .collaborators(saved.getCollaborators())
+                .description(saved.getDescription())
+                .owner(
+                        UserDTO.builder()
+                                .id(saved.getOwner().getId())
+                                .email(saved.getOwner().getEmail())
+                                .emailVerified(saved.getOwner().getEmailVerified())
+                                .username(saved.getOwner().getUsername())
+                                .status(saved.getOwner().getStatus())
+                                .build()
+                )
+                .build()).toList();
+    }
     public RepositoryResponse createRepo(CreateRepositoryRequest request) {
         UserDTO user = authService.getUserByUsername(request.getUserName());
         if (user == null) {
@@ -255,5 +283,29 @@ public class RepositoryService {
                 .orElseThrow(() -> new NotFoundException("Not Found"));
         invitationRepository.delete(invitation);
     }
-    
+
+    public  List<RepositoryResponse> getOwnerRepos(String ownerId) {
+       ContributorUser contributorUser =  authService.getContributorUser(ownerId);
+        List<RepositoryDocument> repos = repositoryRepository.findAllByOwner_Username(contributorUser.getUsername());
+        return repos.stream().map(rep ->  RepositoryResponse
+                .builder()
+                .id(rep.getId())
+                .createdAt(rep.getCreatedAt())
+                .updatedAt(rep.getUpdatedAt())
+                .branchHeads(rep.getBranchHeads())
+                .repositoryName(rep.getRepositoryName())
+                .cloneUrl(rep.getCloneUrl())
+                .collaborators(rep.getCollaborators())
+                .description(rep.getDescription())
+                .owner(
+                        UserDTO.builder()
+                                .id(rep.getOwner().getId())
+                                .email(rep.getOwner().getEmail())
+                                .emailVerified(rep.getOwner().getEmailVerified())
+                                .username(rep.getOwner().getUsername())
+                                .status(rep.getOwner().getStatus())
+                                .build()
+                )
+                .build()).collect(Collectors.toList());
+    }
 }

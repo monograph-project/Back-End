@@ -135,7 +135,6 @@ public class AuthenticationController {
      * @return Success response
      */
     @PostMapping("/change-password/{userId}")
-    @PreAuthorize("hasAnyRole('FACULTY_USER', 'OPERATOR', 'PLATFORM_ADMIN')")
     @SecurityRequirement(name = "Bearer Token")
     @Operation(summary = "Change password", description = "Change user password (requires current password)")
     @ApiResponses({
@@ -173,8 +172,9 @@ public class AuthenticationController {
             @ApiResponse(responseCode = "200", description = "Password reset email sent"),
             @ApiResponse(responseCode = "404", description = "Email not found")
     })
-    public ResponseEntity<Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+    public ResponseEntity<Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request,  @RemoteIP String ip) {
         log.info("Forgot password request for: {}", request.getEmail());
+        request.setIp(ip);
         authenticationService.forgotPassword(request);
 
         Map<String, String> response = new HashMap<>();
@@ -285,7 +285,6 @@ public class AuthenticationController {
      * @return Current user information
      */
     @GetMapping("/me")
-    @PreAuthorize("hasAnyRole('FACULTY_USER', 'ADMIN')")
     @SecurityRequirement(name = "Bearer Token")
     @Operation(summary = "Get current user", description = "Get information about currently authenticated user")
     @ApiResponses({

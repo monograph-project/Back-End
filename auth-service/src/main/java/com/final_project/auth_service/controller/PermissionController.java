@@ -35,14 +35,14 @@ public class PermissionController {
     private final PermissionService permissionService;
 
     @PostMapping
-    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ADMIN_USER')")
     @Operation(summary = "Create client role permission")
     public ResponseEntity<PermissionDTO> createPermission(@Valid @RequestBody CreatePermissionRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(permissionService.createPermission(request));
     }
 
     @GetMapping("/client/{clientId}")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER')")
     @Operation(summary = "List permissions for a client")
     public ResponseEntity<Map<String, Object>> getPermissionsByClient(@PathVariable String clientId) {
         List<PermissionDTO> permissions = permissionService.getPermissionsByClient(clientId);
@@ -54,7 +54,7 @@ public class PermissionController {
     }
 
     @PostMapping("/client/{clientId}/role/{roleName}/assign-to-user/{userId}")
-    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ADMIN_USER')")
     @Operation(summary = "Assign client role permission to user")
     public ResponseEntity<Map<String, String>> assignPermissionToUser(@PathVariable String clientId,
                                                                       @PathVariable String roleName,
@@ -64,7 +64,7 @@ public class PermissionController {
     }
 
     @DeleteMapping("/client/{clientId}/role/{roleName}/remove-from-user/{userId}")
-    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ADMIN_USER')")
     @Operation(summary = "Remove client role permission from user")
     public ResponseEntity<Map<String, String>> removePermissionFromUser(@PathVariable String clientId,
                                                                         @PathVariable String roleName,
@@ -74,7 +74,7 @@ public class PermissionController {
     }
 
     @DeleteMapping("/client/{clientId}/role/{roleName}")
-    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ADMIN_USER')")
     @Operation(summary = "Delete client role permission")
     public ResponseEntity<Void> deletePermission(@PathVariable String clientId, @PathVariable String roleName) {
         permissionService.deletePermission(clientId, roleName);
@@ -82,7 +82,7 @@ public class PermissionController {
     }
 
     @GetMapping("/client/{clientId}/stats/count")
-    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ADMIN_USER')")
     @Operation(summary = "Permission statistics by client")
     public ResponseEntity<Map<String, Object>> getPermissionStats(@PathVariable String clientId) {
         return ResponseEntity.ok(permissionService.getPermissionStatistics(clientId));

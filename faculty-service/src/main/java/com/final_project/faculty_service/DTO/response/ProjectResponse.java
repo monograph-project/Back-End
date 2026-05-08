@@ -7,7 +7,7 @@ import lombok.Data;
 public class ProjectResponse {
     private String id;
     private String projectName;
-    private ProjectGroupResponse group;
+    private GroupResponse group;
     private GroupTeacherResponse teacher;
     private RepositoryDTO projectRepository;
 }

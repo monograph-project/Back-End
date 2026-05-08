@@ -37,6 +37,6 @@ public class Teacher {
     private LocalDateTime updateAt;
     @CreatedDate
     private LocalDateTime createdAt;
-
+    private String imageUrl;
     private String createdBy;
 }

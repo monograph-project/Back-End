@@ -44,6 +44,7 @@ public class PasswordChangedProcessor implements NotificationProcessor<PasswordC
                         "occurredAt",   event.getOccurredAt().toString(),
                         "securityUrl",  securityUrl,
                         "baseUrl",      props.getNotification().getBaseUrl()
+
                 )
         );
 

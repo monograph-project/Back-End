@@ -61,6 +61,7 @@ public class AppProperties {
             private String notificationDlq   = "notification.dlq";
             private String repositoryOperation = "repository.operations";
             private String articleOperations = "article.operations";
+            private String resetPassword = "reset.password";
         }
     }
 }

@@ -41,4 +41,5 @@ public class AuthorResponse {
             example = "15"
     )
     private Long totalArticles;
+    private String email;
 }

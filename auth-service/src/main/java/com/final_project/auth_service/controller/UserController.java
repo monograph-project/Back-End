@@ -71,7 +71,7 @@ public class UserController {
      * @return User DTO
      */
     @GetMapping("/author/{id}")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'FACULTY_USER', 'ADMIN_USER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'FACULTY_USER', 'ADMIN_USER', 'AUTHOR_USER')")
     @Operation(summary = "Get user by ID", description = "Retrieves user information by unique identifier")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "User found"),
@@ -90,7 +90,7 @@ public class UserController {
      * @return User DTO
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER', 'STUDENT_USER', 'TEACHER_USER', 'EMPLOYEE_USER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER', 'STUDENT_USER', 'TEACHER_USER', 'EMPLOYEE_USER', 'AUTHOR_USER')")
     @Operation(summary = "Get user by ID", description = "Retrieves user information by unique identifier")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "User found"),
@@ -104,6 +104,21 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
+    @PostMapping("/{id}/profile")
+    @Operation(summary = "update profile", description = "Retrieves user information by unique identifier")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "User found"),
+            @ApiResponse(responseCode = "404", description = "User not found"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    public ResponseEntity<Void> updateProfile(
+            @PathVariable String id,
+            @RequestBody String url
+            ) {
+        log.info("url : {}" , url);
+        userService.updateProfile(url, id);
+        return ResponseEntity.noContent().build();
+    }
 
     /**
      * Get user by ID.
@@ -111,7 +126,7 @@ public class UserController {
      * @param id User ID
      * @return User DTO
      */
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER', 'STUDENT_USER', 'TEACHER_USER', 'EMPLOYEE_USER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER', 'STUDENT_USER', 'TEACHER_USER', 'EMPLOYEE_USER', 'AUTHOR_USER')")
     @GetMapping("/contributor/{id}")
     @Operation(summary = "Get user by ID", description = "Retrieves user information by unique identifier")
     @ApiResponses({
@@ -131,7 +146,7 @@ public class UserController {
      * @param username Username
      * @return User DTO
      */
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER', 'STUDENT_USER', 'TEACHER_USER', 'EMPLOYEE_USER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER', 'STUDENT_USER', 'TEACHER_USER', 'EMPLOYEE_USER', 'AUTHOR_USER')")
     @GetMapping("/by-username/{username}")
     @Operation(summary = "Get user by username", description = "Retrieves user information by username")
     @ApiResponses({
@@ -152,7 +167,7 @@ public class UserController {
      * @return User DTO
      */
     @GetMapping("/by-email/{email}")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER', 'STUDENT_USER', 'TEACHER_USER', 'EMPLOYEE_USER')")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER', 'STUDENT_USER', 'TEACHER_USER', 'EMPLOYEE_USER', 'AUTHOR_USER')")
     @Operation(summary = "Get user by email", description = "Retrieves user information by email address")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "User found"),

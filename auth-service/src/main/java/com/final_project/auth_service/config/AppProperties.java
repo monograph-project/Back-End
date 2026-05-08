@@ -18,6 +18,7 @@ public class AppProperties {
         public static class Topics{
             private String userRegistered = "user.registered";
             private String changePassword = "change.password";
+            private String resetPassword = "reset.password";
 
         }
     }

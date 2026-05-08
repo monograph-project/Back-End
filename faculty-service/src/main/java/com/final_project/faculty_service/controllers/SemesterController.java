@@ -12,6 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/semester")
 @AllArgsConstructor
@@ -28,6 +30,14 @@ public class SemesterController {
         return new ResponseEntity<>(semesterService.create(request), HttpStatus.CREATED);
     }
 
+    @GetMapping("/academic-year/{academicYearId}")
+    public ResponseEntity<List<SemesterResponse>> getSemestersByAcademicYearId(
+            @PathVariable String academicYearId
+    ) {
+        return ResponseEntity.ok(
+                semesterService.getSemestersByAcademicYearId(academicYearId)
+        );
+    }
     @GetMapping("/{id}")
     public ResponseEntity<SemesterResponse> findById(@PathVariable String id){
         return new ResponseEntity<>(semesterService.findById(id), HttpStatus.OK);

@@ -23,8 +23,7 @@ public class DepartmentRequest {
     @NotBlank(message = "Faculty id is required")
     private String faculty;
 
-    @NotBlank(message = "Code is required")
-    @Size(max = 20, message = "Code must be at most 20 characters")
+
     private String code;
 
     @Email(message = "Email should be valid")

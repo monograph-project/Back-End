@@ -4,9 +4,10 @@ import com.final_project.faculty_service.DTO.mapper.GroupMapper;
 import com.final_project.faculty_service.DTO.request.GroupRequest;
 import com.final_project.faculty_service.DTO.response.GroupResponse;
 import com.final_project.faculty_service.DTO.response.PageResponse;
-import com.final_project.faculty_service.DTO.response.StudentResponseGroupResponse;
+import com.final_project.faculty_service.models.AcademicYear;
 import com.final_project.faculty_service.models.Group;
 import com.final_project.faculty_service.models.Student;
+import com.final_project.faculty_service.repository.AcademicYearRepository;
 import com.final_project.faculty_service.repository.GroupRepository;
 import com.final_project.faculty_service.repository.StudentRepository;
 import com.final_project.faculty_service.services.exception.ResourceBadRequest;
@@ -18,7 +19,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -28,6 +28,7 @@ public class GroupService {
     private final StudentRepository studentRepository;
     private final StudentService studentService;
     private final GroupMapper groupMapper;
+    private final AcademicYearRepository academicYearRepository;
     // List all groups with pagination
     public PageResponse<GroupResponse> findAll(Pageable pageable) {
         Page<Group> pages = groupRepository.findByIsDeletedIsFalse(pageable);
@@ -57,13 +58,13 @@ public class GroupService {
         Student leader = studentRepository.findByIdAndIsDeletedIsFalse(request.getGroupLeader())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Group leader not found: " + request.getGroupLeader()));
+
         if (groupRepository.existsByGroupLeaderAndIsDeletedIsFalse(leader.getId())){
             throw new ResourceExist("Already Assigned to a Group");
         }
         if (groupRepository.existsByGroupLeader_IdAndIsDeletedIsFalse(leader.getId())){
             throw new ResourceExist("Already Assigned to a Group As Member");
         }
-
 
         List<Student> members = studentRepository.findAllByIdAndIsDeletedIsFalse(request.getGroupMembers())
                 .orElseThrow(() -> new ResourceNotFoundException("There is No Members yet"));
@@ -144,6 +145,7 @@ public class GroupService {
         groupRepository.save(mappedEntity);
         return groupMapper.toResponse(mappedEntity);
     }
+
 
     // Delete a group
     public void delete(String id) {

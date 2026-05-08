@@ -100,6 +100,7 @@ public class NotificationController {
             @RequestParam(defaultValue = "20") int size
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        log.info("messaged reaches: {}", userId);
         PagedResponse<NotificationResponse> result = notificationService.findByUser(userId, pageable);
         return ResponseEntity.ok(ApiResponse.success(result));
     }

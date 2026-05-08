@@ -191,18 +191,24 @@ public class PullRequestApplicationService {
                     sourceHash
             );
 
-            markMerged(pullRequest.getId());
+            pullRequest.setStatus(PullRequestStatus.MERGED);
+            pullRequest.setMergedAt(Instant.now());
+            pullRequest.setTargetHash(sourceHash);
+            PullRequest saved = pullRequestRepository.save(pullRequest);
+
+            publishPullRequestMergedEvent(saved, mergedRepository);
 
             return MergeResponse.builder()
-                    .mergedAt(Instant.now())
-                    .pullRequestId(pullRequest.getId())
+                    .mergedAt(saved.getMergedAt())
+                    .pullRequestId(saved.getId())
                     .status(PullRequestStatus.MERGED)
-                    .targetBranch(pullRequest.getTargetBranch())
-                    .sourceBranch(pullRequest.getSourceBranch())
+                    .targetBranch(saved.getTargetBranch())
+                    .sourceBranch(saved.getSourceBranch())
                     .newHead(sourceHash)
                     .message("Fast-forward merge")
                     .build();
         }
+
 
         //  NON FAST-FORWARD → REAL MERGE
         String baseHash = commitGraphService.findCommonAncestor(
@@ -237,19 +243,38 @@ public class PullRequestApplicationService {
                     .targetHash(targetHash)
                     .files(
                             analysis.getConflicts().stream()
-                                    .map(c -> com.final_project.versioncontrolservice.model.PullRequestConflict.ConflictFile.builder()
+                                    .map(c -> PullRequestConflict.ConflictFile.builder()
                                             .path(c.getPath())
+                                            .binary(c.isBinary())
                                             .baseHash(c.getBaseHash())
                                             .sourceHash(c.getSourceHash())
                                             .targetHash(c.getTargetHash())
-                                            .baseContent(c.getBaseContent())
-                                            .sourceContent(c.getSourceContent())
-                                            .targetContent(c.getTargetContent())
+                                            .segments(
+                                                    c.getSegments().stream()
+                                                            .map(segment -> PullRequestConflict.FileSegment.builder()
+                                                                    .id(segment.getId())
+                                                                    .orderIndex(segment.getOrderIndex())
+                                                                    .type(segment.getType())
+                                                                    .content(segment.getContent())
+                                                                    .baseStartLine(segment.getBaseStartLine())
+                                                                    .baseEndLine(segment.getBaseEndLine())
+                                                                    .sourceStartLine(segment.getSourceStartLine())
+                                                                    .sourceEndLine(segment.getSourceEndLine())
+                                                                    .targetStartLine(segment.getTargetStartLine())
+                                                                    .targetEndLine(segment.getTargetEndLine())
+                                                                    .baseChunk(segment.getBaseChunk())
+                                                                    .sourceChunk(segment.getSourceChunk())
+                                                                    .targetChunk(segment.getTargetChunk())
+                                                                    .resolved(false)
+                                                                    .build())
+                                                            .toList()
+                                            )
                                             .resolved(false)
                                             .build()
                                     )
                                     .toList()
                     )
+
                     .resolved(false)
                     .createdAt(Instant.now())
                     .build();
@@ -258,8 +283,6 @@ public class PullRequestApplicationService {
 
             pullRequest.setStatus(PullRequestStatus.CONFLICTING);
             PullRequest saved =  pullRequestRepository.save(pullRequest);
-
-            publishPullRequestMergedEvent(saved, document);
             throw new BadRequestException("Merge conflict detected. Resolve conflicts first.");
         }
 
@@ -287,7 +310,13 @@ public class PullRequestApplicationService {
                 mergeCommitHash
         );
 
-        markMerged(pullRequest.getId());
+        pullRequest.setStatus(PullRequestStatus.MERGED);
+        pullRequest.setMergedAt(Instant.now());
+        pullRequest.setTargetHash(mergeCommitHash);
+        PullRequest saved = pullRequestRepository.save(pullRequest);
+        publishPullRequestMergedEvent(saved, mergedRepository);
+
+
 
         return MergeResponse.builder()
                 .mergedAt(Instant.now())
@@ -319,32 +348,46 @@ public class PullRequestApplicationService {
                 .pullRequestId(pullRequest.getId())
                 .status(pullRequest.getStatus().name())
                 .conflicts(
-                        conflict.getFiles()
-                                .stream()
-                                .map(file -> {
-                                    boolean isBinary =
-                                            isBinaryContent(file.getBaseContent()) ||
-                                                    isBinaryContent(file.getSourceContent()) ||
-                                                    isBinaryContent(file.getTargetContent());
-
-                                    return MergeConflictResponse.ConflictFileDTO.builder()
-                                            .path(file.getPath())
-                                            .binary(isBinary)
-                                            .baseContent(isBinary ? null : file.getBaseContent())
-                                            .sourceContent(isBinary ? null : file.getSourceContent())
-                                            .targetContent(isBinary ? null : file.getTargetContent())
-                                            .build();
-                                })
+                        conflict.getFiles().stream()
+                                .map(file -> MergeConflictResponse.ConflictFileDTO.builder()
+                                        .path(file.getPath())
+                                        .binary(file.isBinary())
+                                        .segments(
+                                                file.getSegments().stream()
+                                                        .map(segment -> MergeConflictResponse.SegmentDTO.builder()
+                                                                .id(segment.getId())
+                                                                .orderIndex(segment.getOrderIndex())
+                                                                .type(segment.getType().name())
+                                                                .content(segment.getContent())
+                                                                .sourceStartLine(segment.getSourceStartLine())
+                                                                .sourceEndLine(segment.getSourceEndLine())
+                                                                .targetStartLine(segment.getTargetStartLine())
+                                                                .targetEndLine(segment.getTargetEndLine())
+                                                                .baseChunk(file.isBinary() ? null : segment.getBaseChunk())
+                                                                .sourceChunk(file.isBinary() ? null : segment.getSourceChunk())
+                                                                .targetChunk(file.isBinary() ? null : segment.getTargetChunk())
+                                                                .resolved(segment.isResolved())
+                                                                .resolvedChunk(file.isBinary() ? null : segment.getResolvedChunk())
+                                                                .resolution(segment.getResolution() == null ? null : segment.getResolution().name())
+                                                                .build())
+                                                        .toList()
+                                        )
+                                        .build())
                                 .toList()
                 )
                 .build();
     }
+
     public MergeResponse resolveConflicts(
             String pullId,
             String owner,
             String repoName,
             ResolveConflictRequest request
     ) throws IOException {
+        if (request == null || request.getFiles() == null || request.getFiles().isEmpty()) {
+            throw new BadRequestException("Conflict resolutions are required");
+        }
+
         RepositoryDocument document = repositoryService.loadMeta(owner, repoName);
 
         PullRequest pullRequest = pullRequestRepository
@@ -359,7 +402,7 @@ public class PullRequestApplicationService {
                 .findByPullRequestIdAndResolvedFalse(pullRequest.getId())
                 .orElseThrow(() -> new NotFoundException("No active conflicts found for this pull request"));
 
-        Map<String, ResolveConflictRequest.FileResolution> resolutions =
+        Map<String, ResolveConflictRequest.FileResolution> fileResolutions =
                 request.getFiles()
                         .stream()
                         .collect(Collectors.toMap(
@@ -370,40 +413,26 @@ public class PullRequestApplicationService {
         Map<String, String> resolvedContentByPath = new java.util.HashMap<>();
 
         for (PullRequestConflict.ConflictFile file : conflict.getFiles()) {
-            ResolveConflictRequest.FileResolution resolution = resolutions.get(file.getPath());
+            ResolveConflictRequest.FileResolution fileResolution = fileResolutions.get(file.getPath());
 
-            if (resolution == null) {
-                throw new BadRequestException("Missing resolution for file: " + file.getPath());
+            if (fileResolution.getBlocks() == null || fileResolution.getBlocks().isEmpty()) {
+                throw new BadRequestException("Missing block resolutions for file: " + file.getPath());
             }
 
-            String selectedContent;
 
-            switch (resolution.getResolution()) {
-                case SOURCE -> selectedContent = file.getSourceContent();
+            Map<String, ResolveConflictRequest.BlockResolution> blockResolutions =
+                    fileResolution.getBlocks()
+                            .stream()
+                            .collect(Collectors.toMap(
+                                    ResolveConflictRequest.BlockResolution::getBlockId,
+                                    Function.identity()
+                            ));
 
-                case TARGET -> selectedContent = file.getTargetContent();
+            String resolvedContent = buildResolvedFileContent(file, blockResolutions);
 
-                case BOTH -> selectedContent =
-                        file.getTargetContent() + System.lineSeparator() + file.getSourceContent();
-
-                case CUSTOM -> {
-                    if (resolution.getCustomContent() == null) {
-                        throw new BadRequestException("Custom content is required for file: " + file.getPath());
-                    }
-                    selectedContent = resolution.getCustomContent();
-                }
-
-                default -> throw new BadRequestException(
-                        "Invalid resolution for file " + file.getPath() +
-                                ". Use SOURCE, TARGET, BOTH, or CUSTOM"
-                );
-            }
-
-            file.setResolvedContent(selectedContent);
-            file.setResolution(resolution.getResolution());
             file.setResolved(true);
-
-            resolvedContentByPath.put(file.getPath(), selectedContent);
+            resolvedContentByPath.put(file.getPath(), resolvedContent);
+            file.setResolved(true);
         }
 
         String mergedTreeHash = pullRequestMergeService.writeMergedTreeFromResolvedFiles(
@@ -436,7 +465,9 @@ public class PullRequestApplicationService {
 
         pullRequest.setStatus(PullRequestStatus.MERGED);
         pullRequest.setMergedAt(Instant.now());
+        pullRequest.setTargetHash(mergeCommitHash);
         pullRequestRepository.save(pullRequest);
+
 
         return MergeResponse.builder()
                 .mergedAt(pullRequest.getMergedAt())
@@ -448,6 +479,66 @@ public class PullRequestApplicationService {
                 .message("Conflicts resolved and pull request merged")
                 .build();
     }
+
+    private String buildResolvedFileContent(
+            PullRequestConflict.ConflictFile file,
+            Map<String, ResolveConflictRequest.BlockResolution> blockResolutions
+    ) {
+        StringBuilder out = new StringBuilder();
+
+        for (PullRequestConflict.FileSegment segment : file.getSegments()) {
+            if (segment.getType() == PullRequestConflict.SegmentType.PLAIN) {
+                out.append(segment.getContent() == null ? "" : segment.getContent());
+                continue;
+            }
+
+            ResolveConflictRequest.BlockResolution blockResolution =
+                    blockResolutions.get(segment.getId());
+
+            if (blockResolution == null) {
+                throw new BadRequestException(
+                        "Missing resolution for conflict block: " + segment.getId()
+                );
+            }
+
+            String selectedContent = resolveBlockContent(segment, blockResolution);
+
+            segment.setResolution(blockResolution.getResolution());
+            segment.setResolvedChunk(selectedContent);
+            segment.setResolved(true);
+
+            out.append(selectedContent == null ? "" : selectedContent);
+        }
+
+        return out.toString();
+    }
+
+    private String resolveBlockContent(
+            PullRequestConflict.FileSegment segment,
+            ResolveConflictRequest.BlockResolution blockResolution
+    ) {
+        return switch (blockResolution.getResolution()) {
+            case SOURCE -> segment.getSourceChunk() == null ? "" : segment.getSourceChunk();
+
+            case TARGET -> segment.getTargetChunk() == null ? "" : segment.getTargetChunk();
+
+            case BOTH -> {
+                String target = segment.getTargetChunk() == null ? "" : segment.getTargetChunk();
+                String source = segment.getSourceChunk() == null ? "" : segment.getSourceChunk();
+                yield target + System.lineSeparator() + source;
+            }
+
+            case CUSTOM -> {
+                if (blockResolution.getCustomContent() == null) {
+                    throw new BadRequestException(
+                            "Custom content is required for block: " + segment.getId()
+                    );
+                }
+                yield blockResolution.getCustomContent();
+            }
+        };
+    }
+
     private void markMerged(String  id) {
         PullRequest pr = pullRequestRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("pull request not found"));
@@ -473,7 +564,7 @@ public class PullRequestApplicationService {
 
                 .repositoryId(repository.getId())
                 .repositoryName(repository.getRepositoryName())
-                .repositoryUrl("/api/v1/repos/" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName()+"/"+pullRequest.getId())
+                .repositoryUrl("/api/v1/repos/" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName() + "/pulls/" + pullRequest.getId())
 
                 .actorUserId(pullRequest.getAuthor().getId())
                 .actorName(pullRequest.getAuthor().getUsername())
@@ -525,7 +616,7 @@ public class PullRequestApplicationService {
 
                 .repositoryId(repository.getId())
                 .repositoryName(repository.getRepositoryName())
-                .repositoryUrl("/api/v1/repos/"+repository.getOwner().getUsername()+"/"+repository.getRepositoryName()+"/contents/?ref=main+")
+                .repositoryUrl("/api/v1/repos/" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName() + "/contents?ref=main")
                 .actorUserId(pullRequest.getAuthor().getId())
                 .actorName(pullRequest.getAuthor().getUsername())
                 .actorEmail(pullRequest.getAuthor().getEmail())
@@ -553,7 +644,7 @@ public class PullRequestApplicationService {
                 )
                 .occurredAt(LocalDateTime.now())
                 .metadata(Map.of(
-                        "actionUrl", "/api/v1/repos/"+repository.getOwner().getUsername()+"/"+repository.getRepositoryName()+"/pulls/"+pullRequest.getId(),
+                        "actionUrl", "/api/v1/repos/" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName() + "/pulls/" + pullRequest.getId(),
                         "displayType", "PULL_REQUEST_MERGED",
                         "message", pullRequest.getAuthor().getUsername()
                                 + " merged pull request: "
