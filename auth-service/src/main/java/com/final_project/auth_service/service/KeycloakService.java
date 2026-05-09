@@ -1,6 +1,7 @@
 package com.final_project.auth_service.service;
 
 import com.final_project.auth_service.config.KeycloakConfig;
+import com.final_project.auth_service.dto.UserSearchField;
 import com.final_project.auth_service.exception.KeycloakException;
 import jakarta.ws.rs.core.Response;
 import lombok.RequiredArgsConstructor;
@@ -16,9 +17,11 @@ import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -92,12 +95,33 @@ public class KeycloakService {
     }
 
     public List<UserRepresentation> searchUsers(String searchTerm) {
+        return searchUsers(searchTerm, UserSearchField.AUTO);
+    }
+
+    public List<UserRepresentation> searchUsers(String searchTerm, UserSearchField field) {
         if (searchTerm == null || searchTerm.isBlank()) {
             return getUsers();
         }
-        return realm().users().search(searchTerm.trim());
+        String term = searchTerm.trim();
+        UserSearchField effectiveField = field == null ? UserSearchField.AUTO : field;
+
+        return getUsers().stream()
+                .filter(user -> matchesSearch(user, term, effectiveField))
+                .sorted(Comparator
+                        .comparingInt((UserRepresentation user) -> searchScore(user, term, effectiveField))
+                        .thenComparing(user -> safeLower(user.getUsername()))
+                        .thenComparing(user -> safeLower(user.getEmail())))
+                .toList();
     }
 
+    public List<UserRepresentation> searchUsers(String query, int page, int size) {
+
+        int firstResult = page * size;
+
+        return realm()
+        .users()
+        .search(query, firstResult, size);
+    }
     public void updateUser(String userId, UserRepresentation userRepresentation) {
         try {
             realm().users().get(userId).update(userRepresentation);
@@ -259,6 +283,100 @@ public class KeycloakService {
             throw new KeycloakException("Keycloak client not found: " + clientId);
         }
         return clients.get(0).getId();
+    }
+
+    private boolean matchesSearch(UserRepresentation user, String term, UserSearchField field) {
+        return switch (field) {
+            case USERNAME -> containsIgnoreCase(user.getUsername(), term);
+            case EMAIL -> containsIgnoreCase(user.getEmail(), term);
+            case FIRST_NAME -> containsIgnoreCase(user.getFirstName(), term);
+            case LAST_NAME -> containsIgnoreCase(user.getLastName(), term);
+            case NAME -> streamNameFields(user).anyMatch(value -> containsIgnoreCase(value, term));
+            case ID -> containsIgnoreCase(user.getId(), term);
+            case AUTO -> matchesAuto(user, term);
+        };
+    }
+
+    private boolean matchesAuto(UserRepresentation user, String term) {
+        String normalized = safeLower(term);
+        if (normalized.contains("@")) {
+            return containsIgnoreCase(user.getEmail(), term);
+        }
+
+        if (looksLikeUuid(normalized)) {
+            return containsIgnoreCase(user.getId(), term);
+        }
+
+        return containsIgnoreCase(user.getUsername(), term)
+                || containsIgnoreCase(user.getEmail(), term)
+                || streamNameFields(user).anyMatch(value -> containsIgnoreCase(value, term));
+    }
+
+    private int searchScore(UserRepresentation user, String term, UserSearchField field) {
+        return switch (field) {
+            case USERNAME -> matchRank(user.getUsername(), term);
+            case EMAIL -> matchRank(user.getEmail(), term);
+            case FIRST_NAME -> matchRank(user.getFirstName(), term);
+            case LAST_NAME -> matchRank(user.getLastName(), term);
+            case NAME -> streamNameFields(user)
+                    .mapToInt(value -> matchRank(value, term))
+                    .min()
+                    .orElse(Integer.MAX_VALUE);
+            case ID -> matchRank(user.getId(), term);
+            case AUTO -> Stream.of(
+                            user.getUsername(),
+                            user.getEmail(),
+                            user.getFirstName(),
+                            user.getLastName(),
+                            fullName(user)
+                    )
+                    .filter(value -> value != null && !value.isBlank())
+                    .mapToInt(value -> matchRank(value, term))
+                    .min()
+                    .orElse(Integer.MAX_VALUE);
+        };
+    }
+
+    private Stream<String> streamNameFields(UserRepresentation user) {
+        return Stream.of(user.getFirstName(), user.getLastName(), fullName(user))
+                .filter(value -> value != null && !value.isBlank());
+    }
+
+    private String fullName(UserRepresentation user) {
+        String firstName = user.getFirstName() == null ? "" : user.getFirstName().trim();
+        String lastName = user.getLastName() == null ? "" : user.getLastName().trim();
+        String fullName = (firstName + " " + lastName).trim();
+        return fullName.isBlank() ? null : fullName;
+    }
+
+    private int matchRank(String value, String term) {
+        String candidate = safeLower(value);
+        String normalizedTerm = safeLower(term);
+        if (candidate.isBlank()) {
+            return Integer.MAX_VALUE;
+        }
+        if (candidate.equals(normalizedTerm)) {
+            return 0;
+        }
+        if (candidate.startsWith(normalizedTerm)) {
+            return 1;
+        }
+        if (candidate.contains(normalizedTerm)) {
+            return 2;
+        }
+        return Integer.MAX_VALUE;
+    }
+
+    private boolean containsIgnoreCase(String source, String searchTerm) {
+        return safeLower(source).contains(safeLower(searchTerm));
+    }
+
+    private boolean looksLikeUuid(String value) {
+        return value.matches("^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$");
+    }
+
+    private String safeLower(String value) {
+        return value == null ? "" : value.trim().toLowerCase();
     }
 
 }

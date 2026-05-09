@@ -25,6 +25,7 @@ public interface NotificationService {
     // ── Querying ─────────────────────────────────────────────────────────────
 
     NotificationResponse findById(UUID id);
+    NotificationResponse markRead(UUID id);
 
     PagedResponse<NotificationResponse> findByUser(String userId, Pageable pageable);
 

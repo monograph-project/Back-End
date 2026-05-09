@@ -134,6 +134,7 @@ public class ProjectMapper implements BaseMapper<ProjectRequest, ProjectResponse
         projectResponse.setTeacher(
                 new GroupTeacherResponse(
                         entity.getTeacher().getId(),
+                        entity.getTeacher().getKeycloakId(),
                         entity.getTeacher().getFirstName(),
                         entity.getTeacher().getLastName(),
                         entity.getTeacher().getFatherName(),

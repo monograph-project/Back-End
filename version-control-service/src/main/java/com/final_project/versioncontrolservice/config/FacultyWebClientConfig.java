@@ -1,6 +1,5 @@
 package com.final_project.versioncontrolservice.config;
 
-import org.simpleframework.xml.strategy.Strategy;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,30 +12,27 @@ import reactor.netty.http.client.HttpClient;
 import java.time.Duration;
 
 @Configuration
-public class UserServiceClientConfig {
-
+public class FacultyWebClientConfig {
     @Bean
     @LoadBalanced
-    public WebClient.Builder userWebClientBuilder () {
+    public WebClient.Builder facultWebClientBuilder () {
         return WebClient.builder();
     }
 
-
-
-    @Bean(name = "userWebClient")
-    public WebClient userWebClient (WebClient.Builder userWebClientBuilder) {
+    @Bean(name = "facultyWebClient")
+    public WebClient facultyWebClient(WebClient.Builder facultWebClientBuilder) {
         ServletBearerExchangeFilterFunction oauth = new ServletBearerExchangeFilterFunction();
-        return userWebClientBuilder
-                .baseUrl("http://auth-service")
+        return facultWebClientBuilder
+                .baseUrl("http://faculty-service")
                 .exchangeStrategies(ExchangeStrategies.builder().build())
                 .filter(oauth)
-                .codecs( configure ->
+                .codecs(configure ->
                         configure
                                 .defaultCodecs()
                                 .maxInMemorySize(10 * 1024 * 1024)
 
                 )
-                .clientConnector( new ReactorClientHttpConnector(
+                .clientConnector(new ReactorClientHttpConnector(
                         HttpClient.create().responseTimeout(Duration.ofSeconds(5))
                 ))
                 .build();

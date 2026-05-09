@@ -1,6 +1,8 @@
 package com.final_project.notification_service.service.strategy;
 
 import com.final_project.notification_service.config.AppProperties;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.final_project.notification_service.event.RepositoryOperationEvent;
 import com.final_project.notification_service.model.*;
 import com.final_project.notification_service.service.EmailService;
@@ -10,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Component
@@ -18,6 +21,7 @@ import java.util.Map;
 public class RepositoryOperationProcessor implements NotificationProcessor<RepositoryOperationEvent> {
 
     private final NotificationService notificationService;
+    private final ObjectMapper objectMapper;
     @Override
     public void process(RepositoryOperationEvent event) {
         switch (event.getEventType()) {
@@ -31,11 +35,18 @@ public class RepositoryOperationProcessor implements NotificationProcessor<Repos
 
             case REPOSITORY_INVITATION_SENT -> notifyInvitedUser(event);
 
-            case REPOSITORY_INVITATION_ACCEPTED -> notifyRepositoryMembers(
+            case REPOSITORY_INVITATION_ACCEPTED -> notifyRepositoryOwner(
                     event,
                     NotificationType.REPOSITORY_INVITATION_ACCEPTED,
                     safe(event.getInvitedUserName()) + " accepted repository invitation",
                     "Repository invitation accepted notification sent."
+            );
+
+            case REPOSITORY_INVITATION_DECLINED -> notifyRepositoryOwner(
+                    event,
+                    NotificationType.REPOSITORY_INVITATION_DECLINED,
+                    safe(event.getInvitedUserName()) + " declined repository invitation",
+                    "Repository invitation declined notification sent."
             );
 
             case BRANCH_CREATED -> notifyRepositoryMembers(
@@ -99,7 +110,7 @@ public class RepositoryOperationProcessor implements NotificationProcessor<Repos
                     notificationType,
                     subject,
                     body,
-                    event.getRepositoryId(),
+                    resolveReferenceId(event),
                     "REPOSITORY"
             );
         }
@@ -127,8 +138,41 @@ public class RepositoryOperationProcessor implements NotificationProcessor<Repos
                 recipient,
                 NotificationType.REPOSITORY_INVITATION_SENT,
                 subject,
-                "Repository invitation notification sent.",
-                event.getRepositoryId(),
+                safe(event.getActorName()) + " invited you to join " + safe(event.getRepositoryName()) + ".",
+                resolveReferenceId(event),
+                "REPOSITORY"
+        );
+    }
+
+    private void notifyRepositoryOwner(
+            RepositoryOperationEvent event,
+            NotificationType notificationType,
+            String subject,
+            String body
+    ) {
+        if (event.getOwnerUserId() == null || event.getOwnerUserId().isBlank()) {
+            log.warn("Missing owner recipient for repository eventId={}", event.getEventId());
+            return;
+        }
+        if (event.getOwnerUserId().equals(event.getActorUserId())) {
+            log.debug("Skipping owner notification for actor userId={}", event.getActorUserId());
+            return;
+        }
+
+        RepositoryMemberRecipient recipient = RepositoryMemberRecipient.builder()
+                .userId(event.getOwnerUserId())
+                .name(event.getOwnerName())
+                .email(event.getOwnerEmail())
+                .role("OWNER")
+                .build();
+
+        saveNotification(
+                event,
+                recipient,
+                notificationType,
+                subject,
+                body,
+                resolveReferenceId(event),
                 "REPOSITORY"
         );
     }
@@ -152,6 +196,7 @@ public class RepositoryOperationProcessor implements NotificationProcessor<Repos
                 .body(body)
                 .referenceId(referenceId)
                 .referenceType(referenceType)
+                .metadata(serializeMetadata(buildEventMetadataSnapshot(event, recipient)))
                 .idempotencyKey(event.getEventType() + ":" + event.getEventId() + ":" + recipient.getUserId())
                 .build();
 
@@ -165,6 +210,78 @@ public class RepositoryOperationProcessor implements NotificationProcessor<Repos
 
     private String safe(String value) {
         return value == null ? "" : value;
+    }
+
+    private String resolveReferenceId(RepositoryOperationEvent event) {
+        if (event.getPullRequestId() != null && !event.getPullRequestId().isBlank()) {
+            return event.getPullRequestId();
+        }
+        if (event.getRepositoryId() != null && !event.getRepositoryId().isBlank()) {
+            return event.getRepositoryId();
+        }
+        if (event.getMetadata() != null) {
+            Object invitationId = event.getMetadata().get("invitationId");
+            if (invitationId != null && !String.valueOf(invitationId).isBlank()) {
+                return String.valueOf(invitationId);
+            }
+        }
+        String repositoryName = safe(event.getRepositoryName());
+        if (!repositoryName.isBlank()) {
+            return repositoryName;
+        }
+        return event.getEventId();
+    }
+
+    private Map<String, Object> buildEventMetadataSnapshot(
+            RepositoryOperationEvent event,
+            RepositoryMemberRecipient recipient
+    ) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        snapshot.put("eventId", event.getEventId());
+        snapshot.put("eventType", event.getEventType() == null ? null : event.getEventType().name());
+        snapshot.put("repositoryId", event.getRepositoryId());
+        snapshot.put("repositoryName", event.getRepositoryName());
+        snapshot.put("repositoryUrl", event.getRepositoryUrl());
+        snapshot.put("actorUserId", event.getActorUserId());
+        snapshot.put("actorName", event.getActorName());
+        snapshot.put("actorEmail", event.getActorEmail());
+        snapshot.put("ownerUserId", event.getOwnerUserId());
+        snapshot.put("ownerName", event.getOwnerName());
+        snapshot.put("ownerEmail", event.getOwnerEmail());
+        snapshot.put("branchName", event.getBranchName());
+        snapshot.put("sourceBranch", event.getSourceBranch());
+        snapshot.put("targetBranch", event.getTargetBranch());
+        snapshot.put("commitId", event.getCommitId());
+        snapshot.put("commitMessage", event.getCommitMessage());
+        snapshot.put("commitCount", event.getCommitCount());
+        snapshot.put("pullRequestId", event.getPullRequestId());
+        snapshot.put("pullRequestTitle", event.getPullRequestTitle());
+        snapshot.put("pullRequestUrl", event.getPullRequestUrl());
+        snapshot.put("invitedUserId", event.getInvitedUserId());
+        snapshot.put("invitedUserName", event.getInvitedUserName());
+        snapshot.put("invitedUserEmail", event.getInvitedUserEmail());
+        snapshot.put("occurredAt", event.getOccurredAt());
+        snapshot.put("recipientUserId", recipient.getUserId());
+        snapshot.put("recipientName", recipient.getName());
+        snapshot.put("recipientEmail", recipient.getEmail());
+        snapshot.put("recipientRole", recipient.getRole());
+
+        if (event.getMetadata() != null && !event.getMetadata().isEmpty()) {
+            snapshot.putAll(event.getMetadata());
+        }
+        return snapshot;
+    }
+
+    private String serializeMetadata(Map<String, Object> metadata) {
+        if (metadata == null || metadata.isEmpty()) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(metadata);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize notification metadata: {}", e.getMessage());
+            return null;
+        }
     }
 
     @Override

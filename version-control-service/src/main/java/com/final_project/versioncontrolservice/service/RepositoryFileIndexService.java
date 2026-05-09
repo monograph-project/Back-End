@@ -2,6 +2,8 @@ package com.final_project.versioncontrolservice.service;
 
 import com.final_project.versioncontrolservice.model.RepositoryDocument;
 import com.final_project.versioncontrolservice.model.RepositoryFileIndex;
+import com.final_project.versioncontrolservice.model.DerivedDocumentIndex;
+import com.final_project.versioncontrolservice.repo.DerivedDocumentIndexRepository;
 import com.final_project.versioncontrolservice.repo.RepositoryFileIndexRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,10 +17,17 @@ import java.time.Instant;
 public class RepositoryFileIndexService {
 
     private final RepositoryFileIndexRepository fileIndexRepository;
+    private final DerivedDocumentIndexRepository derivedDocumentIndexRepository;
     private final MinioStorageService minioStorageService;
+    private final DocumentExtractionService documentExtractionService;
 
     public void rebuildIndex(RepositoryDocument repo, String branch, String commitHash) throws IOException {
         fileIndexRepository.deleteByOwnerUsernameIgnoreCaseAndRepositoryNameIgnoreCaseAndBranch(
+                repo.getOwner().getUsername(),
+                repo.getRepositoryName(),
+                branch
+        );
+        derivedDocumentIndexRepository.deleteByOwnerUsernameIgnoreCaseAndRepositoryNameIgnoreCaseAndBranch(
                 repo.getOwner().getUsername(),
                 repo.getRepositoryName(),
                 branch
@@ -84,6 +93,33 @@ public class RepositoryFileIndexService {
                 VicObjectFormat.ParsedObject blobObj =
                         VicObjectFormat.parseCompressed(blobData);
 
+                byte[] contentBytes = blobObj.content();
+                boolean binary = documentExtractionService.isBinary(path, contentBytes);
+                String fileKind = binary ? documentExtractionService.detectFileType(path) : "text";
+                String derivedDocumentId = null;
+
+                if (documentExtractionService.supports(path)) {
+                    DocumentExtractionService.ExtractionResult extraction =
+                            documentExtractionService.extract(path, contentBytes);
+
+                    DerivedDocumentIndex derivedDocumentIndex = DerivedDocumentIndex.builder()
+                            .ownerUsername(repo.getOwner().getUsername())
+                            .repositoryName(repo.getRepositoryName())
+                            .branch(branch)
+                            .path(path)
+                            .fileName(name)
+                            .blobHash(hash)
+                            .commitHash(commitHash)
+                            .fileType(extraction.getFileType())
+                            .indexedAt(Instant.now())
+                            .segments(extraction.getSegments())
+                            .build();
+
+                    derivedDocumentId = derivedDocumentIndexRepository.save(derivedDocumentIndex).getId();
+                    fileKind = extraction.getFileType();
+                    binary = true;
+                }
+
                 RepositoryFileIndex index = RepositoryFileIndex.builder()
                         .repositoryId(repo.getId())
                         .ownerUsername(repo.getOwner().getUsername())
@@ -93,8 +129,11 @@ public class RepositoryFileIndexService {
                         .fileName(name)
                         .blobHash(hash)
                         .commitHash(commitHash)
-                        .size((long) blobObj.content().length)
+                        .size((long) contentBytes.length)
                         .language(detectLanguage(name))
+                        .fileKind(fileKind)
+                        .binary(binary)
+                        .derivedDocumentId(derivedDocumentId)
                         .deleted(false)
                         .indexedAt(Instant.now())
                         .build();
@@ -111,6 +150,8 @@ public class RepositoryFileIndexService {
         if (fileName.endsWith(".ts")) return "typescript";
         if (fileName.endsWith(".json")) return "json";
         if (fileName.endsWith(".md")) return "markdown";
+        if (fileName.endsWith(".pdf")) return "pdf";
+        if (fileName.endsWith(".docx")) return "docx";
         return "text";
     }
 }

@@ -15,6 +15,9 @@ public class MergeConflictResponse {
     public static class ConflictFileDTO {
         private String path;
         private boolean binary;
+        private String baseHash;
+        private String sourceHash;
+        private String targetHash;
         private List<SegmentDTO> segments;
     }
 

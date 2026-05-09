@@ -118,15 +118,16 @@ public class TaskController {
      * List tasks (with filters)
      * GET /repos/{owner}/{repo}/tasks
      */
-//    @GetMapping(path = "/repos/{owner}/{repo}/tasks",
-//            produces = MediaType.APPLICATION_JSON_VALUE)
-//    public ResponseEntity<List<MilestoneService.TaskResponse>> listTasks(
-//            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
-//            @PathVariable String owner,
-//            @PathVariable String repo,
-//            @RequestParam(required = false) String assignee,
-//            @RequestParam(required = false) String status,
-//            @RequestParam(required = false) Integer milestone) {
-//        return ResponseEntity.ok(taskService.);
-//    }
+    @GetMapping(path = "/repos/{owner}/{repo}/tasks",
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<List<MilestoneService.TaskResponse>> listTasks(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization,
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @RequestParam(required = false) String assignee,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Integer milestone,
+            @RequestParam(required = false) String search) {
+        return ResponseEntity.ok(taskService.listTasks(owner, repo, assignee, status, milestone, search));
+    }
 }

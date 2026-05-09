@@ -7,6 +7,7 @@ import com.final_project.versioncontrolservice.service.AuthService;
 import com.final_project.versioncontrolservice.service.InvitationApplicationService;
 import com.final_project.versioncontrolservice.service.RepoAccessRules;
 import com.final_project.versioncontrolservice.service.RepositoryService;
+import com.final_project.versioncontrolservice.service.RepositoryStatisticsService;
 import com.final_project.versioncontrolservice.exception.ForbiddenException;
 import com.final_project.versioncontrolservice.exception.BadRequestException;
 import lombok.AllArgsConstructor;
@@ -31,6 +32,7 @@ public class RepositoryController {
     private final RepositoryService repositoryService;
     private final RepositoryService vicRepositoryService;
     private final InvitationApplicationService invitationApplicationService;
+    private final RepositoryStatisticsService repositoryStatisticsService;
 
 
     @PostMapping( consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -52,6 +54,21 @@ public class RepositoryController {
             @PathVariable String ownerId
     ) {
         return ResponseEntity.ok(repositoryService.getOwnerRepos(ownerId));
+    }
+
+    @GetMapping("/accessible/{userId}")
+    public ResponseEntity<List<RepositoryResponse>> getAccessibleRepos(
+            @PathVariable String userId
+    ) {
+        return ResponseEntity.ok(repositoryService.getAccessibleRepos(userId));
+    }
+
+    @GetMapping("/{owner}/{repo}/statistics")
+    public ResponseEntity<RepositoryStatisticsResponse> getRepositoryStatistics(
+            @PathVariable String owner,
+            @PathVariable String repo
+    ) {
+        return ResponseEntity.ok(repositoryStatisticsService.getRepositoryStatistics(owner, repo));
     }
 
     @GetMapping(path = "/{owner}/{repo}/info/refs", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -125,16 +142,28 @@ public class RepositoryController {
     public ResponseEntity<InvitationResponse> create(
             @PathVariable String owner,
             @PathVariable String repo,
-            @PathVariable String guest
+            @PathVariable String guest,
+            @AuthenticationPrincipal Jwt jwt
     ) {
+        String  ownerId = jwt.getSubject();
       return ResponseEntity.ok(
+
               invitationApplicationService.create(InvitationRequest
                       .builder()
                       .repository(repo)
+                      .hostId(ownerId)
                       .guest(guest)
                       .host(owner)
                       .build())
       ) ;
+    }
+
+    @GetMapping(path = "/{owner}/{repo}/invitations", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<List<InvitationResponse>> listForRepository(
+            @PathVariable String owner,
+            @PathVariable String repo
+    ) {
+        return ResponseEntity.ok(invitationApplicationService.listForRepository(owner, repo));
     }
 
     @GetMapping(path = "/invitations/{user}", produces = MediaType.APPLICATION_JSON_VALUE)

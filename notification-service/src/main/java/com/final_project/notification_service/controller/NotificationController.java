@@ -89,6 +89,22 @@ public class NotificationController {
         return ResponseEntity.ok(ApiResponse.success(notificationService.findById(id)));
     }
 
+    @PostMapping("/{id}/mark-read")
+    @Operation(summary = "Mark a notification as read")
+    public ResponseEntity<ApiResponse<NotificationResponse>> markRead(
+            @PathVariable UUID id
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(notificationService.markRead(id)));
+    }
+
+    @PatchMapping("/{id}/mark-read")
+    @Operation(summary = "Mark a notification as read")
+    public ResponseEntity<ApiResponse<NotificationResponse>> markReadPatch(
+            @PathVariable UUID id
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(notificationService.markRead(id)));
+    }
+
     // ── Query by user ─────────────────────────────────────────────────────────
 
     @GetMapping("/user/{userId}")

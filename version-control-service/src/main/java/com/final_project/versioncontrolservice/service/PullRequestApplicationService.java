@@ -1,5 +1,6 @@
 package com.final_project.versioncontrolservice.service;
 
+import com.final_project.versioncontrolservice.config.AppProperties;
 import com.final_project.versioncontrolservice.dto.*;
 import com.final_project.versioncontrolservice.event.RepositoryOperationEvent;
 import com.final_project.versioncontrolservice.exception.BadRequestException;
@@ -15,9 +16,7 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -33,6 +32,8 @@ public class PullRequestApplicationService {
     private final RepositoryService repositoryService;
     private final AuthService authService;
     private final KafkaProducer kafkaProducer;
+    private final FacultyProjectService facultyProjectService;
+    private final AppProperties appProperties;
     public PullRequestResponse create(
             String owner,
             String repo,
@@ -352,6 +353,9 @@ public class PullRequestApplicationService {
                                 .map(file -> MergeConflictResponse.ConflictFileDTO.builder()
                                         .path(file.getPath())
                                         .binary(file.isBinary())
+                                        .baseHash(file.getBaseHash())
+                                        .sourceHash(file.getSourceHash())
+                                        .targetHash(file.getTargetHash())
                                         .segments(
                                                 file.getSegments().stream()
                                                         .map(segment -> MergeConflictResponse.SegmentDTO.builder()
@@ -410,10 +414,22 @@ public class PullRequestApplicationService {
                                 Function.identity()
                         ));
 
-        Map<String, String> resolvedContentByPath = new java.util.HashMap<>();
+        PullRequestMergeService.MergeAnalysis analysis = pullRequestMergeService.analyze(
+                document.getOwner().getUsername(),
+                document.getRepositoryName(),
+                conflict.getBaseHash(),
+                conflict.getTargetHash(),
+                conflict.getSourceHash()
+        );
+
+        Map<String, PullRequestMergeService.TreeEntry> resolvedEntriesByPath = new HashMap<>();
 
         for (PullRequestConflict.ConflictFile file : conflict.getFiles()) {
             ResolveConflictRequest.FileResolution fileResolution = fileResolutions.get(file.getPath());
+
+            if (fileResolution == null) {
+                throw new BadRequestException("Missing resolution for file: " + file.getPath());
+            }
 
             if (fileResolution.getBlocks() == null || fileResolution.getBlocks().isEmpty()) {
                 throw new BadRequestException("Missing block resolutions for file: " + file.getPath());
@@ -428,18 +444,24 @@ public class PullRequestApplicationService {
                                     Function.identity()
                             ));
 
-            String resolvedContent = buildResolvedFileContent(file, blockResolutions);
+            PullRequestMergeService.TreeEntry resolvedEntry = file.isBinary()
+                    ? buildResolvedBinaryEntry(file, blockResolutions)
+                    : buildResolvedTextEntry(
+                            document.getOwner().getUsername(),
+                            document.getRepositoryName(),
+                            file,
+                            blockResolutions
+                    );
 
-            file.setResolved(true);
-            resolvedContentByPath.put(file.getPath(), resolvedContent);
+            resolvedEntriesByPath.put(file.getPath(), resolvedEntry);
             file.setResolved(true);
         }
 
-        String mergedTreeHash = pullRequestMergeService.writeMergedTreeFromResolvedFiles(
+        String mergedTreeHash = pullRequestMergeService.writeMergedTreeFromResolvedEntries(
                 document.getOwner().getUsername(),
                 document.getRepositoryName(),
-                new java.util.TreeMap<>(),
-                resolvedContentByPath
+                analysis.getMergedEntries(),
+                resolvedEntriesByPath
         );
 
         String mergeCommitHash = pullRequestMergeService.createMergeCommit(
@@ -466,7 +488,8 @@ public class PullRequestApplicationService {
         pullRequest.setStatus(PullRequestStatus.MERGED);
         pullRequest.setMergedAt(Instant.now());
         pullRequest.setTargetHash(mergeCommitHash);
-        pullRequestRepository.save(pullRequest);
+        PullRequest saved = pullRequestRepository.save(pullRequest);
+        publishPullRequestMergedEvent(saved, document);
 
 
         return MergeResponse.builder()
@@ -513,6 +536,60 @@ public class PullRequestApplicationService {
         return out.toString();
     }
 
+    private PullRequestMergeService.TreeEntry buildResolvedTextEntry(
+            String owner,
+            String repo,
+            PullRequestConflict.ConflictFile file,
+            Map<String, ResolveConflictRequest.BlockResolution> blockResolutions
+    ) {
+        String resolvedContent = buildResolvedFileContent(file, blockResolutions);
+        return pullRequestMergeService.createBlobEntry(
+                owner,
+                repo,
+                file.getPath(),
+                resolvedContent.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+        );
+    }
+
+    private PullRequestMergeService.TreeEntry buildResolvedBinaryEntry(
+            PullRequestConflict.ConflictFile file,
+            Map<String, ResolveConflictRequest.BlockResolution> blockResolutions
+    ) {
+        PullRequestConflict.FileSegment segment = file.getSegments()
+                .stream()
+                .filter(item -> item.getType() == PullRequestConflict.SegmentType.CONFLICT)
+                .findFirst()
+                .orElseThrow(() -> new BadRequestException("Binary conflict block is missing"));
+
+        ResolveConflictRequest.BlockResolution blockResolution = blockResolutions.get(segment.getId());
+        if (blockResolution == null) {
+            throw new BadRequestException("Missing resolution for binary conflict block: " + segment.getId());
+        }
+
+        String selectedHash = switch (blockResolution.getResolution()) {
+            case SOURCE -> file.getSourceHash();
+            case TARGET -> file.getTargetHash();
+            case BOTH, CUSTOM ->
+                    throw new BadRequestException("Binary conflicts only support SOURCE or TARGET resolution");
+        };
+
+        if (selectedHash == null || selectedHash.isBlank()) {
+            throw new BadRequestException("Selected binary revision is missing for file: " + file.getPath());
+        }
+
+        segment.setResolution(blockResolution.getResolution());
+        segment.setResolved(true);
+        segment.setResolvedChunk(selectedHash);
+
+        return PullRequestMergeService.TreeEntry.builder()
+                .path(file.getPath())
+                .name(leafName(file.getPath()))
+                .mode("100644")
+                .type("blob")
+                .hash(selectedHash)
+                .build();
+    }
+
     private String resolveBlockContent(
             PullRequestConflict.FileSegment segment,
             ResolveConflictRequest.BlockResolution blockResolution
@@ -536,7 +613,13 @@ public class PullRequestApplicationService {
                 }
                 yield blockResolution.getCustomContent();
             }
-        };
+            };
+    }
+
+    private String leafName(String path) {
+        String normalized = path == null ? "" : path.trim().replace("\\", "/");
+        int idx = normalized.lastIndexOf('/');
+        return idx < 0 ? normalized : normalized.substring(idx + 1);
     }
 
     private void markMerged(String  id) {
@@ -564,7 +647,7 @@ public class PullRequestApplicationService {
 
                 .repositoryId(repository.getId())
                 .repositoryName(repository.getRepositoryName())
-                .repositoryUrl("/api/v1/repos/" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName() + "/pulls/" + pullRequest.getId())
+                .repositoryUrl(buildGatewayUrl("/api/v1/repos/" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName() + "/pulls/" + pullRequest.getId()))
 
                 .actorUserId(pullRequest.getAuthor().getId())
                 .actorName(pullRequest.getAuthor().getUsername())
@@ -578,23 +661,17 @@ public class PullRequestApplicationService {
                 .targetBranch(pullRequest.getTargetBranch())
                 .pullRequestId(pullRequest.getId())
                 .pullRequestTitle(pullRequest.getTitle())
-                .pullRequestUrl("/api/v1/repos/" + repository.getOwner().getUsername()
+                .pullRequestUrl(buildGatewayUrl("/api/v1/repos/" + repository.getOwner().getUsername()
                         + "/" + repository.getRepositoryName()
-                        + "/pulls/" + pullRequest.getId())
-                .recipients(
-                        repository
-                                .getCollaborators()
-                                .stream()
-                                .map((repo -> RepositoryMemberRecipient.builder()
-                                            .userId(repo.getId())
-                                            .name(repo.getUsername())
-                                            .email(repo.getEmail())
-                                            .role(repo.getRole()).build()
-                                )).toList()
-                )
+                        + "/pulls/" + pullRequest.getId()))
+                .recipients(buildNotificationRecipients(repository))
                 .occurredAt(LocalDateTime.now())
                 .metadata(Map.of(
-                        "actionUrl", "/api/v1/repos" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName()+"/"+pullRequest.getId(),
+                        "actionUrl", buildGatewayUrl("/api/v1/repos/" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName() + "/pulls/" + pullRequest.getId()),
+                        "uiPath", "/student/repository/" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName() + "/pull-requests",
+                        "senderUserId", pullRequest.getAuthor().getId(),
+                        "senderName", pullRequest.getAuthor().getUsername(),
+                        "senderEmail", pullRequest.getAuthor().getEmail(),
                         "displayType", "PULL_REQUEST_OPENED",
                         "description", pullRequest.getDescription() == null ? "" : pullRequest.getDescription(),
                         "message", pullRequest.getAuthor().getUsername()
@@ -616,7 +693,7 @@ public class PullRequestApplicationService {
 
                 .repositoryId(repository.getId())
                 .repositoryName(repository.getRepositoryName())
-                .repositoryUrl("/api/v1/repos/" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName() + "/contents?ref=main")
+                .repositoryUrl(buildGatewayUrl("/api/v1/repos/" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName() + "/contents?ref=main"))
                 .actorUserId(pullRequest.getAuthor().getId())
                 .actorName(pullRequest.getAuthor().getUsername())
                 .actorEmail(pullRequest.getAuthor().getEmail())
@@ -630,21 +707,15 @@ public class PullRequestApplicationService {
 
                 .pullRequestId(pullRequest.getId())
                 .pullRequestTitle(pullRequest.getTitle())
-                .pullRequestUrl("/api/v1/repos/"+repository.getOwner().getUsername()+"/"+repository.getRepositoryName()+"/pulls/"+pullRequest.getId())
-                .recipients(
-                        repository
-                                .getCollaborators()
-                                .stream()
-                                .map((repo -> RepositoryMemberRecipient.builder()
-                                            .userId(repo.getId())
-                                            .name(repo.getUsername())
-                                            .email(repo.getEmail())
-                                            .role(repo.getRole()).build()
-                                )).toList()
-                )
+                .pullRequestUrl(buildGatewayUrl("/api/v1/repos/"+repository.getOwner().getUsername()+"/"+repository.getRepositoryName()+"/pulls/"+pullRequest.getId()))
+                .recipients(buildNotificationRecipients(repository))
                 .occurredAt(LocalDateTime.now())
                 .metadata(Map.of(
-                        "actionUrl", "/api/v1/repos/" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName() + "/pulls/" + pullRequest.getId(),
+                        "actionUrl", buildGatewayUrl("/api/v1/repos/" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName() + "/pulls/" + pullRequest.getId()),
+                        "uiPath", "/student/repository/" + repository.getOwner().getUsername() + "/" + repository.getRepositoryName() + "/pull-requests",
+                        "senderUserId", pullRequest.getAuthor().getId(),
+                        "senderName", pullRequest.getAuthor().getUsername(),
+                        "senderEmail", pullRequest.getAuthor().getEmail(),
                         "displayType", "PULL_REQUEST_MERGED",
                         "message", pullRequest.getAuthor().getUsername()
                                 + " merged pull request: "
@@ -653,5 +724,75 @@ public class PullRequestApplicationService {
                 .build();
 
         kafkaProducer.produce(event);
+    }
+
+    private List<RepositoryMemberRecipient> buildNotificationRecipients(RepositoryDocument repository) {
+        Map<String, RepositoryMemberRecipient> recipientsByUserId = new LinkedHashMap<>();
+
+        if (repository.getOwner() != null && repository.getOwner().getId() != null) {
+            recipientsByUserId.put(
+                    repository.getOwner().getId(),
+                    RepositoryMemberRecipient.builder()
+                            .userId(repository.getOwner().getId())
+                            .name(repository.getOwner().getUsername())
+                            .email(repository.getOwner().getEmail())
+                            .role("OWNER")
+                            .build()
+            );
+        }
+
+        if (repository.getCollaborators() != null) {
+            for (ContributorUser collaborator : repository.getCollaborators()) {
+                if (collaborator.getId() == null || collaborator.getId().isBlank()) {
+                    continue;
+                }
+                recipientsByUserId.put(
+                        collaborator.getId(),
+                        RepositoryMemberRecipient.builder()
+                                .userId(collaborator.getId())
+                                .name(collaborator.getUsername())
+                                .email(collaborator.getEmail())
+                                .role(collaborator.getRole())
+                                .build()
+                );
+            }
+        }
+
+        FacultyProjectDTO project = facultyProjectService.findByRepositoryId(repository.getId());
+        if (project != null && project.getTeacher() != null) {
+            FacultyTeacherDTO teacher = project.getTeacher();
+            String recipientUserId = teacher.getKeycloakId();
+            if (recipientUserId != null && !recipientUserId.isBlank()) {
+                String teacherName = String.join(
+                        " ",
+                        teacher.getFirstName() == null ? "" : teacher.getFirstName(),
+                        teacher.getLastName() == null ? "" : teacher.getLastName()
+                ).trim();
+                recipientsByUserId.put(
+                        recipientUserId,
+                        RepositoryMemberRecipient.builder()
+                                .userId(recipientUserId)
+                                .name(teacherName.isBlank() ? teacher.getEmail() : teacherName)
+                                .email(teacher.getEmail())
+                                .role("TEACHER")
+                                .build()
+                );
+            }
+        }
+
+        return new ArrayList<>(recipientsByUserId.values());
+    }
+
+    private String buildGatewayUrl(String path) {
+        String base = appProperties.getGatewayBaseUrl() == null
+                ? "http://localhost:8080"
+                : appProperties.getGatewayBaseUrl().trim();
+        if (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        if (path == null || path.isBlank()) {
+            return base;
+        }
+        return path.startsWith("/") ? base + path : base + "/" + path;
     }
 }

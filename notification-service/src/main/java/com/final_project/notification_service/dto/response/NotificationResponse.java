@@ -31,6 +31,7 @@ public class NotificationResponse {
 
     private String referenceId;
     private String referenceType;
+    private String metadata;
 
     private Integer retryCount;
     private Integer maxRetries;

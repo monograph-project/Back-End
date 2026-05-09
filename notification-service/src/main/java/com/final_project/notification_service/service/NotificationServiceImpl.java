@@ -109,6 +109,15 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    @Transactional
+    public NotificationResponse markRead(UUID id) {
+        Notification notification = repository.findById(id)
+                .orElseThrow(() -> new NotificationNotFoundException(id));
+        notification.markRead();
+        return mapper.toResponse(repository.save(notification));
+    }
+
+    @Override
     public PagedResponse<NotificationResponse> findByUser(String userId, Pageable pageable) {
         Page<Notification> page = repository.findByRecipientUserIdOrderByCreatedAtDesc(userId, pageable);
         return PagedResponse.of(page.map(mapper::toResponse));
@@ -248,17 +257,17 @@ public class NotificationServiceImpl implements NotificationService {
 
             if (saved.getChannel() == NotificationChannel.EMAIL) {
                 dispatchEmail(saved, saved.getRecipientEmail());
+                saved.markSent();
             } else if (
                     saved.getChannel() == NotificationChannel.IN_APP ||
                             saved.getChannel() == NotificationChannel.PUSH
             ) {
                 webSocketNotificationService.sendToUser(saved.getRecipientUserId(), mapper.toResponse(saved));
+                saved.setSentAt(LocalDateTime.now());
             } else {
                 saved.markFailed("Unsupported channel: " + saved.getChannel());
                 return repository.save(saved);
             }
-
-            saved.markSent();
 
         } catch (Exception ex) {
             saved.markFailed(ex.getMessage());

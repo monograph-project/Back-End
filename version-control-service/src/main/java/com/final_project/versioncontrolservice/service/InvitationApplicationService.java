@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.final_project.versioncontrolservice.dto.*;
+import com.final_project.versioncontrolservice.config.AppProperties;
 import com.final_project.versioncontrolservice.event.RepositoryOperationEvent;
 import com.final_project.versioncontrolservice.kafka.KafkaProducer;
 import lombok.extern.slf4j.Slf4j;
@@ -26,13 +27,14 @@ public class InvitationApplicationService {
     private final AuthService authService;
     private final RepositoryService repositoryService;
     private final KafkaProducer kafkaProducer;
+    private final AppProperties appProperties;
     public InvitationResponse create(InvitationRequest request) {
 
         ContributorUser guest = authService.getContributorUser(request.getGuest());
         if (guest == null){
             throw new NotFoundException("The Guest User Not Found");
         }
-        ContributorUser host = authService.getContributorUser(request.getHost());
+        ContributorUser host = authService.getContributorUser(request.getHostId());
         if (host == null){
             throw new NotFoundException("The Host user Not Found");
         }
@@ -84,26 +86,44 @@ public class InvitationApplicationService {
                 .expiresAt(LocalDateTime.now().plusDays(1))
                 .build();
        Invitation saved =  invitationRepository.save(invitation);
+        Map<String, Object> invitationSentMetadata = new java.util.LinkedHashMap<>();
+        invitationSentMetadata.put("actionType", "REPOSITORY_INVITATION");
+        invitationSentMetadata.put("invitationId", saved.getId());
+        invitationSentMetadata.put("acceptEndpoint", buildGatewayUrl("/api/v1/repos/invitations/" + saved.getId() + "/accept/" + guest.getId()));
+        invitationSentMetadata.put("rejectEndpoint", buildGatewayUrl("/api/v1/repos/invitations/" + saved.getId() + "/reject/" + guest.getId()));
+        invitationSentMetadata.put("viewEndpoint", buildGatewayUrl("/api/v1/repos/" + repo.getOwner() + "/" + repo.getRepositoryName()));
+        invitationSentMetadata.put("uiPath", "/student/repository/" + repo.getOwner() + "/" + repo.getRepositoryName() + "/contributors");
+        invitationSentMetadata.put("repositoryOwner", repo.getOwner());
+        invitationSentMetadata.put("repositoryName", repo.getRepositoryName());
+        invitationSentMetadata.put("senderUserId", host.getId());
+        invitationSentMetadata.put("senderName", host.getUsername());
+        invitationSentMetadata.put("senderEmail", host.getEmail());
+        invitationSentMetadata.put("receiverUserId", guest.getId());
+        invitationSentMetadata.put("receiverName", guest.getUsername());
+        invitationSentMetadata.put("receiverEmail", guest.getEmail());
+        invitationSentMetadata.put("operationBy", host.getUsername());
+        invitationSentMetadata.put("message", host.getUsername() + " invited you to join " + invitation.getRepository().getRepositoryName());
+
        kafkaProducer.produce(RepositoryOperationEvent
                .builder()
                        .eventId(UUID.randomUUID().toString())
                        .eventType(RepositoryEventType.REPOSITORY_INVITATION_SENT)
+                       .repositoryId(repo.getId())
+                       .repositoryName(repo.getRepositoryName())
+                       .repositoryUrl(buildGatewayUrl("/api/v1/repos/" + repo.getOwner() + "/" + repo.getRepositoryName()))
                        .actorEmail(host.getEmail())
                        .actorName(host.getUsername())
                        .actorUserId(host.getId())
 
                        .invitedUserEmail(guest.getEmail())
                        .invitedUserId(guest.getId())
-                       .metadata(Map.of(
-                               "operationBy", host.getUsername(),
-                               "message", host.getUsername() + " invited to join " + invitation.getRepository().getRepositoryName()
-                       ))
-                       .invitedUserName(host.getUsername())
-                       .ownerUserId(repo.getOwner())
-                       .repositoryId(repo.getId())
+                       .invitedUserName(guest.getUsername())
+                       .ownerUserId(host.getId())
+                       .ownerName(host.getUsername())
+                       .ownerEmail(host.getEmail())
+                       .metadata(invitationSentMetadata)
                        .occurredAt(LocalDateTime.now())
-                       .repositoryName(repo.getRepositoryName())
-               .build());
+                .build());
         return InvitationResponse.from(saved);
     }
 
@@ -118,6 +138,15 @@ public class InvitationApplicationService {
         return pendingInvitation
                 .stream()
                 .map(InvitationResponse::from).toList();
+    }
+
+    public List<InvitationResponse> listForRepository(String owner, String repo) {
+        return invitationRepository
+                .findByRepository_UserNameIgnoreCaseAndRepository_RepositoryNameIgnoreCase(owner, repo)
+                .stream()
+                .sorted((left, right) -> right.getCreatedAt().compareTo(left.getCreatedAt()))
+                .map(InvitationResponse::from)
+                .toList();
     }
 
     public InvitationResponse findById(String id) {
@@ -162,22 +191,37 @@ public class InvitationApplicationService {
         );
         invitation.setStatus(InvitationStatus.ACCEPTED);
         invitationRepository.save(invitation);
+        Map<String, Object> invitationAcceptedMetadata = new java.util.LinkedHashMap<>();
+        invitationAcceptedMetadata.put("actionType", "REPOSITORY_INVITATION_ACCEPTED");
+        invitationAcceptedMetadata.put("viewEndpoint", buildGatewayUrl("/api/v1/repos/" + invitation.getRepository().getUserName() + "/" + invitation.getRepository().getRepositoryName()));
+        invitationAcceptedMetadata.put("uiPath", "/student/repository/" + invitation.getRepository().getUserName() + "/" + invitation.getRepository().getRepositoryName() + "/contributors");
+        invitationAcceptedMetadata.put("senderUserId", invitation.getGuestUser().getId());
+        invitationAcceptedMetadata.put("senderName", invitation.getGuestUser().getUsername());
+        invitationAcceptedMetadata.put("senderEmail", invitation.getGuestUser().getEmail());
+        invitationAcceptedMetadata.put("receiverUserId", invitation.getHostUser().getId());
+        invitationAcceptedMetadata.put("receiverName", invitation.getHostUser().getUsername());
+        invitationAcceptedMetadata.put("receiverEmail", invitation.getHostUser().getEmail());
+        invitationAcceptedMetadata.put("operationBy", invitation.getHostUser().getUsername());
+        invitationAcceptedMetadata.put("message", invitation.getGuestUser().getUsername() + " accepted the invitation to join " + invitation.getRepository().getRepositoryName());
+
         kafkaProducer.produce(RepositoryOperationEvent
                 .builder()
                         .eventId(UUID.randomUUID().toString())
                         .eventType(RepositoryEventType.REPOSITORY_INVITATION_ACCEPTED)
+                        .repositoryName(invitation.getRepository().getRepositoryName())
+                        .repositoryUrl(buildGatewayUrl("/api/v1/repos/" + invitation.getRepository().getUserName() + "/" + invitation.getRepository().getRepositoryName()))
                         .actorEmail(invitation.getGuestUser().getEmail())
                         .actorName(invitation.getGuestUser().getUsername())
                         .actorUserId(invitation.getGuestUser().getId())
+                        .invitedUserId(invitation.getGuestUser().getId())
+                        .invitedUserName(invitation.getGuestUser().getUsername())
+                        .invitedUserEmail(invitation.getGuestUser().getEmail())
 
-                        .metadata(Map.of(
-                                "operationBy", invitation.getHostUser().getUsername(),
-                                "message", invitation.getGuestUser().getUsername() + " accepted the invitation to join " + invitation.getRepository().getRepositoryName()
-                        ))
+                        .metadata(invitationAcceptedMetadata)
                         .ownerUserId(invitation.getHostUser().getId())
+                        .ownerName(invitation.getHostUser().getUsername())
                         .ownerEmail(invitation.getHostUser().getEmail())
-                        .ownerUserId(invitation.getHostUser().getUsername())
-
+                        .occurredAt(LocalDateTime.now())
                 .build());
         return InvitationResponse.from(invitation);
     }
@@ -194,25 +238,53 @@ public class InvitationApplicationService {
             throw new BadRequestException("Invitation is not pending");
         }
 
+        Map<String, Object> invitationDeclinedMetadata = new java.util.LinkedHashMap<>();
+        invitationDeclinedMetadata.put("actionType", "REPOSITORY_INVITATION_DECLINED");
+        invitationDeclinedMetadata.put("viewEndpoint", buildGatewayUrl("/api/v1/repos/" + invitation.getRepository().getUserName() + "/" + invitation.getRepository().getRepositoryName()));
+        invitationDeclinedMetadata.put("uiPath", "/student/repository/" + invitation.getRepository().getUserName() + "/" + invitation.getRepository().getRepositoryName() + "/contributors");
+        invitationDeclinedMetadata.put("senderUserId", invitation.getGuestUser().getId());
+        invitationDeclinedMetadata.put("senderName", invitation.getGuestUser().getUsername());
+        invitationDeclinedMetadata.put("senderEmail", invitation.getGuestUser().getEmail());
+        invitationDeclinedMetadata.put("receiverUserId", invitation.getHostUser().getId());
+        invitationDeclinedMetadata.put("receiverName", invitation.getHostUser().getUsername());
+        invitationDeclinedMetadata.put("receiverEmail", invitation.getHostUser().getEmail());
+        invitationDeclinedMetadata.put("operationBy", invitation.getHostUser().getUsername());
+        invitationDeclinedMetadata.put("message", invitation.getGuestUser().getUsername() + " rejected the invitation to join " + invitation.getRepository().getRepositoryName());
+
         kafkaProducer.produce(RepositoryOperationEvent
                 .builder()
                 .eventId(UUID.randomUUID().toString())
                 .eventType(RepositoryEventType.REPOSITORY_INVITATION_DECLINED)
+                .repositoryName(invitation.getRepository().getRepositoryName())
+                .repositoryUrl(buildGatewayUrl("/api/v1/repos/" + invitation.getRepository().getUserName() + "/" + invitation.getRepository().getRepositoryName()))
                 .actorEmail(invitation.getGuestUser().getEmail())
                 .actorName(invitation.getGuestUser().getUsername())
                 .actorUserId(invitation.getGuestUser().getId())
+                .invitedUserId(invitation.getGuestUser().getId())
+                .invitedUserName(invitation.getGuestUser().getUsername())
+                .invitedUserEmail(invitation.getGuestUser().getEmail())
 
-                .metadata(Map.of(
-                        "operationby", invitation.getHostUser().getUsername(),
-                        "message", invitation.getGuestUser().getUsername() + " rejected the invitation to join " + invitation.getRepository().getRepositoryName()
-                ))
+                .metadata(invitationDeclinedMetadata)
                 .ownerUserId(invitation.getHostUser().getId())
+                .ownerName(invitation.getHostUser().getUsername())
                 .ownerEmail(invitation.getHostUser().getEmail())
-                .ownerUserId(invitation.getHostUser().getUsername())
-
+                .occurredAt(LocalDateTime.now())
                 .build());
         invitation.setStatus(InvitationStatus.REJECTED);
         Invitation saved =  invitationRepository.save(invitation);
         return InvitationResponse.from(saved);
+    }
+
+    private String buildGatewayUrl(String path) {
+        String base = appProperties.getGatewayBaseUrl() == null
+                ? "http://localhost:8080"
+                : appProperties.getGatewayBaseUrl().trim();
+        if (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        if (path == null || path.isBlank()) {
+            return base;
+        }
+        return path.startsWith("/") ? base + path : base + "/" + path;
     }
 }

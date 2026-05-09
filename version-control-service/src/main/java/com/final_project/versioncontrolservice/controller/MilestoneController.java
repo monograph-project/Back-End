@@ -35,8 +35,10 @@ public class MilestoneController {
             @PathVariable String repo,
             @AuthenticationPrincipal Jwt jwt,
             @RequestBody MilestoneService.MilestoneRequest request) {
-        String writer = jwt.getSubject();
-        return ResponseEntity.ok(milestoneService.createMilestone(owner, repo, request, writer));
+        ContributorUser writer = authService.getContributorUser(jwt.getSubject());
+        return ResponseEntity.ok(
+                milestoneService.createMilestone(owner, repo, request, writer.getUsername())
+        );
     }
     /**
      * List all milestones for a repository
@@ -100,7 +102,8 @@ public class MilestoneController {
             @PathVariable int number,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        String username = jwt.getSubject();
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
+        String username = user.getUsername();
         return ResponseEntity.ok(milestoneService.closeMilestone(owner, repo,number,username));
 
     }
@@ -115,7 +118,8 @@ public class MilestoneController {
             @PathVariable int number,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        String username = jwt.getSubject();
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
+        String username = user.getUsername();
         return ResponseEntity.ok(milestoneService.reopenMilestone(owner, repo,number,username));
     }
 }
