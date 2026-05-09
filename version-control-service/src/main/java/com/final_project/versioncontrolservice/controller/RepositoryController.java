@@ -3,11 +3,7 @@ package com.final_project.versioncontrolservice.controller;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.final_project.versioncontrolservice.dto.*;
-import com.final_project.versioncontrolservice.service.AuthService;
-import com.final_project.versioncontrolservice.service.InvitationApplicationService;
-import com.final_project.versioncontrolservice.service.RepoAccessRules;
-import com.final_project.versioncontrolservice.service.RepositoryService;
-import com.final_project.versioncontrolservice.service.RepositoryStatisticsService;
+import com.final_project.versioncontrolservice.service.*;
 import com.final_project.versioncontrolservice.exception.ForbiddenException;
 import com.final_project.versioncontrolservice.exception.BadRequestException;
 import lombok.AllArgsConstructor;
@@ -196,6 +192,13 @@ public class RepositoryController {
             @PathVariable String invitationId
     ) {
         return ResponseEntity.ok(invitationApplicationService.reject(invitationId, userId)) ;
+    }
+    @GetMapping(value = "/{owner}/{repo}/contributors", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<List<ContributorUser>> getContributors(
+            @PathVariable String owner,
+            @PathVariable String repo
+    ) {
+        return ResponseEntity.ok( repositoryService.getContributors(owner,repo));
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

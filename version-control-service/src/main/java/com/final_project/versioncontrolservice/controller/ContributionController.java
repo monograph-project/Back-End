@@ -26,7 +26,7 @@ public class ContributionController {
      * GET /repos/{owner}/{repo}/contributors
      */
     @GetMapping(value = "/{owner}/{repo}/contributors/{user}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ContributionService.ContributionStats> getContributors(
+    public ResponseEntity<ContributionService.ContributionStats> getContributor(
             @PathVariable String user,
             @PathVariable String owner,
             @PathVariable String repo
