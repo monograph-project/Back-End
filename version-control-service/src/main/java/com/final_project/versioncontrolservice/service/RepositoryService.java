@@ -343,4 +343,9 @@ public class RepositoryService {
                 )
                 .build();
     }
+
+    public @Nullable List<ContributorUser> getContributors(String owner, String repo) {
+        RepositoryDocument document = loadMeta(owner, repo);
+        return document.getCollaborators();
+    }
 }

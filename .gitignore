@@ -50,8 +50,6 @@ desktop.ini
 # Environment / Secrets
 # =========================
 # Spring Boot application properties with sensitive info
-*.env
-
 # =========================
 # Others
 # =========================
