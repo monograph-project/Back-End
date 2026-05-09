@@ -32,6 +32,9 @@ public class RepositoryFileIndex {
 
     private Long size;
     private String language;
+    private String fileKind;
+    private boolean binary;
+    private String derivedDocumentId;
     private boolean deleted;
     private Instant indexedAt;
 }

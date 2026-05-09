@@ -1,6 +1,7 @@
 package com.final_project.versioncontrolservice.service;
 
 import com.final_project.versioncontrolservice.dto.*;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -11,7 +12,7 @@ import reactor.core.publisher.Mono;
 public class AuthService {
     private final WebClient authServiceClient;
 
-    public AuthService(WebClient authServiceClient) {
+    public AuthService(@Qualifier("userWebClient") WebClient authServiceClient) {
         this.authServiceClient = authServiceClient;
     }
     public AuthResponse signup(SignupRequest request) {

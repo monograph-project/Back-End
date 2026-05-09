@@ -99,7 +99,12 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public List<UserDTO> searchUsers(String searchTerm) {
-        return keycloakService.searchUsers(searchTerm).stream().map(this::toDTO).toList();
+        return searchUsers(searchTerm, UserSearchField.AUTO);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserDTO> searchUsers(String searchTerm, UserSearchField field) {
+        return keycloakService.searchUsers(searchTerm, field).stream().map(this::toDTO).toList();
     }
 
     @Transactional(readOnly = true)
@@ -144,6 +149,8 @@ public class UserService {
         return toDTO(keycloakService.getUserById(userId));
     }
 
+
+
     public void deleteUser(String userId) {
         keycloakService.deleteUser(userId);
         auditLogService.logAuditEvent(userId, "USER_DELETED", "USER", userId, "User deleted from Keycloak", "SUCCESS");
@@ -153,6 +160,7 @@ public class UserService {
         keycloakService.setUserEnabled(userId, false);
         auditLogService.logAuditEvent(userId, "USER_SUSPENDED", "USER", userId, "User suspended in Keycloak", "SUCCESS");
     }
+
 
     public void activateUser(String userId) {
         keycloakService.setUserEnabled(userId, true);

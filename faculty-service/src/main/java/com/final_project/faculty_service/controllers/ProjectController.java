@@ -40,6 +40,11 @@ public class ProjectController {
         return new ResponseEntity<>(projectService.findById(id), HttpStatus.OK);
     }
 
+    @GetMapping("/repo/{repoId}")
+    public ResponseEntity<ProjectResponse> findByRepositoryId(@PathVariable String repoId){
+        return new ResponseEntity<>(projectService.findByRepositoryId(repoId), HttpStatus.OK);
+    }
+
 
     @GetMapping("/{id}/student/{student}")
     public ResponseEntity<ProjectResponse> getProjectByStudentId(@PathVariable String id, @PathVariable String student){

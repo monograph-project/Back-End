@@ -13,4 +13,5 @@ public class InvitationRequest {
         private String repository;
         private String  guest;
         private String host;
+        private String hostId;
 }

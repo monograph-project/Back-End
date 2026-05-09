@@ -55,6 +55,7 @@ public class TaskService {
                 .status(TaskStatus.OPEN)
                 .repoName(meta.getRepositoryName())
                 .assignedAt(Instant.now())
+                .createdAt(Instant.now())
                 .number(number)
                 .repoOwner(MilestoneTaskUser
                         .builder()
@@ -92,11 +93,14 @@ public class TaskService {
                     .orElseThrow(() -> new NotFoundException("milestone #" + request.getMilestoneNumber() + " not found"));
             task.setMilestoneId(milestone.getId());
             task.setMilestoneNumber(milestone.getNumber());
-            milestoneService.updateMilestoneProgress(owner, repo, milestone.getId());
         }
 
 
         Task saved = taskRepository.save(task);
+
+        if (saved.getMilestoneId() != null) {
+            milestoneService.updateMilestoneProgress(owner, repo, saved.getMilestoneId());
+        }
 
         // Send notification
 //        sendTaskNotification(owner, repo, saved, "created", username);
@@ -316,6 +320,54 @@ public class TaskService {
                 .build();
     }
 
+    public List<MilestoneService.TaskResponse> listTasks(
+            String owner,
+            String repo,
+            String assignee,
+            String status,
+            Integer milestone,
+            String search
+    ) {
+        List<Task> tasks = taskRepository
+                .findByRepoOwner_UserNameAndRepoNameOrderByNumberDesc(owner, repo);
+
+        if (assignee != null && !assignee.isBlank()) {
+            String normalizedAssignee = assignee.trim().toLowerCase(Locale.ROOT);
+            tasks = tasks.stream()
+                    .filter(task -> task.getAssignedTo() != null)
+                    .filter(task -> {
+                        String userName = task.getAssignedTo().getUserName();
+                        return userName != null
+                                && userName.trim().toLowerCase(Locale.ROOT).equals(normalizedAssignee);
+                    })
+                    .toList();
+        }
+
+        if (milestone != null) {
+            tasks = tasks.stream()
+                    .filter(task -> Objects.equals(task.getMilestoneNumber(), milestone))
+                    .toList();
+        }
+
+        if (status != null && !status.isBlank() && !"all".equalsIgnoreCase(status.trim())) {
+            TaskStatus normalizedStatus = parseTaskStatus(status);
+            tasks = tasks.stream()
+                    .filter(task -> task.getStatus() == normalizedStatus)
+                    .toList();
+        }
+
+        if (search != null && !search.isBlank()) {
+            String needle = search.trim().toLowerCase(Locale.ROOT);
+            tasks = tasks.stream()
+                    .filter(task -> matchesTaskSearch(task, needle))
+                    .toList();
+        }
+
+        return tasks.stream()
+                .map(MilestoneService.TaskResponse::fromDocument)
+                .toList();
+    }
+
     private Task getTask(String owner, String repo, int number) {
         return taskRepository.findByRepoOwner_UserNameAndRepoNameAndNumberOrderByNumber(owner, repo, number)
                 .orElseThrow(() -> new NotFoundException("task #" + number + " not found"));
@@ -361,6 +413,39 @@ public class TaskService {
                         .createdAt(Instant.now())
                         .build()
         );
+    }
+
+    private boolean matchesTaskSearch(Task task, String needle) {
+        return containsIgnoreCase(task.getTitle(), needle)
+                || containsIgnoreCase(task.getDescription(), needle)
+                || containsIgnoreCase(task.getCreatedBy(), needle)
+                || containsIgnoreCase(task.getReviewedBy(), needle)
+                || containsIgnoreCase(task.getReviewComments(), needle)
+                || containsIgnoreCase(task.getSubmissionBranch(), needle)
+                || containsIgnoreCase(task.getSubmissionCommit(), needle)
+                || containsIgnoreCase(task.getSubmissionUrl(), needle)
+                || (task.getAssignedTo() != null
+                && (containsIgnoreCase(task.getAssignedTo().getUserName(), needle)
+                || containsIgnoreCase(task.getAssignedTo().getFirstName(), needle)
+                || containsIgnoreCase(task.getAssignedTo().getEmail(), needle)))
+                || (task.getLabels() != null
+                && task.getLabels().stream().anyMatch(label -> containsIgnoreCase(String.valueOf(label), needle)));
+    }
+
+    private boolean containsIgnoreCase(String source, String needle) {
+        return source != null && source.toLowerCase(Locale.ROOT).contains(needle);
+    }
+
+    private TaskStatus parseTaskStatus(String raw) {
+        String normalized = raw.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "open" -> TaskStatus.OPEN;
+            case "progress", "in_progress", "in-progress" -> TaskStatus.PROGRESS;
+            case "review", "in_review", "in-review" -> TaskStatus.REVIEW;
+            case "completed", "done" -> TaskStatus.COMPLETED;
+            case "cancelled", "canceled" -> TaskStatus.CANCELLED;
+            default -> throw new NotFoundException("task status '" + raw + "' not supported");
+        };
     }
 
     @Data

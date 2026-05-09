@@ -17,9 +17,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,26 +45,7 @@ public class RepositoryService {
             return List.of();
         }
         List<RepositoryDocument> results =  repositoryRepository.searchRepositories(keyword.trim());
-        return results.stream().map(saved -> RepositoryResponse
-                .builder()
-                .id(saved.getId())
-                .createdAt(saved.getCreatedAt())
-                .updatedAt(saved.getUpdatedAt())
-                .branchHeads(saved.getBranchHeads())
-                .repositoryName(saved.getRepositoryName())
-                .cloneUrl(saved.getCloneUrl())
-                .collaborators(saved.getCollaborators())
-                .description(saved.getDescription())
-                .owner(
-                        UserDTO.builder()
-                                .id(saved.getOwner().getId())
-                                .email(saved.getOwner().getEmail())
-                                .emailVerified(saved.getOwner().getEmailVerified())
-                                .username(saved.getOwner().getUsername())
-                                .status(saved.getOwner().getStatus())
-                                .build()
-                )
-                .build()).toList();
+        return results.stream().map(this::toRepositoryResponse).toList();
     }
     public RepositoryResponse createRepo(CreateRepositoryRequest request) {
         UserDTO user = authService.getUserByUsername(request.getUserName());
@@ -96,27 +80,7 @@ public class RepositoryService {
         minio.writeLayoutHead(saved.getOwner().getUsername(), saved.getRepositoryName());
         minio.writeLayoutBranchRef(saved.getOwner().getUsername(), saved.getRepositoryName(), "main", "");
 
-        return RepositoryResponse
-                .builder()
-                .id(saved.getId())
-                .createdAt(saved.getCreatedAt())
-                .updatedAt(saved.getUpdatedAt())
-                .branchHeads(saved.getBranchHeads())
-                .repositoryName(saved.getRepositoryName())
-                .cloneUrl(saved.getCloneUrl())
-                .collaborators(saved.getCollaborators())
-                .description(saved.getDescription())
-                .owner(
-                        UserDTO.builder()
-                                .id(saved.getOwner().getId())
-                                .email(saved.getOwner().getEmail())
-                                .emailVerified(saved.getOwner().getEmailVerified())
-                                .username(saved.getOwner().getUsername())
-                                .status(saved.getOwner().getStatus())
-                                .build()
-                )
-                .build()
-                ;
+        return toRepositoryResponse(saved);
     }
 
     public Map<String, Object> listRefs(RepositoryDocument meta) {
@@ -286,26 +250,97 @@ public class RepositoryService {
 
     public  List<RepositoryResponse> getOwnerRepos(String ownerId) {
        ContributorUser contributorUser =  authService.getContributorUser(ownerId);
+       if (contributorUser == null) {
+           throw new NotFoundException("User not found");
+       }
         List<RepositoryDocument> repos = repositoryRepository.findAllByOwner_Username(contributorUser.getUsername());
-        return repos.stream().map(rep ->  RepositoryResponse
+        return repos.stream().map(this::toRepositoryResponse).collect(Collectors.toList());
+    }
+
+    public List<RepositoryResponse> getAccessibleRepos(String userId) {
+        ContributorUser viewer = authService.getContributorUser(userId);
+        if (viewer == null) {
+            throw new NotFoundException("User not found");
+        }
+
+        String username = String.valueOf(viewer.getUsername()).trim();
+        if (username.isEmpty()) {
+            return List.of();
+        }
+
+        List<RepositoryDocument> ownedRepos = repositoryRepository.findAllByOwner_Username(username);
+        List<RepositoryDocument> collaboratorRepos =
+                repositoryRepository.findByCollaborators_UsernameIgnoreCase(username);
+
+        Map<String, RepositoryDocument> unique = new LinkedHashMap<>();
+        for (RepositoryDocument repo : ownedRepos) {
+            if (repo == null) {
+                continue;
+            }
+            unique.put(repositoryKey(repo), repo);
+        }
+        for (RepositoryDocument repo : collaboratorRepos) {
+            if (repo == null || !hasAcceptedCollaborator(repo, viewer)) {
+                continue;
+            }
+            unique.putIfAbsent(repositoryKey(repo), repo);
+        }
+
+        return new ArrayList<>(unique.values()).stream()
+                .map(this::toRepositoryResponse)
+                .collect(Collectors.toList());
+    }
+
+    private boolean hasAcceptedCollaborator(RepositoryDocument repo, ContributorUser viewer) {
+        if (repo == null || viewer == null || repo.getCollaborators() == null) {
+            return false;
+        }
+        String viewerId = String.valueOf(viewer.getId()).trim();
+        String viewerUsername = String.valueOf(viewer.getUsername()).trim().toLowerCase(Locale.ROOT);
+        return repo.getCollaborators().stream().anyMatch(collaborator -> {
+            if (collaborator == null) {
+                return false;
+            }
+            String collaboratorId = String.valueOf(collaborator.getId()).trim();
+            String collaboratorUsername =
+                    String.valueOf(collaborator.getUsername()).trim().toLowerCase(Locale.ROOT);
+            boolean matchesViewer =
+                    (!viewerId.isEmpty() && Objects.equals(collaboratorId, viewerId)) ||
+                    (!viewerUsername.isEmpty() && Objects.equals(collaboratorUsername, viewerUsername));
+            if (!matchesViewer) {
+                return false;
+            }
+            ContributorStatus status = collaborator.getContributorStatus();
+            return status == null || status == ContributorStatus.ACCEPTED;
+        });
+    }
+
+    private String repositoryKey(RepositoryDocument repo) {
+        String owner = repo.getOwner() == null ? "" : String.valueOf(repo.getOwner().getUsername()).trim();
+        String name = String.valueOf(repo.getRepositoryName()).trim();
+        return owner.toLowerCase(Locale.ROOT) + "/" + name.toLowerCase(Locale.ROOT);
+    }
+
+    private RepositoryResponse toRepositoryResponse(RepositoryDocument saved) {
+        return RepositoryResponse
                 .builder()
-                .id(rep.getId())
-                .createdAt(rep.getCreatedAt())
-                .updatedAt(rep.getUpdatedAt())
-                .branchHeads(rep.getBranchHeads())
-                .repositoryName(rep.getRepositoryName())
-                .cloneUrl(rep.getCloneUrl())
-                .collaborators(rep.getCollaborators())
-                .description(rep.getDescription())
+                .id(saved.getId())
+                .createdAt(saved.getCreatedAt())
+                .updatedAt(saved.getUpdatedAt())
+                .branchHeads(saved.getBranchHeads())
+                .repositoryName(saved.getRepositoryName())
+                .cloneUrl(saved.getCloneUrl())
+                .collaborators(saved.getCollaborators())
+                .description(saved.getDescription())
                 .owner(
                         UserDTO.builder()
-                                .id(rep.getOwner().getId())
-                                .email(rep.getOwner().getEmail())
-                                .emailVerified(rep.getOwner().getEmailVerified())
-                                .username(rep.getOwner().getUsername())
-                                .status(rep.getOwner().getStatus())
+                                .id(saved.getOwner().getId())
+                                .email(saved.getOwner().getEmail())
+                                .emailVerified(saved.getOwner().getEmailVerified())
+                                .username(saved.getOwner().getUsername())
+                                .status(saved.getOwner().getStatus())
                                 .build()
                 )
-                .build()).collect(Collectors.toList());
+                .build();
     }
 }

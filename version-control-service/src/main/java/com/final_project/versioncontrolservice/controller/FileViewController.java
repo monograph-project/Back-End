@@ -1,5 +1,6 @@
 package com.final_project.versioncontrolservice.controller;
 
+import com.final_project.versioncontrolservice.dto.DocumentBlameResponse;
 import com.final_project.versioncontrolservice.dto.ContributorUser;
 import com.final_project.versioncontrolservice.model.RepositoryDocument;
 import com.final_project.versioncontrolservice.service.*;
@@ -26,6 +27,7 @@ public class FileViewController {
     private final RepositoryService vicRepositoryService;
     private final MinioStorageService minioStorageService;
     private final CommitGraphService commitGraphService;
+    private final DocumentBlameService documentBlameService;
 
 
     /**
@@ -97,6 +99,40 @@ public class FileViewController {
 
         List<BlameEntry> blame = calculateBlame(owner, repo, commitHash, filePath);
         return ResponseEntity.ok(blame);
+    }
+
+    /**
+     * Get document-aware blame for supported document files.
+     * GET /repos/{owner}/{repo}/document-blame/{path}?ref=main
+     */
+    @GetMapping(value = "/document-blame/**", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<DocumentBlameResponse> getDocumentBlame(
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @RequestParam(defaultValue = "main") String ref,
+            HttpServletRequest request,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
+        var meta = vicRepositoryService.loadMeta(owner, repo);
+
+        String username = user != null ? user.getUsername() : "";
+        if (!RepoAccessRules.canRead(meta, username)) {
+            throw new com.final_project.versioncontrolservice.exception.ForbiddenException("forbidden");
+        }
+
+        String fullPath = request.getRequestURI();
+        String prefix = "/repos/" + owner + "/" + repo + "/document-blame/";
+        String filePath = fullPath.substring(fullPath.indexOf(prefix) + prefix.length());
+
+        String commitHash = resolveRef(meta, ref);
+        if (commitHash.isEmpty()) {
+            throw new NotFoundException("ref not found: " + ref);
+        }
+
+        return ResponseEntity.ok(
+                documentBlameService.getDocumentBlame(owner, repo, ref, commitHash, filePath)
+        );
     }
 
     /**
@@ -538,6 +574,9 @@ public class FileViewController {
         }
 
         for (FileDiff file : compare.getFiles()) {
+            if (file.isBinary()) {
+                continue;
+            }
             String path = file.getPath();
             String oldText = file.getBaseSha() == null ? "" : readBlobText(owner, repo, file.getBaseSha());
             String newText = file.getHeadSha() == null ? "" : readBlobText(owner, repo, file.getHeadSha());
@@ -578,50 +617,54 @@ public class FileViewController {
             for (String path : allPaths) {
                 String baseFileHash = baseFiles.get(path);
                 String headFileHash = headFiles.get(path);
+                boolean binary = isBinaryBlob(owner, repo, baseFileHash) || isBinaryBlob(owner, repo, headFileHash);
 
                 if (baseFileHash == null && headFileHash != null) {
-                    String newText = readBlobText(owner, repo, headFileHash);
-                    String patch = buildUnifiedPatch(path, "", newText);
-                    int additions = countLines(newText);
+                    String newText = binary ? "" : readBlobText(owner, repo, headFileHash);
+                    String patch = binary ? null : buildUnifiedPatch(path, "", newText);
+                    Integer additions = binary ? null : countLines(newText);
 
                     diffs.add(new FileDiff(
                             path,
                             "added",
                             null,
                             headFileHash,
+                            binary,
                             additions,
                             0,
                             patch
                     ));
 
                 } else if (baseFileHash != null && headFileHash == null) {
-                    String oldText = readBlobText(owner, repo, baseFileHash);
-                    String patch = buildUnifiedPatch(path, oldText, "");
-                    int deletions = countLines(oldText);
+                    String oldText = binary ? "" : readBlobText(owner, repo, baseFileHash);
+                    String patch = binary ? null : buildUnifiedPatch(path, oldText, "");
+                    Integer deletions = binary ? null : countLines(oldText);
 
                     diffs.add(new FileDiff(
                             path,
                             "deleted",
                             baseFileHash,
                             null,
+                            binary,
                             0,
                             deletions,
                             patch
                     ));
 
                 } else if (!Objects.equals(baseFileHash, headFileHash)) {
-                    String oldText = readBlobText(owner, repo, baseFileHash);
-                    String newText = readBlobText(owner, repo, headFileHash);
-                    String patch = buildUnifiedPatch(path, oldText, newText);
+                    String oldText = binary ? "" : readBlobText(owner, repo, baseFileHash);
+                    String newText = binary ? "" : readBlobText(owner, repo, headFileHash);
+                    String patch = binary ? null : buildUnifiedPatch(path, oldText, newText);
 
-                    int additions = countPatchAdds(patch);
-                    int deletions = countPatchDeletes(patch);
+                    Integer additions = binary ? null : countPatchAdds(patch);
+                    Integer deletions = binary ? null : countPatchDeletes(patch);
 
                     diffs.add(new FileDiff(
                             path,
                             "modified",
                             baseFileHash,
                             headFileHash,
+                            binary,
                             additions,
                             deletions,
                             patch
@@ -683,6 +726,44 @@ public class FileViewController {
         } catch (Exception e) {
             return "";
         }
+    }
+
+    private byte[] readBlobBytes(String owner, String repo, String blobHash) {
+        if (blobHash == null || blobHash.isBlank()) {
+            return new byte[0];
+        }
+
+        try {
+            byte[] blobData = minioStorageService.getObjectBytes(owner, repo, blobHash);
+            VicObjectFormat.ParsedObject blobObj = VicObjectFormat.parseCompressed(blobData);
+
+            if (!"blob".equals(blobObj.type())) {
+                return new byte[0];
+            }
+
+            return blobObj.content();
+        } catch (Exception e) {
+            return new byte[0];
+        }
+    }
+
+    private boolean isBinaryBlob(String owner, String repo, String blobHash) {
+        byte[] bytes = readBlobBytes(owner, repo, blobHash);
+        if (bytes.length == 0) {
+            return false;
+        }
+
+        for (byte value : bytes) {
+            int c = value & 0xff;
+            if (c == 0) {
+                return true;
+            }
+            if (c < 32 && c != '\n' && c != '\r' && c != '\t') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private String buildUnifiedPatch(String path, String oldText, String newText) {
@@ -1038,6 +1119,7 @@ public class FileViewController {
         private String status;
         private String baseSha;
         private String headSha;
+        private boolean binary;
         private Integer additions;
         private Integer deletions;
         private String patch;

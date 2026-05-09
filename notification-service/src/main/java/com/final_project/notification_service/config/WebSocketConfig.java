@@ -31,8 +31,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        // Enable simple broker with user destinations
-        config.enableSimpleBroker("/user", "/topic");
+        // Enable simple broker for actual destinations used by convertAndSendToUser + broadcasts.
+        config.enableSimpleBroker("/queue", "/topic");
 
         // User destination prefix for private messaging
         config.setUserDestinationPrefix("/user");

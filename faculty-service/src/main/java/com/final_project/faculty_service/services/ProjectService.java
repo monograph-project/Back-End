@@ -187,6 +187,12 @@ public class ProjectService {
         return projectMapper.toResponse(current);
     }
 
+    public ProjectResponse findByRepositoryId(String repositoryId) {
+        Project current = projectRepository.findByProjectRepository_IdAndIsDeletedIsFalse(repositoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+        return projectMapper.toResponse(current);
+    }
+
     public ProjectResponse create(ProjectRequest request){
         Group group = groupRepository.findByIdAndIsDeletedIsFalse(request.getGroup())
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found"));

@@ -110,6 +110,10 @@ public class Notification {
         this.sentAt = LocalDateTime.now();
     }
 
+    public void markRead() {
+        this.status = NotificationStatus.READ;
+    }
+
     public void markFailed(String reason) {
         this.status = NotificationStatus.FAILED;
         this.failureReason = reason;

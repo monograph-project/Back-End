@@ -78,13 +78,12 @@ public class PullRequestMergeService {
 
             // Both changed differently
             conflicts.add(buildConflictFile(
+                    owner,
+                    repo,
                     path,
                     baseBlob,
                     targetBlob,
-                    sourceBlob,
-                    readBlobAsStringOrEmpty(owner, repo, baseBlob),
-                    readBlobAsStringOrEmpty(owner, repo, targetBlob),
-                    readBlobAsStringOrEmpty(owner, repo, sourceBlob)
+                    sourceBlob
             ));
 
         }
@@ -143,7 +142,7 @@ public class PullRequestMergeService {
             Map<String, TreeEntry> cleanMergedEntries,
             Map<String, String> resolvedContentByPath
     ) {
-        Map<String, TreeEntry> finalEntries = new TreeMap<>(cleanMergedEntries);
+        Map<String, TreeEntry> resolvedEntries = new TreeMap<>();
 
         for (Map.Entry<String, String> resolved : resolvedContentByPath.entrySet()) {
             String path = normalizePath(resolved.getKey());
@@ -156,7 +155,7 @@ public class PullRequestMergeService {
                     content.getBytes(StandardCharsets.UTF_8)
             );
 
-            finalEntries.put(path, TreeEntry.builder()
+            resolvedEntries.put(path, TreeEntry.builder()
                     .path(path)
                     .name(leafName(path))
                     .mode("100644")
@@ -165,22 +164,58 @@ public class PullRequestMergeService {
                     .build());
         }
 
+        return writeMergedTreeFromResolvedEntries(owner, repo, cleanMergedEntries, resolvedEntries);
+    }
+
+    public String writeMergedTreeFromResolvedEntries(
+            String owner,
+            String repo,
+            Map<String, TreeEntry> cleanMergedEntries,
+            Map<String, TreeEntry> resolvedEntries
+    ) {
+        Map<String, TreeEntry> finalEntries = new TreeMap<>(cleanMergedEntries);
+        finalEntries.putAll(resolvedEntries);
         return writeTree(owner, repo, finalEntries);
     }
 
+    public TreeEntry createBlobEntry(String owner, String repo, String path, byte[] content) {
+        String normalizedPath = normalizePath(path);
+        String blobHash = writeObject(
+                owner,
+                repo,
+                "blob",
+                content == null ? new byte[0] : content
+        );
+
+        return TreeEntry.builder()
+                .path(normalizedPath)
+                .name(leafName(normalizedPath))
+                .mode("100644")
+                .type("blob")
+                .hash(blobHash)
+                .build();
+    }
+
     private ConflictFileAnalysis buildConflictFile(
+            String owner,
+            String repo,
             String path,
             String baseHash,
             String targetHash,
-            String sourceHash,
-            String baseContent,
-            String targetContent,
-            String sourceContent
+            String sourceHash
     ) {
+        byte[] baseBytes = readBlobBytesOrEmpty(owner, repo, baseHash);
+        byte[] targetBytes = readBlobBytesOrEmpty(owner, repo, targetHash);
+        byte[] sourceBytes = readBlobBytesOrEmpty(owner, repo, sourceHash);
+
         boolean binary =
-                isBinaryContent(baseContent) ||
-                        isBinaryContent(targetContent) ||
-                        isBinaryContent(sourceContent);
+                isBinaryBytes(baseBytes) ||
+                        isBinaryBytes(targetBytes) ||
+                        isBinaryBytes(sourceBytes);
+
+        String baseContent = binary ? "" : decodeUtf8(baseBytes);
+        String targetContent = binary ? "" : decodeUtf8(targetBytes);
+        String sourceContent = binary ? "" : decodeUtf8(sourceBytes);
 
 
         List<ConflictSegmentAnalysis> segments = binary
@@ -374,6 +409,42 @@ public class PullRequestMergeService {
         if (content == null || content.isEmpty()) return false;
         return content.contains("\u0000") ||
                 !content.chars().allMatch(c -> c >= 32 || c == '\n' || c == '\r' || c == '\t');
+    }
+
+    private byte[] readBlobBytesOrEmpty(String owner, String repo, String blobHash) {
+        if (blobHash == null || blobHash.isBlank()) {
+            return new byte[0];
+        }
+
+        try {
+            byte[] raw = minio.getObjectBytes(owner, repo, blobHash);
+            VicObjectFormat.ParsedObject obj = VicObjectFormat.parseCompressed(raw);
+            if (!"blob".equals(obj.type())) {
+                return new byte[0];
+            }
+            return obj.content();
+        } catch (Exception e) {
+            return new byte[0];
+        }
+    }
+
+    private String decodeUtf8(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) {
+            return "";
+        }
+        return new String(bytes, StandardCharsets.UTF_8);
+    }
+
+    private boolean isBinaryBytes(byte[] bytes) {
+        if (bytes == null || bytes.length == 0) return false;
+        for (byte value : bytes) {
+            int c = value & 0xff;
+            if (c == 0) return true;
+            if (c < 32 && c != '\n' && c != '\r' && c != '\t') {
+                return true;
+            }
+        }
+        return false;
     }
 
     private CommitInfo readCommit(String owner, String repo, String commitHash) {

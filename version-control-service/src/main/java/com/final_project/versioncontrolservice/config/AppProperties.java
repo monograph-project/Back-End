@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Configuration;
 @Data
 public class AppProperties {
     private Kafka kafka = new  Kafka();
+    private String gatewayBaseUrl = "http://localhost:8080";
     @Data
     public static class Kafka{
         private Topics topics = new  Topics();

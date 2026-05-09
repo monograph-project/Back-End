@@ -203,12 +203,6 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
-    /**
-     * Delete user.
-     *
-     * @param id User ID
-     */
-
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'ADMIN_USER')")
     @Operation(summary = "Delete user", description = "Deletes a user (soft delete)")
@@ -227,17 +221,20 @@ public class UserController {
      * Search users.
      *
      * @param search Search term
+     * @param field Search mode: AUTO, USERNAME, EMAIL, FIRST_NAME, LAST_NAME, NAME, ID
      * @return Page of user DTOs
      */
     @GetMapping("/search")
-    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER')")
-    @Operation(summary = "Search users", description = "Searches users by email, username, or name")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER', 'STUDENT_USER', 'TEACHER_USER', 'AUTHOR_USER')")
+    @Operation(summary = "Search users", description = "Searches users by a specific field or AUTO mode. Supported fields: AUTO, USERNAME, EMAIL, FIRST_NAME, LAST_NAME, NAME, ID.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Search completed")
     })
     public ResponseEntity<List<UserDTO>> searchUsers(
-            @RequestParam(required = false, defaultValue = "") String search) {
-        List<UserDTO> users = userService.searchUsers(search);
+            @RequestParam(required = false, defaultValue = "") String search,
+            @RequestParam(required = false, defaultValue = "AUTO") UserSearchField field) {
+        log.info("Searching users with field {} and term '{}'", field, search);
+        List<UserDTO> users = userService.searchUsers(search, field);
         return ResponseEntity.ok(users);
     }
 

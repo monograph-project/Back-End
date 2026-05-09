@@ -66,6 +66,8 @@ public interface ProjectRepository extends MongoRepository<Project,String> {
     """)
     List<Project> findAllByTeacherId(String teacherId);
 
+    Optional<Project> findByProjectRepository_IdAndIsDeletedIsFalse(String repositoryId);
+
     // Return project for a specific teacher and student
     @Query("""
         {
