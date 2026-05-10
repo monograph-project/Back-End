@@ -3,11 +3,16 @@ package com.final_project.versioncontrolservice.service;
 
 import com.final_project.versioncontrolservice.dto.ContributorUser;
 import com.final_project.versioncontrolservice.dto.MilestoneTaskUser;
+import com.final_project.versioncontrolservice.dto.PullRequestResponse;
 import com.final_project.versioncontrolservice.dto.SubmissionResponse;
 import com.final_project.versioncontrolservice.dto.UserDTO;
+import com.final_project.versioncontrolservice.event.RepositoryOperationEvent;
+import com.final_project.versioncontrolservice.exception.BadRequestException;
 import com.final_project.versioncontrolservice.exception.ForbiddenException;
 import com.final_project.versioncontrolservice.exception.NotFoundException;
 import com.final_project.versioncontrolservice.model.*;
+import com.final_project.versioncontrolservice.config.AppProperties;
+import com.final_project.versioncontrolservice.kafka.KafkaProducer;
 import com.final_project.versioncontrolservice.repo.*;
 import com.final_project.versioncontrolservice.websocket.WebSocketEvents;
 import lombok.AllArgsConstructor;
@@ -16,6 +21,7 @@ import lombok.Data;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 @AllArgsConstructor
@@ -25,14 +31,19 @@ public class TaskService {
     private final MilestoneRepository milestoneRepository;
     private final TaskCommentRepository commentRepository;
     private final SubmissionRepository submissionRepository;
+    private final PullRequestRepository pullRequestRepository;
     private final RepositoryService vicRepositoryService;
     private final MilestoneService milestoneService;
+    private final PullRequestMergeService pullRequestMergeService;
     private final WebSocketNotificationService notificationService;
     private final AuthService authService;
+    private final KafkaProducer kafkaProducer;
+    private final AppProperties appProperties;
     /**
      * Create a new task (with optional milestone assignment)
      */
     public MilestoneService.TaskResponse createTask(String owner, String repo, TaskRequest request, String username) {
+        validateTaskRequest(request);
 
         UserDTO ownerUser = authService.getUserByUsername(owner);
         if (ownerUser == null) {
@@ -46,9 +57,15 @@ public class TaskService {
 
 
         RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
+        ensureAcceptedRepoMember(meta, username, "Only repository contributors can create tasks");
         int number = getNextTaskNumber(owner, repo);
-
-        List<ContributorUser> contributorUser = meta.getCollaborators();
+        Milestone milestone = null;
+        if (request.getMilestoneNumber() != null) {
+            milestone = milestoneRepository
+                    .findByRepoOwner_UserNameAndRepoNameAndNumber(owner, repo, request.getMilestoneNumber())
+                    .orElseThrow(() -> new NotFoundException("milestone #" + request.getMilestoneNumber() + " not found"));
+        }
+        Integer resolvedMaxScore = resolveTaskMaxScore(owner, repo, request, milestone);
 
         Task task = Task.builder()
                 .priority(request.getPriority())
@@ -72,7 +89,7 @@ public class TaskService {
                 .labels(request.getLabels())
                 .dueDate(request.getDueDate())
                 .estimatedHours(request.getEstimatedHours())
-                .maxScore(request.getMaxScore())
+                .maxScore(resolvedMaxScore)
                 .build();
         if (request.getRequirements() != null) {
             task.setRequirementsChecklist(
@@ -87,10 +104,7 @@ public class TaskService {
                             .collect(Collectors.toList())
             );
         }
-        if (request.getMilestoneNumber() != null) {
-            Milestone milestone = milestoneRepository
-                    .findByRepoOwner_UserNameAndRepoNameAndNumber(owner, repo, request.getMilestoneNumber())
-                    .orElseThrow(() -> new NotFoundException("milestone #" + request.getMilestoneNumber() + " not found"));
+        if (milestone != null) {
             task.setMilestoneId(milestone.getId());
             task.setMilestoneNumber(milestone.getNumber());
         }
@@ -128,8 +142,11 @@ public class TaskService {
             throw new NotFoundException("User Not Found");
         }
 
-        Task task = getTask(owner, repo, taskNumber);
         RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
+        ensureAcceptedRepoMember(meta, assignedBy, "Only repository contributors can manage tasks");
+        Task task = getTask(owner, repo, taskNumber);
+        ensureTaskCreator(task, assignedBy, "Only the task creator can assign contributors");
+        ensureAcceptedCollaborator(meta, assignee, "Tasks can only be assigned to accepted repository contributors");
         task.setAssignedTo(
                 MilestoneTaskUser.builder()
                         .email(assigneeUser.getEmail())
@@ -150,16 +167,7 @@ public class TaskService {
             milestoneService.updateMilestoneProgress(owner, repo, task.getMilestoneId());
         }
 
-        // Send notification to assignee
-        notificationService.sendUserNotification(assignee,
-                WebSocketEvents.NotificationEvent.builder()
-                        .type("task_assigned")
-                        .title("New Task Assigned")
-                        .message("You've been assigned to task #" + taskNumber + ": " + task.getTitle())
-                        .url("/repos/" + owner + "/" + repo + "/tasks/" + taskNumber)
-                        .createdAt(Instant.now())
-                        .build()
-        );
+        publishTaskAssignedEvent(owner, repo, updated, assignedByUser, assigneeUser, repoOwner);
 
         return MilestoneService.TaskResponse.fromDocument(updated);
     }
@@ -179,6 +187,8 @@ public class TaskService {
         }
 
         Task task = getTask(owner, repo, taskNumber);
+        ensureAssignedUser(task, username, "Only the assigned contributor can submit task work");
+        ResolvedSubmissionPayload resolved = resolveSubmissionPayload(owner, repo, task, request, username);
         Submission submission = Submission
                 .builder()
                 .taskId(task.getId())
@@ -194,23 +204,24 @@ public class TaskService {
                 )
                 .submittedAt(Instant.now())
                 .description(request.getDescription())
-                .branchName(request.getBranchName())
-                .commitHash(request.getCommitHash())
-                .pullRequestUrl(request.getPullRequestUrl())
-                .files(request.getFiles()).status("submitted")
+                .branchName(resolved.branchName())
+                .commitHash(resolved.commitHash())
+                .pullRequestUrl(resolved.pullRequestUrl())
+                .pullRequestId(resolved.pullRequestId())
+                .files(resolved.files()).status("submitted")
                 .revisionCount(0)
                         .build();
         // Update task status
 
-        task.setStatus(TaskStatus.PROGRESS);
-        task.setSubmissionUrl(request.getPullRequestUrl());
-        task.setSubmissionBranch(request.getBranchName());
-        task.setSubmissionCommit(request.getCommitHash());
+        task.setStatus(TaskStatus.REVIEW);
+        task.setSubmissionUrl(resolved.pullRequestUrl());
+        task.setSubmissionBranch(resolved.branchName());
+        task.setSubmissionCommit(resolved.commitHash());
+        task.setLinkedPrId(resolved.pullRequestId());
         task.setUpdatedAt(Instant.now());
         taskRepository.save(task);
         Submission saved = submissionRepository.save(submission);
-        // Notify repo admins
-        notifyAdminsAboutSubmission(owner, repo, task, username);
+        publishTaskSubmittedEvent(owner, repo, task, user, repoOwner);
         return SubmissionResponse.from(saved);
     }
 
@@ -244,7 +255,8 @@ public class TaskService {
         task.setReviewedBy(reviewer);
         task.setReviewedAt(Instant.now());
         task.setReviewComments(request.getFeedback());
-        task.setEarnedScore(request.getScore());
+        Integer reviewScore = normalizeReviewScore(task, request.getScore());
+        task.setEarnedScore(reviewScore);
 
         if (request.isApproved()) {
             task.setStatus(TaskStatus.COMPLETED);
@@ -263,16 +275,9 @@ public class TaskService {
             milestoneService.updateMilestoneProgress(owner, repo, task.getMilestoneId());
         }
 
-        // Notify student
-        notificationService.sendUserNotification(task.getAssignedTo().getUserName(),
-                WebSocketEvents.NotificationEvent.builder()
-                        .type("task_reviewed")
-                        .title("Task Reviewed")
-                        .message("Task #" + taskNumber + " has been reviewed. Score: " + request.getScore())
-                        .url("/repos/" + owner + "/" + repo + "/tasks/" + taskNumber)
-                        .createdAt(Instant.now())
-                        .build()
-        );
+        if (request.isApproved()) {
+            publishTaskCompletedEvent(owner, repo, updated, reviewer);
+        }
         return MilestoneService.TaskResponse.fromDocument(updated);
     }
 
@@ -281,7 +286,9 @@ public class TaskService {
      */
     public StudentDashboard getStudentDashboard(String owner, String repo, String username) {
         List<Task> tasks = taskRepository
-                .findByRepoOwner_UserNameAndRepoNameAndAssignedTo_UserName(owner, repo, username);
+                .findByRepoOwner_UserNameAndRepoNameOrderByNumberDesc(owner, repo);
+        List<Milestone> milestones = milestoneRepository
+                .findByRepoOwner_UserNameAndRepoNameOrderByNumberDesc(owner, repo);
         long totalTasks = tasks.size();
         long completedTasks = tasks
                 .stream()
@@ -294,6 +301,11 @@ public class TaskService {
         long openTasks = tasks
                 .stream()
                 .filter(t -> t.getStatus().equals(TaskStatus.OPEN)).count();
+        long totalMilestones = milestones.size();
+        long closedMilestones = milestones.stream()
+                .filter(m -> "closed".equalsIgnoreCase(String.valueOf(m.getStatus())))
+                .count();
+        long openMilestones = totalMilestones - closedMilestones;
         // Calculate total score
         int totalEarnedScore = tasks.stream()
                 .filter(t -> t.getEarnedScore() != null)
@@ -310,6 +322,9 @@ public class TaskService {
                 .inProgressTasks(inProgressTasks)
                 .inReviewTasks(inReviewTasks)
                 .openTasks(openTasks)
+                .totalMilestones(totalMilestones)
+                .openMilestones(openMilestones)
+                .closedMilestones(closedMilestones)
                 .totalEarnedScore(totalEarnedScore)
                 .totalPossibleScore(totalPossibleScore)
                 .scorePercentage(totalPossibleScore > 0 ?
@@ -365,6 +380,48 @@ public class TaskService {
 
         return tasks.stream()
                 .map(MilestoneService.TaskResponse::fromDocument)
+                .toList();
+    }
+
+    public List<TaskPullRequestCandidateResponse> listEligiblePullRequests(
+            String owner,
+            String repo,
+            int taskNumber,
+            String username
+    ) {
+        Task task = getTask(owner, repo, taskNumber);
+        ensureAssignedUser(task, username, "Only the assigned contributor can submit task work");
+
+        String linkedPrId = trimToNull(task.getLinkedPrId());
+        Set<String> usedPullRequests = taskRepository
+                .findByRepoOwner_UserNameAndRepoNameOrderByNumberDesc(owner, repo)
+                .stream()
+                .filter(existing -> !Objects.equals(existing.getId(), task.getId()))
+                .map(Task::getLinkedPrId)
+                .map(this::trimToNull)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        return pullRequestRepository
+                .findByRepoOwner_UsernameIgnoreCaseAndRepoNameIgnoreCase(owner, repo)
+                .stream()
+                .filter(pr -> pr.getAuthor() != null)
+                .filter(pr -> normalizeUsername(pr.getAuthor().getUsername()).equals(normalizeUsername(username)))
+                .filter(pr -> pr.getStatus() != PullRequestStatus.CLOSED)
+                .filter(pr -> !usedPullRequests.contains(pr.getId()) || Objects.equals(pr.getId(), linkedPrId))
+                .sorted(Comparator.comparing(PullRequest::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .map(pr -> TaskPullRequestCandidateResponse.builder()
+                        .id(pr.getId())
+                        .title(pr.getTitle())
+                        .description(pr.getDescription())
+                        .sourceBranch(pr.getSourceBranch())
+                        .sourceHash(pr.getSourceHash())
+                        .targetBranch(pr.getTargetBranch())
+                        .status(pr.getStatus() == null ? null : pr.getStatus().name())
+                        .createdAt(pr.getCreatedAt())
+                        .pullRequestUrl(buildGatewayUrl("/api/v1/repos/" + owner + "/" + repo + "/pulls/" + pr.getId()))
+                        .selected(Objects.equals(pr.getId(), linkedPrId))
+                        .build())
                 .toList();
     }
 
@@ -467,6 +524,7 @@ public class TaskService {
     @Builder
     @AllArgsConstructor
     public static class SubmissionRequest {
+        private String pullRequestId;
         private String description;
         private String branchName;
         private String commitHash;
@@ -493,10 +551,419 @@ public class TaskService {
         private long inProgressTasks;
         private long inReviewTasks;
         private long openTasks;
+        private long totalMilestones;
+        private long openMilestones;
+        private long closedMilestones;
         private int totalEarnedScore;
         private int totalPossibleScore;
         private double scorePercentage;
         private List<MilestoneService.TaskResponse> tasks;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    public static class TaskPullRequestCandidateResponse {
+        private String id;
+        private String title;
+        private String description;
+        private String sourceBranch;
+        private String sourceHash;
+        private String targetBranch;
+        private String status;
+        private Instant createdAt;
+        private String pullRequestUrl;
+        private boolean selected;
+    }
+
+    private void validateTaskRequest(TaskRequest request) {
+        if (request == null) {
+            return;
+        }
+        Integer maxScore = request.getMaxScore();
+        Integer estimatedHours = request.getEstimatedHours();
+        if (maxScore != null && maxScore < 0) {
+            throw new BadRequestException("task max score cannot be negative");
+        }
+        if (estimatedHours != null && estimatedHours < 0) {
+            throw new BadRequestException("estimated hours cannot be negative");
+        }
+    }
+
+    private Integer resolveTaskMaxScore(
+            String owner,
+            String repo,
+            TaskRequest request,
+            Milestone milestone
+    ) {
+        if (request.getMaxScore() != null) {
+            return request.getMaxScore();
+        }
+        if (milestone == null || milestone.getMaxScore() == null || milestone.getMaxScore() < 0) {
+            return null;
+        }
+
+        Integer requiredTasks = milestone.getRequiredTasks();
+        if (requiredTasks == null || requiredTasks <= 0) {
+            return null;
+        }
+
+        int existingTaskCount = taskRepository
+                .findByRepoOwner_UserNameAndRepoNameAndMilestoneId(owner, repo, milestone.getId())
+                .size();
+        if (existingTaskCount >= requiredTasks) {
+            throw new BadRequestException(
+                    "milestone score allocation is exhausted; increase required tasks or set the task marks manually"
+            );
+        }
+
+        int totalMarks = milestone.getMaxScore();
+        int base = totalMarks / requiredTasks;
+        int remainder = totalMarks % requiredTasks;
+        int taskIndex = existingTaskCount + 1;
+        return base + (taskIndex <= remainder ? 1 : 0);
+    }
+
+    private Integer normalizeReviewScore(Task task, Integer score) {
+        if (score == null) {
+            return null;
+        }
+        if (score < 0) {
+            throw new BadRequestException("review score cannot be negative");
+        }
+        Integer maxScore = task == null ? null : task.getMaxScore();
+        if (maxScore != null && score > maxScore) {
+            throw new BadRequestException("review score cannot exceed the task max score");
+        }
+        return score;
+    }
+
+    private void ensureTaskCreator(Task task, String username, String message) {
+        String actor = normalizeUsername(username);
+        String creator = normalizeUsername(task.getCreatedBy());
+        if (actor.isEmpty() || creator.isEmpty() || !creator.equals(actor)) {
+            throw new ForbiddenException(message);
+        }
+    }
+
+    private void ensureAssignedUser(Task task, String username, String message) {
+        String actor = normalizeUsername(username);
+        String assignee = task.getAssignedTo() == null
+                ? ""
+                : normalizeUsername(task.getAssignedTo().getUserName());
+        if (actor.isEmpty() || assignee.isEmpty() || !assignee.equals(actor)) {
+            throw new ForbiddenException(message);
+        }
+    }
+
+    private void ensureAcceptedRepoMember(RepositoryDocument meta, String username, String message) {
+        String normalized = normalizeUsername(username);
+        if (normalized.isEmpty()) {
+            throw new ForbiddenException(message);
+        }
+        String ownerUsername = meta.getOwner() == null
+                ? ""
+                : normalizeUsername(meta.getOwner().getUsername());
+        if (ownerUsername.equals(normalized)) {
+            return;
+        }
+        boolean acceptedContributor = meta.getCollaborators() != null
+                && meta.getCollaborators().stream().anyMatch(collaborator -> isAcceptedCollaborator(collaborator, normalized));
+        if (!acceptedContributor) {
+            throw new ForbiddenException(message);
+        }
+    }
+
+    private void ensureAcceptedCollaborator(RepositoryDocument meta, String username, String message) {
+        String normalized = normalizeUsername(username);
+        boolean acceptedContributor = meta.getCollaborators() != null
+                && meta.getCollaborators().stream().anyMatch(collaborator -> isAcceptedCollaborator(collaborator, normalized));
+        if (!acceptedContributor) {
+            throw new ForbiddenException(message);
+        }
+    }
+
+    private boolean isAcceptedCollaborator(ContributorUser collaborator, String username) {
+        if (collaborator == null) {
+            return false;
+        }
+        String collaboratorUsername = normalizeUsername(collaborator.getUsername());
+        if (collaboratorUsername.isEmpty() || !collaboratorUsername.equals(username)) {
+            return false;
+        }
+        ContributorStatus status = collaborator.getContributorStatus();
+        return status == null || status == ContributorStatus.ACCEPTED;
+    }
+
+    private String normalizeUsername(String username) {
+        return String.valueOf(username == null ? "" : username).trim().toLowerCase(Locale.ROOT);
+    }
+
+    private ResolvedSubmissionPayload resolveSubmissionPayload(
+            String owner,
+            String repo,
+            Task task,
+            SubmissionRequest request,
+            String username
+    ) {
+        String pullRequestId = trimToNull(request.getPullRequestId());
+        if (pullRequestId == null) {
+            return new ResolvedSubmissionPayload(
+                    null,
+                    trimToNull(request.getBranchName()),
+                    trimToNull(request.getCommitHash()),
+                    trimToNull(request.getPullRequestUrl()),
+                    request.getFiles() == null ? List.of() : request.getFiles().stream().filter(Objects::nonNull).map(String::trim).filter(s -> !s.isBlank()).toList()
+            );
+        }
+
+        PullRequest pullRequest = pullRequestRepository
+                .findByIdAndRepoOwner_UsernameIgnoreCaseAndRepoNameIgnoreCase(pullRequestId, owner, repo)
+                .orElseThrow(() -> new NotFoundException("Pull request not found"));
+
+        if (pullRequest.getAuthor() == null ||
+                !normalizeUsername(username).equals(normalizeUsername(pullRequest.getAuthor().getUsername()))) {
+            throw new ForbiddenException("Only your own pull requests can be submitted for this task");
+        }
+
+        boolean usedByAnotherTask = taskRepository
+                .findByRepoOwner_UserNameAndRepoNameOrderByNumberDesc(owner, repo)
+                .stream()
+                .filter(existing -> !Objects.equals(existing.getId(), task.getId()))
+                .anyMatch(existing -> Objects.equals(trimToNull(existing.getLinkedPrId()), pullRequestId));
+        if (usedByAnotherTask) {
+            throw new ForbiddenException("This pull request has already been submitted to another task");
+        }
+
+        List<String> files = pullRequestMergeService.listChangedPathsBetweenCommits(
+                owner,
+                repo,
+                pullRequest.getTargetHash(),
+                pullRequest.getSourceHash()
+        );
+
+        return new ResolvedSubmissionPayload(
+                pullRequestId,
+                trimToNull(pullRequest.getSourceBranch()),
+                trimToNull(pullRequest.getSourceHash()),
+                buildGatewayUrl("/api/v1/repos/" + owner + "/" + repo + "/pulls/" + pullRequest.getId()),
+                files
+        );
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private record ResolvedSubmissionPayload(
+            String pullRequestId,
+            String branchName,
+            String commitHash,
+            String pullRequestUrl,
+            List<String> files
+    ) {}
+
+    private void publishTaskAssignedEvent(
+            String owner,
+            String repo,
+            Task task,
+            UserDTO actor,
+            UserDTO assignee,
+            UserDTO repoOwner
+    ) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("actionType", "TASK_ASSIGNED");
+        metadata.put("taskId", task.getId());
+        metadata.put("taskNumber", task.getNumber());
+        metadata.put("taskTitle", task.getTitle());
+        metadata.put("taskStatus", task.getStatus() == null ? null : task.getStatus().getStatus());
+        metadata.put("repositoryOwner", owner);
+        metadata.put("repositoryName", repo);
+        metadata.put("senderUserId", actor.getId());
+        metadata.put("senderName", actor.getUsername());
+        metadata.put("senderEmail", actor.getEmail());
+        metadata.put("receiverUserId", assignee.getId());
+        metadata.put("receiverName", assignee.getUsername());
+        metadata.put("receiverEmail", assignee.getEmail());
+        metadata.put("message", actor.getUsername() + " assigned you task #" + task.getNumber() + ": " + task.getTitle());
+        metadata.put("actionUrl", buildGatewayUrl("/api/v1/task/repos/" + owner + "/" + repo + "/tasks"));
+        metadata.put("viewEndpoint", buildGatewayUrl("/api/v1/task/repos/" + owner + "/" + repo + "/tasks"));
+        metadata.put("uiPath", buildTaskUiPath(owner, repo, task.getNumber()));
+
+        kafkaProducer.produce(
+                RepositoryOperationEvent.builder()
+                        .eventId(UUID.randomUUID().toString())
+                        .eventType(RepositoryEventType.TASK_ASSIGNED)
+                        .repositoryId(null)
+                        .repositoryName(repo)
+                        .repositoryUrl(buildGatewayUrl("/api/v1/repos/" + owner + "/" + repo))
+                        .actorUserId(actor.getId())
+                        .actorName(actor.getUsername())
+                        .actorEmail(actor.getEmail())
+                        .ownerUserId(repoOwner.getId())
+                        .ownerName(repoOwner.getUsername())
+                        .ownerEmail(repoOwner.getEmail())
+                        .recipients(List.of(buildRecipient(assignee, "ASSIGNEE")))
+                        .occurredAt(LocalDateTime.now())
+                        .metadata(metadata)
+                        .build()
+        );
+    }
+
+    private void publishTaskSubmittedEvent(
+            String owner,
+            String repo,
+            Task task,
+            UserDTO submitter,
+            UserDTO repoOwner
+    ) {
+        Map<String, RepositoryMemberRecipient> recipients = new LinkedHashMap<>();
+        addRecipient(recipients, buildRecipient(repoOwner, "OWNER"));
+        UserDTO creator = findUserByUsername(task.getCreatedBy());
+        addRecipient(recipients, buildRecipient(creator, "CREATOR"));
+
+        if (recipients.isEmpty()) {
+            return;
+        }
+
+        Map<String, Object> metadata = baseTaskMetadata("TASK_SUBMITTED", owner, repo, task, submitter);
+        metadata.put("message", submitter.getUsername() + " submitted work for task #" + task.getNumber() + ": " + task.getTitle());
+
+        kafkaProducer.produce(
+                RepositoryOperationEvent.builder()
+                        .eventId(UUID.randomUUID().toString())
+                        .eventType(RepositoryEventType.TASK_SUBMITTED)
+                        .repositoryName(repo)
+                        .repositoryUrl(buildGatewayUrl("/api/v1/repos/" + owner + "/" + repo))
+                        .actorUserId(submitter.getId())
+                        .actorName(submitter.getUsername())
+                        .actorEmail(submitter.getEmail())
+                        .ownerUserId(repoOwner.getId())
+                        .ownerName(repoOwner.getUsername())
+                        .ownerEmail(repoOwner.getEmail())
+                        .recipients(new ArrayList<>(recipients.values()))
+                        .occurredAt(LocalDateTime.now())
+                        .metadata(metadata)
+                        .build()
+        );
+    }
+
+    private void publishTaskCompletedEvent(
+            String owner,
+            String repo,
+            Task task,
+            String reviewerUsername
+    ) {
+        UserDTO reviewer = findUserByUsername(reviewerUsername);
+        UserDTO repoOwner = findUserByUsername(owner);
+        if (reviewer == null || repoOwner == null) {
+            return;
+        }
+
+        Map<String, RepositoryMemberRecipient> recipients = new LinkedHashMap<>();
+        addRecipient(recipients, buildRecipient(repoOwner, "OWNER"));
+        UserDTO creator = findUserByUsername(task.getCreatedBy());
+        addRecipient(recipients, buildRecipient(creator, "CREATOR"));
+
+        if (recipients.isEmpty()) {
+            return;
+        }
+
+        Map<String, Object> metadata = baseTaskMetadata("TASK_COMPLETED", owner, repo, task, reviewer);
+        metadata.put("message", reviewer.getUsername() + " marked task #" + task.getNumber() + " as completed: " + task.getTitle());
+
+        kafkaProducer.produce(
+                RepositoryOperationEvent.builder()
+                        .eventId(UUID.randomUUID().toString())
+                        .eventType(RepositoryEventType.TASK_COMPLETED)
+                        .repositoryName(repo)
+                        .repositoryUrl(buildGatewayUrl("/api/v1/repos/" + owner + "/" + repo))
+                        .actorUserId(reviewer.getId())
+                        .actorName(reviewer.getUsername())
+                        .actorEmail(reviewer.getEmail())
+                        .ownerUserId(repoOwner.getId())
+                        .ownerName(repoOwner.getUsername())
+                        .ownerEmail(repoOwner.getEmail())
+                        .recipients(new ArrayList<>(recipients.values()))
+                        .occurredAt(LocalDateTime.now())
+                        .metadata(metadata)
+                        .build()
+        );
+    }
+
+    private Map<String, Object> baseTaskMetadata(
+            String actionType,
+            String owner,
+            String repo,
+            Task task,
+            UserDTO actor
+    ) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("actionType", actionType);
+        metadata.put("taskId", task.getId());
+        metadata.put("taskNumber", task.getNumber());
+        metadata.put("taskTitle", task.getTitle());
+        metadata.put("taskStatus", task.getStatus() == null ? null : task.getStatus().getStatus());
+        metadata.put("repositoryOwner", owner);
+        metadata.put("repositoryName", repo);
+        metadata.put("senderUserId", actor.getId());
+        metadata.put("senderName", actor.getUsername());
+        metadata.put("senderEmail", actor.getEmail());
+        metadata.put("actionUrl", buildGatewayUrl("/api/v1/task/repos/" + owner + "/" + repo + "/tasks"));
+        metadata.put("viewEndpoint", buildGatewayUrl("/api/v1/task/repos/" + owner + "/" + repo + "/tasks"));
+        metadata.put("uiPath", buildTaskUiPath(owner, repo, task.getNumber()));
+        return metadata;
+    }
+
+    private RepositoryMemberRecipient buildRecipient(UserDTO user, String role) {
+        if (user == null || user.getId() == null || user.getId().isBlank()) {
+            return null;
+        }
+        return RepositoryMemberRecipient.builder()
+                .userId(user.getId())
+                .name(user.getUsername())
+                .email(user.getEmail())
+                .role(role)
+                .build();
+    }
+
+    private void addRecipient(Map<String, RepositoryMemberRecipient> recipients, RepositoryMemberRecipient recipient) {
+        if (recipient == null || recipient.getUserId() == null || recipient.getUserId().isBlank()) {
+            return;
+        }
+        recipients.putIfAbsent(recipient.getUserId(), recipient);
+    }
+
+    private UserDTO findUserByUsername(String username) {
+        if (username == null || username.isBlank()) {
+            return null;
+        }
+        try {
+            return authService.getUserByUsername(username);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private String buildGatewayUrl(String path) {
+        String base = appProperties.getGatewayBaseUrl() == null
+                ? "http://localhost:8080"
+                : appProperties.getGatewayBaseUrl().trim();
+        if (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        if (path == null || path.isBlank()) {
+            return base;
+        }
+        return path.startsWith("/") ? base + path : base + "/" + path;
+    }
+
+    private String buildTaskUiPath(String owner, String repo, Integer taskNumber) {
+        return "/repository/" + owner + "/" + repo + "/tasks/issue/" + taskNumber;
     }
 
 

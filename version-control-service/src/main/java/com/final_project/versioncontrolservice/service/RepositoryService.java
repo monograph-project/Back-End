@@ -1,6 +1,7 @@
 package com.final_project.versioncontrolservice.service;
 
 import com.final_project.versioncontrolservice.dto.*;
+import com.final_project.versioncontrolservice.config.AppProperties;
 import com.final_project.versioncontrolservice.exception.BadRequestException;
 import com.final_project.versioncontrolservice.exception.NotFoundException;
 import com.final_project.versioncontrolservice.model.ContributorStatus;
@@ -34,6 +35,7 @@ public class RepositoryService {
     private final AuthService authService;
     private final InvitationRepository invitationRepository;
     private final RepositoryFileIndexService fileIndex;
+    private final AppProperties appProperties;
     public RepositoryDocument loadMeta(String userName, String repo) {
         return repositoryRepository
             .findByOwner_UsernameIgnoreCaseAndRepositoryNameIgnoreCase(userName.trim(), repo.trim())
@@ -58,7 +60,7 @@ public class RepositoryService {
        RepositoryDocument repo =  RepositoryDocument
                 .builder()
                 .repositoryName(request.getRepositoryName())
-                .cloneUrl("http://localhost:8000/api/v1/repo/..")
+                .cloneUrl(buildCloneUrl(user.getUsername(), request.getRepositoryName()))
                 .description(request.getDescription())
                 .owner(
                         UserDTO.builder()
@@ -201,7 +203,7 @@ public class RepositoryService {
                 .collaborators(repo.getCollaborators())
                 .description(repo.getDescription())
                 .repositoryName(repo.getRepositoryName())
-                .cloneUrl(repo.getCloneUrl())
+                .cloneUrl(resolveCloneUrl(repo))
                 .build();
     }
 
@@ -213,7 +215,7 @@ public class RepositoryService {
                 .builder()
                 .owner(repo.getOwner().getUsername())
                 .repositoryName(repo.getRepositoryName())
-                .cloneUrl(repo.getCloneUrl())
+                .cloneUrl(resolveCloneUrl(repo))
                 .visibility(repo.getVisibility())
                 .build();
     }
@@ -233,7 +235,7 @@ public class RepositoryService {
         return RepositoryDTO
                 .builder()
                 .owner(saved.getOwner().getUsername())
-                .cloneUrl(saved.getCloneUrl())
+                .cloneUrl(resolveCloneUrl(saved))
                 .visibility(saved.getVisibility())
                 .repositoryName(saved.getRepositoryName())
                 .id(saved.getId())
@@ -329,7 +331,7 @@ public class RepositoryService {
                 .updatedAt(saved.getUpdatedAt())
                 .branchHeads(saved.getBranchHeads())
                 .repositoryName(saved.getRepositoryName())
-                .cloneUrl(saved.getCloneUrl())
+                .cloneUrl(resolveCloneUrl(saved))
                 .collaborators(saved.getCollaborators())
                 .description(saved.getDescription())
                 .owner(
@@ -347,5 +349,29 @@ public class RepositoryService {
     public @Nullable List<ContributorUser> getContributors(String owner, String repo) {
         RepositoryDocument document = loadMeta(owner, repo);
         return document.getCollaborators();
+    }
+
+    private String resolveCloneUrl(RepositoryDocument repo) {
+        if (repo == null || repo.getOwner() == null) {
+            return "";
+        }
+        return buildCloneUrl(repo.getOwner().getUsername(), repo.getRepositoryName());
+    }
+
+    private String buildCloneUrl(String owner, String repo) {
+        return buildGatewayUrl("/api/v1/repos/" + owner + "/" + repo);
+    }
+
+    private String buildGatewayUrl(String path) {
+        String base = appProperties.getGatewayBaseUrl() == null
+                ? "http://localhost:8080"
+                : appProperties.getGatewayBaseUrl().trim();
+        if (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        if (path == null || path.isBlank()) {
+            return base;
+        }
+        return path.startsWith("/") ? base + path : base + "/" + path;
     }
 }

@@ -38,9 +38,11 @@ public class TaskController {
             @PathVariable String owner,
             @PathVariable String repo,
             @RequestBody TaskService.TaskRequest request,
-            @PathVariable String username
+            @PathVariable String username,
+            @AuthenticationPrincipal Jwt jwt
 
     ) {
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
         return ResponseEntity.ok(taskService.createTask(owner, repo, request, username));
     }
 
@@ -57,9 +59,11 @@ public class TaskController {
             @PathVariable String owner,
             @PathVariable String repo,
             @PathVariable int number,
-            @PathVariable String assignee
+            @PathVariable String assignee,
+            @AuthenticationPrincipal Jwt jwt
     ) {
-        return ResponseEntity.ok(taskService.assignTask(owner, repo, number, assignee, user));
+        ContributorUser contributor = authService.getContributorUser(jwt.getSubject());
+        return ResponseEntity.ok(taskService.assignTask(owner, repo, number, assignee, contributor.getUsername()));
     }
 
     /**
@@ -129,5 +133,17 @@ public class TaskController {
             @RequestParam(required = false) Integer milestone,
             @RequestParam(required = false) String search) {
         return ResponseEntity.ok(taskService.listTasks(owner, repo, assignee, status, milestone, search));
+    }
+
+    @GetMapping(path = "/repos/{owner}/{repo}/tasks/{number}/eligible-pulls",
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<List<TaskService.TaskPullRequestCandidateResponse>> listEligiblePullRequests(
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @PathVariable int number,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
+        return ResponseEntity.ok(taskService.listEligiblePullRequests(owner, repo, number, user.getUsername()));
     }
 }

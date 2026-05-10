@@ -6,8 +6,10 @@ import com.final_project.versioncontrolservice.dto.UserDTO;
 import com.final_project.versioncontrolservice.model.PullRequest;
 import com.final_project.versioncontrolservice.model.PullRequestStatus;
 import com.final_project.versioncontrolservice.model.RepositoryDocument;
+import com.final_project.versioncontrolservice.model.Milestone;
 import com.final_project.versioncontrolservice.model.Task;
 import com.final_project.versioncontrolservice.model.TaskStatus;
+import com.final_project.versioncontrolservice.repo.MilestoneRepository;
 import com.final_project.versioncontrolservice.repo.PullRequestRepository;
 import com.final_project.versioncontrolservice.repo.TaskRepository;
 import lombok.AllArgsConstructor;
@@ -32,6 +34,7 @@ public class RepositoryStatisticsService {
     private final RepositoryService repositoryService;
     private final PullRequestRepository pullRequestRepository;
     private final TaskRepository taskRepository;
+    private final MilestoneRepository milestoneRepository;
     private final MinioStorageService minioStorageService;
 
     public RepositoryStatisticsResponse getRepositoryStatistics(String owner, String repo) {
@@ -66,6 +69,10 @@ public class RepositoryStatisticsService {
                 meta.getOwner().getUsername(),
                 meta.getRepositoryName()
         );
+        List<Milestone> milestones = milestoneRepository.findByRepoOwner_UserNameAndRepoNameOrderByNumberDesc(
+                meta.getOwner().getUsername(),
+                meta.getRepositoryName()
+        );
         for (Task task : tasks) {
             String assigneeUsername = normalizeKey(
                     task.getAssignedTo() == null ? null : task.getAssignedTo().getUserName()
@@ -75,6 +82,8 @@ public class RepositoryStatisticsService {
                 continue;
             }
             stat.setAssignedTasks(stat.getAssignedTasks() + 1);
+            stat.setAssignedMarks(stat.getAssignedMarks() + safeInt(task.getMaxScore()));
+            stat.setEarnedMarks(stat.getEarnedMarks() + safeInt(task.getEarnedScore()));
             if (task.getStatus() == TaskStatus.COMPLETED) {
                 stat.setCompletedTasks(stat.getCompletedTasks() + 1);
             }
@@ -90,6 +99,7 @@ public class RepositoryStatisticsService {
                             + stat.getMergedPullRequests()
                             + stat.getCompletedTasks()
             );
+            stat.setMarksPercentage(calculatePercentage(stat.getEarnedMarks(), stat.getAssignedMarks()));
         }
         contributors.sort(
                 Comparator.comparingInt(RepositoryStatisticsResponse.ContributorStat::getActivityScore)
@@ -104,6 +114,9 @@ public class RepositoryStatisticsService {
         int totalMergedPulls = contributors.stream().mapToInt(RepositoryStatisticsResponse.ContributorStat::getMergedPullRequests).sum();
         int totalCompletedTasks = contributors.stream().mapToInt(RepositoryStatisticsResponse.ContributorStat::getCompletedTasks).sum();
         int totalActivity = contributors.stream().mapToInt(RepositoryStatisticsResponse.ContributorStat::getActivityScore).sum();
+        int totalMilestoneMarks = milestones.stream().mapToInt(milestone -> safeInt(milestone.getMaxScore())).sum();
+        int totalAllocatedTaskMarks = contributors.stream().mapToInt(RepositoryStatisticsResponse.ContributorStat::getAssignedMarks).sum();
+        int totalEarnedTaskMarks = contributors.stream().mapToInt(RepositoryStatisticsResponse.ContributorStat::getEarnedMarks).sum();
 
         return RepositoryStatisticsResponse.builder()
                 .repositoryId(meta.getId())
@@ -119,6 +132,10 @@ public class RepositoryStatisticsService {
                                 .totalTasks(tasks.size())
                                 .totalCompletedTasks(totalCompletedTasks)
                                 .totalActivityScore(totalActivity)
+                                .totalMilestoneMarks(totalMilestoneMarks)
+                                .totalAllocatedTaskMarks(totalAllocatedTaskMarks)
+                                .totalEarnedTaskMarks(totalEarnedTaskMarks)
+                                .marksCompletionPercentage(calculatePercentage(totalEarnedTaskMarks, totalAllocatedTaskMarks))
                                 .build()
                 )
                 .contributors(contributors)
@@ -285,6 +302,17 @@ public class RepositoryStatisticsService {
             return authorHeader.substring(0, emailStart).trim();
         }
         return authorHeader.trim();
+    }
+
+    private int safeInt(Integer value) {
+        return value == null ? 0 : Math.max(value, 0);
+    }
+
+    private double calculatePercentage(int earned, int total) {
+        if (total <= 0) {
+            return 0.0;
+        }
+        return Math.round((((double) earned / total) * 100.0) * 100.0) / 100.0;
     }
 
     private record CommitSnapshot(String author, List<String> parents) {}

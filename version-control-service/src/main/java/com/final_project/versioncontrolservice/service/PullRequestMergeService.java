@@ -106,6 +106,31 @@ public class PullRequestMergeService {
                 .build();
     }
 
+    public List<String> listChangedPathsBetweenCommits(
+            String owner,
+            String repo,
+            String targetHash,
+            String sourceHash
+    ) {
+        CommitInfo targetCommit = readCommit(owner, repo, targetHash);
+        CommitInfo sourceCommit = readCommit(owner, repo, sourceHash);
+
+        Map<String, TreeEntry> targetTree = readTreeRecursive(owner, repo, targetCommit.getTreeHash());
+        Map<String, TreeEntry> sourceTree = readTreeRecursive(owner, repo, sourceCommit.getTreeHash());
+
+        Set<String> allPaths = new TreeSet<>();
+        allPaths.addAll(targetTree.keySet());
+        allPaths.addAll(sourceTree.keySet());
+
+        List<String> changed = new ArrayList<>();
+        for (String path : allPaths) {
+            if (!Objects.equals(hashOf(targetTree.get(path)), hashOf(sourceTree.get(path)))) {
+                changed.add(path);
+            }
+        }
+        return changed;
+    }
+
     public String createMergeCommit(
             String owner,
             String repo,

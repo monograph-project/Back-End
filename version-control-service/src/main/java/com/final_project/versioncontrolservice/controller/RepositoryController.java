@@ -70,12 +70,9 @@ public class RepositoryController {
     @GetMapping(path = "/{owner}/{repo}/info/refs", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> infoRefs(
             @PathVariable String owner,
-            @PathVariable String repo,
-            @AuthenticationPrincipal Jwt jwt
+            @PathVariable String repo
     ) {
-
         var meta = repositoryService.loadMeta(owner, repo);
-        String userName =  jwt.getClaim("preferred_username");
         return repositoryService.listRefs(meta);
     }
 
@@ -83,11 +80,9 @@ public class RepositoryController {
     public ResponseEntity<byte[]> getObject(
             @PathVariable String owner,
             @PathVariable String repo,
-            @PathVariable String hash,
-            @AuthenticationPrincipal Jwt jwt
+            @PathVariable String hash
     ) {
         var meta = repositoryService.loadMeta(owner, repo);
-        ContributorUser user = authService.getContributorUser(jwt.getSubject());
         byte[] data = repositoryService.readObjectRaw(meta, hash.trim());
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM).body(data);
     }
