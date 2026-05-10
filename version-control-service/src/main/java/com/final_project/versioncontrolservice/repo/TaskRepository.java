@@ -74,4 +74,6 @@ public interface TaskRepository extends MongoRepository<Task, String> {
             String repoName,
             String searchTerm
     );
+
+        List<Task> findByLinkedPrId(String linkedPrId);
 }

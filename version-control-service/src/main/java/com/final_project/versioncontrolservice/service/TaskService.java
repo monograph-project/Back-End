@@ -281,12 +281,98 @@ public class TaskService {
         return MilestoneService.TaskResponse.fromDocument(updated);
     }
 
+    public MilestoneService.TaskResponse completeTask(
+            String owner,
+            String repo,
+            int taskNumber,
+            CompleteTaskRequest request,
+            String reviewer
+    ) {
+        Task task = getTask(owner, repo, taskNumber);
+
+        RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
+        if (meta == null) {
+            throw new NotFoundException("Repository not found");
+        }
+
+        if (!RepoAccessRules.canAdmin(meta, reviewer)) {
+            throw new ForbiddenException("Only admins can complete tasks");
+        }
+
+        if (task.getStatus() == TaskStatus.COMPLETED) {
+            return MilestoneService.TaskResponse.fromDocument(task);
+        }
+
+        if (task.getStatus() == TaskStatus.CANCELLED) {
+            throw new BadRequestException("Cancelled task cannot be completed");
+        }
+
+        if (request != null && request.getPullRequestId() != null && !request.getPullRequestId().isBlank()) {
+            validatePullRequestForTaskCompletion(owner, repo, task, request.getPullRequestId());
+        }
+
+        TaskComment comment = new TaskComment();
+        comment.setTaskId(task.getId());
+        comment.setRepoOwner(owner);
+        comment.setRepoName(repo);
+        comment.setAuthor(reviewer);
+        comment.setBody(request == null ? null : request.getFeedback());
+        comment.setCreatedAt(Instant.now());
+        comment.setUpdatedAt(Instant.now());
+        comment.setReview(true);
+        comment.setReviewScore(request == null ? null : request.getScore());
+        commentRepository.save(comment);
+
+        Integer reviewScore = request == null ? null : normalizeReviewScore(task, request.getScore());
+
+        task.setReviewedBy(reviewer);
+        task.setReviewedAt(Instant.now());
+        task.setReviewComments(request == null ? null : request.getFeedback());
+        task.setEarnedScore(reviewScore);
+
+        task.setStatus(TaskStatus.COMPLETED);
+        task.setCompletedAt(Instant.now());
+        task.setUpdatedAt(Instant.now());
+        task.setCommentsCount((int) commentRepository.countByTaskId(task.getId()));
+
+        if (request != null && request.getPullRequestId() != null && !request.getPullRequestId().isBlank()) {
+            PullRequest pullRequest = pullRequestRepository
+                    .findByIdAndRepoOwner_UsernameIgnoreCaseAndRepoNameIgnoreCase(
+                            request.getPullRequestId(),
+                            owner,
+                            repo
+                    )
+                    .orElseThrow(() -> new NotFoundException("Pull request not found"));
+
+            task.setLinkedPrId(pullRequest.getId());
+            task.setSubmissionBranch(pullRequest.getSourceBranch());
+            task.setSubmissionCommit(pullRequest.getSourceHash());
+            task.setSubmissionUrl(
+                    buildGatewayUrl("/api/v1/repos/" + owner + "/" + repo + "/pulls/" + pullRequest.getId())
+            );
+        }
+
+        Task updated = taskRepository.save(task);
+
+        if (updated.getMilestoneId() != null) {
+            milestoneService.updateMilestoneProgress(owner, repo, updated.getMilestoneId());
+        }
+
+        publishTaskCompletedEvent(owner, repo, updated, reviewer);
+
+        return MilestoneService.TaskResponse.fromDocument(updated);
+    }
+
     /**
      * Get student dashboard with all assigned tasks
      */
     public StudentDashboard getStudentDashboard(String owner, String repo, String username) {
-        List<Task> tasks = taskRepository
-                .findByRepoOwner_UserNameAndRepoNameOrderByNumberDesc(owner, repo);
+        RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
+        List<Task> tasks = visibleTasksForUser(
+                taskRepository.findByRepoOwner_UserNameAndRepoNameOrderByNumberDesc(owner, repo),
+                meta,
+                username
+        );
         List<Milestone> milestones = milestoneRepository
                 .findByRepoOwner_UserNameAndRepoNameOrderByNumberDesc(owner, repo);
         long totalTasks = tasks.size();
@@ -338,13 +424,18 @@ public class TaskService {
     public List<MilestoneService.TaskResponse> listTasks(
             String owner,
             String repo,
+            String viewerUsername,
             String assignee,
             String status,
             Integer milestone,
             String search
     ) {
-        List<Task> tasks = taskRepository
-                .findByRepoOwner_UserNameAndRepoNameOrderByNumberDesc(owner, repo);
+        RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
+        List<Task> tasks = visibleTasksForUser(
+                taskRepository.findByRepoOwner_UserNameAndRepoNameOrderByNumberDesc(owner, repo),
+                meta,
+                viewerUsername
+        );
 
         if (assignee != null && !assignee.isBlank()) {
             String normalizedAssignee = assignee.trim().toLowerCase(Locale.ROOT);
@@ -381,6 +472,30 @@ public class TaskService {
         return tasks.stream()
                 .map(MilestoneService.TaskResponse::fromDocument)
                 .toList();
+    }
+
+    private List<Task> visibleTasksForUser(List<Task> tasks, RepositoryDocument meta, String username) {
+        String viewer = normalizeUsername(username);
+        if (viewer.isEmpty()) {
+            return List.of();
+        }
+        if (RepoAccessRules.canAdmin(meta, viewer)) {
+            return tasks;
+        }
+        return tasks.stream()
+                .filter(task -> isTaskCreator(task, viewer) || isTaskAssignee(task, viewer))
+                .toList();
+    }
+
+    private boolean isTaskCreator(Task task, String username) {
+        return normalizeUsername(task == null ? null : task.getCreatedBy()).equals(username);
+    }
+
+    private boolean isTaskAssignee(Task task, String username) {
+        if (task == null || task.getAssignedTo() == null) {
+            return false;
+        }
+        return normalizeUsername(task.getAssignedTo().getUserName()).equals(username);
     }
 
     public List<TaskPullRequestCandidateResponse> listEligiblePullRequests(
@@ -504,6 +619,7 @@ public class TaskService {
             default -> throw new NotFoundException("task status '" + raw + "' not supported");
         };
     }
+
 
     @Data
     @Builder
@@ -682,6 +798,57 @@ public class TaskService {
             throw new ForbiddenException(message);
         }
     }
+    private void validatePullRequestForTaskCompletion(
+            String owner,
+            String repo,
+            Task task,
+            String pullRequestId
+    ) {
+        PullRequest pullRequest = pullRequestRepository
+                .findByIdAndRepoOwner_UsernameIgnoreCaseAndRepoNameIgnoreCase(
+                        pullRequestId,
+                        owner,
+                        repo
+                )
+                .orElseThrow(() -> new NotFoundException("Pull request not found"));
+
+        if (pullRequest.getStatus() != PullRequestStatus.MERGED) {
+            throw new BadRequestException("Task can only be completed with a merged pull request");
+        }
+
+        if (task.getAssignedTo() == null) {
+            throw new BadRequestException("Task is not assigned to any contributor");
+        }
+
+        if (pullRequest.getAuthor() == null) {
+            throw new BadRequestException("Pull request author is missing");
+        }
+
+        String prAuthorId = normalizeValue(pullRequest.getAuthor().getId());
+        String taskAssigneeId = normalizeValue(task.getAssignedTo().getUserId());
+
+        String prAuthorUsername = normalizeUsername(pullRequest.getAuthor().getUsername());
+        String taskAssigneeUsername = normalizeUsername(task.getAssignedTo().getUserName());
+
+        boolean sameUserById =
+                !prAuthorId.isBlank()
+                        && !taskAssigneeId.isBlank()
+                        && prAuthorId.equals(taskAssigneeId);
+
+        boolean sameUserByUsername =
+                !prAuthorUsername.isBlank()
+                        && !taskAssigneeUsername.isBlank()
+                        && prAuthorUsername.equals(taskAssigneeUsername);
+
+        if (!sameUserById && !sameUserByUsername) {
+            throw new ForbiddenException(
+                    "The pull request author must be the assigned contributor of this task"
+            );
+        }
+    }
+    private String normalizeValue(String value) {
+        return value == null ? "" : value.trim();
+    }
 
     private boolean isAcceptedCollaborator(ContributorUser collaborator, String username) {
         if (collaborator == null) {
@@ -766,6 +933,23 @@ public class TaskService {
             String pullRequestUrl,
             List<String> files
     ) {}
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    public static class CompleteTaskRequest {
+        private String feedback;
+        private Integer score;
+
+        /**
+         * Optional.
+         * If frontend sends pullRequestId, we validate that:
+         * 1. PR exists in same repo
+         * 2. PR author is the assigned task user
+         * 3. PR is already merged
+         */
+        private String pullRequestId;
+    }
 
     private void publishTaskAssignedEvent(
             String owner,

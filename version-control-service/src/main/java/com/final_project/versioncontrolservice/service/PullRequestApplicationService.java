@@ -17,6 +17,9 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
+import com.final_project.versioncontrolservice.model.Task;
+import com.final_project.versioncontrolservice.repo.TaskRepository;
+import com.final_project.versioncontrolservice.service.TaskService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -33,6 +36,8 @@ public class PullRequestApplicationService {
     private final AuthService authService;
     private final KafkaProducer kafkaProducer;
     private final FacultyProjectService facultyProjectService;
+        private final TaskService taskService;
+        private final TaskRepository taskRepository;
     private final AppProperties appProperties;
     public PullRequestResponse create(
             String owner,
@@ -199,6 +204,24 @@ public class PullRequestApplicationService {
 
             publishPullRequestMergedEvent(saved, mergedRepository);
 
+                        // Auto-complete any tasks linked to this pull request (best-effort)
+                        try {
+                                List<Task> linkedTasks = taskRepository.findByLinkedPrId(saved.getId());
+                                for (Task task : linkedTasks) {
+                                        try {
+                                                TaskService.CompleteTaskRequest req = TaskService.CompleteTaskRequest.builder()
+                                                                .pullRequestId(saved.getId())
+                                                                .feedback("Auto-completed on PR merge")
+                                                                .score(null)
+                                                                .build();
+                                                taskService.completeTask(mergedRepository.getOwner().getUsername(), mergedRepository.getRepositoryName(), task.getNumber(), req, mergedRepository.getOwner().getUsername());
+                                        } catch (Exception ex) {
+                                                log.warn("Failed to auto-complete task #{} for PR {}: {}", task.getNumber(), saved.getId(), ex.getMessage());
+                                        }
+                                }
+                        } catch (Exception ignored) {
+                        }
+
             return MergeResponse.builder()
                     .mergedAt(saved.getMergedAt())
                     .pullRequestId(saved.getId())
@@ -316,6 +339,23 @@ public class PullRequestApplicationService {
         pullRequest.setTargetHash(mergeCommitHash);
         PullRequest saved = pullRequestRepository.save(pullRequest);
         publishPullRequestMergedEvent(saved, mergedRepository);
+                // Auto-complete any tasks linked to this pull request (best-effort)
+                try {
+                        List<Task> linkedTasks = taskRepository.findByLinkedPrId(saved.getId());
+                        for (Task task : linkedTasks) {
+                                try {
+                                        TaskService.CompleteTaskRequest req = TaskService.CompleteTaskRequest.builder()
+                                                        .pullRequestId(saved.getId())
+                                                        .feedback("Auto-completed on PR merge")
+                                                        .score(null)
+                                                        .build();
+                                        taskService.completeTask(mergedRepository.getOwner().getUsername(), mergedRepository.getRepositoryName(), task.getNumber(), req, mergedRepository.getOwner().getUsername());
+                                } catch (Exception ex) {
+                                        log.warn("Failed to auto-complete task #{} for PR {}: {}", task.getNumber(), saved.getId(), ex.getMessage());
+                                }
+                        }
+                } catch (Exception ignored) {
+                }
 
 
 

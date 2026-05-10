@@ -25,6 +25,7 @@ import java.util.Map;
 public class TaskController {
     private final AuthService authService;
     private final TaskService taskService;
+        private final com.final_project.versioncontrolservice.repo.TaskRepository taskRepository;
     /**
      * Create a new task
      * POST /repos/{owner}/{repo}/tasks
@@ -103,6 +104,20 @@ public class TaskController {
         return ResponseEntity.ok(taskService.reviewTask(owner, repo, number, request, user.getUsername()));
     }
 
+    @PostMapping(path = "/repos/{owner}/{repo}/tasks/{number}/complete",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<MilestoneService.TaskResponse> completeTask(
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @PathVariable int number,
+            @RequestBody TaskService.CompleteTaskRequest request,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
+        return ResponseEntity.ok(taskService.completeTask(owner, repo, number, request, user.getUsername()));
+    }
+
     /**
      * Get student dashboard
      * GET /repos/{owner}/{repo}/dashboard
@@ -131,8 +146,10 @@ public class TaskController {
             @RequestParam(required = false) String assignee,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Integer milestone,
-            @RequestParam(required = false) String search) {
-        return ResponseEntity.ok(taskService.listTasks(owner, repo, assignee, status, milestone, search));
+            @RequestParam(required = false) String search,
+            @AuthenticationPrincipal Jwt jwt) {
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
+        return ResponseEntity.ok(taskService.listTasks(owner, repo, user.getUsername(), assignee, status, milestone, search));
     }
 
     @GetMapping(path = "/repos/{owner}/{repo}/tasks/{number}/eligible-pulls",
@@ -146,4 +163,50 @@ public class TaskController {
         ContributorUser user = authService.getContributorUser(jwt.getSubject());
         return ResponseEntity.ok(taskService.listEligiblePullRequests(owner, repo, number, user.getUsername()));
     }
+
+        /**
+         * Manual trigger: complete tasks linked to a given pull request id.
+         * POST /repos/{owner}/{repo}/tasks/complete-by-pr
+         */
+        @PostMapping(path = "/repos/{owner}/{repo}/tasks/complete-by-pr",
+                        consumes = MediaType.APPLICATION_JSON_VALUE,
+                        produces = MediaType.APPLICATION_JSON_VALUE)
+        public ResponseEntity<Map<String, Object>> completeTasksByPullRequest(
+                        @PathVariable String owner,
+                        @PathVariable String repo,
+                        @RequestBody TaskService.CompleteTaskRequest request,
+                        @AuthenticationPrincipal Jwt jwt
+        ) {
+                ContributorUser user = authService.getContributorUser(jwt.getSubject());
+                String reviewer = user == null ? "system" : user.getUsername();
+
+                String prId = request == null ? null : request.getPullRequestId();
+                if (prId == null || prId.isBlank()) {
+                        return ResponseEntity.badRequest().body(Map.of("error", "pullRequestId is required"));
+                }
+
+                List<com.final_project.versioncontrolservice.model.Task> linked = taskRepository.findByLinkedPrId(prId);
+                int completed = 0;
+                int failed = 0;
+                List<MilestoneService.TaskResponse> completedResponses = new java.util.ArrayList<>();
+
+                for (com.final_project.versioncontrolservice.model.Task task : linked) {
+                        try {
+                                MilestoneService.TaskResponse resp = taskService.completeTask(owner, repo, task.getNumber(), request, reviewer);
+                                if (resp != null) {
+                                        completedResponses.add(resp);
+                                        completed++;
+                                }
+                        } catch (Exception ex) {
+                                failed++;
+                        }
+                }
+
+                return ResponseEntity.ok(Map.of(
+                                "pullRequestId", prId,
+                                "completed", completed,
+                                "failed", failed,
+                                "responses", completedResponses
+                ));
+        }
 }
