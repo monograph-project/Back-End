@@ -67,6 +67,14 @@ public class RepositoryController {
         return ResponseEntity.ok(repositoryStatisticsService.getRepositoryStatistics(owner, repo));
     }
 
+    @GetMapping(value = "/{owner}/{repo}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<RepositoryResponse> getRepositoryByOwnerAndName(
+            @PathVariable String owner,
+            @PathVariable String repo
+    ) {
+        return ResponseEntity.ok(repositoryService.repositoryResponseByOwnerAndRepoName(owner, repo));
+    }
+
     @GetMapping(path = "/{owner}/{repo}/info/refs", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> infoRefs(
             @PathVariable String owner,
@@ -85,6 +93,28 @@ public class RepositoryController {
         var meta = repositoryService.loadMeta(owner, repo);
         byte[] data = repositoryService.readObjectRaw(meta, hash.trim());
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM).body(data);
+    }
+
+    @GetMapping(path = "/{owner}/{repo}/archive.zip", produces = "application/zip")
+    public ResponseEntity<byte[]> downloadArchive(
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @RequestParam(defaultValue = "main") String ref,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
+        var meta = repositoryService.loadMeta(owner, repo);
+        String username = user != null ? user.getUsername() : "";
+        if (!RepoAccessRules.canRead(meta, username)) {
+            throw new ForbiddenException("forbidden");
+        }
+        byte[] archive = repositoryService.archiveRepository(meta, ref);
+        String fileName = owner + "-" + repo + ".zip";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+                .contentLength(archive.length)
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .body(archive);
     }
 
     @PostMapping(

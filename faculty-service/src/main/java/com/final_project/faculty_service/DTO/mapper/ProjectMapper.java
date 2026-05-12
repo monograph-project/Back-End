@@ -4,9 +4,11 @@ import com.final_project.faculty_service.DTO.request.ProjectRequest;
 import com.final_project.faculty_service.DTO.response.*;
 import com.final_project.faculty_service.models.Group;
 import com.final_project.faculty_service.models.Project;
+import com.final_project.faculty_service.models.ProjectStatus;
 import com.final_project.faculty_service.models.Teacher;
-import com.final_project.faculty_service.services.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
 
 @Component
 public class ProjectMapper implements BaseMapper<ProjectRequest, ProjectResponse, Project> {
@@ -21,7 +23,14 @@ public class ProjectMapper implements BaseMapper<ProjectRequest, ProjectResponse
 
         Group group = new Group();
         group.setId(request.getGroup());
-        project.setTeacher(teacher);
+        project.setGroup(group);
+        project.setStatus(request.getStatus() != null ? request.getStatus() : ProjectStatus.PLANNED);
+        project.setProgress(request.getProgress() != null ? request.getProgress() : 0);
+        project.setCompletion(request.getCompletion() != null ? request.getCompletion() : 0);
+        project.setPublished(Boolean.TRUE.equals(request.getPublished()));
+        if (project.isPublished()) {
+            project.setPublishedAt(LocalDateTime.now());
+        }
 
         return project;
     }
@@ -32,6 +41,11 @@ public class ProjectMapper implements BaseMapper<ProjectRequest, ProjectResponse
         projectResponse.setId(entity.getId());
         projectResponse.setProjectName(entity.getProjectName());
         projectResponse.setProjectRepository(entity.getProjectRepository());
+        projectResponse.setStatus(entity.getStatus());
+        projectResponse.setProgress(entity.getProgress());
+        projectResponse.setCompletion(entity.getCompletion());
+        projectResponse.setPublished(entity.isPublished());
+        projectResponse.setPublishedAt(entity.getPublishedAt());
         projectResponse.setGroup(
                 GroupResponse
                         .builder()

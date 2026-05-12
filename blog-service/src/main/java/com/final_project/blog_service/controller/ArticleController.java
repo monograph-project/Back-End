@@ -145,6 +145,36 @@ public class ArticleController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/public")
+    @Operation(
+            summary = "Get public published articles",
+            description = "Retrieves public published articles without requiring a reader session.",
+            tags = {"Articles"},
+            operationId = "getPublicPublishedArticles"
+    )
+    public ResponseEntity<PaginatedResponse<ArticlePreviewResponse>> getPublicPublishedArticles(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int pageSize
+    ) {
+        PaginatedResponse<ArticlePreviewResponse> response = articleService.getPublishedArticles(page, pageSize);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/admin/all")
+    @Operation(
+            summary = "Get all articles for admin moderation",
+            description = "Retrieves drafts, published, and archived articles for the admin review desk.",
+            tags = {"Articles"},
+            operationId = "getAllArticlesForAdmin"
+    )
+    public ResponseEntity<PaginatedResponse<ArticlePreviewResponse>> getAllArticlesForAdmin(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int pageSize
+    ) {
+        PaginatedResponse<ArticlePreviewResponse> response = articleService.getAllArticlesForAdmin(page, pageSize);
+        return ResponseEntity.ok(response);
+    }
+
     /**
      * Get article by ID.
      *
@@ -162,6 +192,20 @@ public class ArticleController {
             @PathVariable String articleId
     ) {
         ArticleResponse response = articleService.getArticleById(articleId);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/public/{articleId}")
+    @Operation(
+            summary = "Get public published article by ID",
+            description = "Retrieves one published public article without requiring a reader session.",
+            tags = {"Articles"},
+            operationId = "getPublicArticleById"
+    )
+    public ResponseEntity<ArticleResponse> getPublicArticleById(
+            @PathVariable String articleId
+    ) {
+        ArticleResponse response = articleService.getPublishedArticleById(articleId);
         return ResponseEntity.ok(response);
     }
     /**

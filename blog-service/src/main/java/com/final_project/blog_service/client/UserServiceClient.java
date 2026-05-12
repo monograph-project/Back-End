@@ -35,7 +35,7 @@ public interface UserServiceClient {
      * Get author by id
      * Called for cross-service validation
      */
-    @GetMapping("/api/v1/users/author/{id}")
+    @GetMapping("/api/v1/users/public/author/{id}")
     UserAuthorResponse getUserAuthor(@PathVariable String id);
 
     /**

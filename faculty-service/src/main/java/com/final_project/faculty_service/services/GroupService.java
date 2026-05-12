@@ -59,15 +59,17 @@ public class GroupService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Group leader not found: " + request.getGroupLeader()));
 
-        if (groupRepository.existsByGroupLeaderAndIsDeletedIsFalse(leader.getId())){
+        if (groupRepository.existsByGroupLeader_IdAndIsDeletedIsFalse(leader.getId())){
             throw new ResourceExist("Already Assigned to a Group");
         }
-        if (groupRepository.existsByGroupLeader_IdAndIsDeletedIsFalse(leader.getId())){
+        if (groupRepository.existsByGroupMembers_IdAndIsDeletedIsFalse(leader.getId())){
             throw new ResourceExist("Already Assigned to a Group As Member");
         }
 
-        List<Student> members = studentRepository.findAllByIdAndIsDeletedIsFalse(request.getGroupMembers())
-                .orElseThrow(() -> new ResourceNotFoundException("There is No Members yet"));
+        List<Student> members = studentRepository.findAllByIdInAndIsDeletedIsFalse(request.getGroupMembers());
+        if (members.isEmpty()) {
+            throw new ResourceNotFoundException("There is No Members yet");
+        }
         if (members.size() != request.getGroupMembers().size()) {
 
             List<String> foundIds = members.stream().map(Student::getId).toList();
@@ -108,16 +110,18 @@ public class GroupService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Group leader not found: " + request.getGroupLeader()));
 
-        if (groupRepository.existsByGroupLeaderAndIsDeletedIsFalse(leader.getId())){
+        if (groupRepository.existsByGroupLeader_IdAndIsDeletedIsFalseAndIdNot(leader.getId(), id)){
             throw new ResourceExist("Already Assigned to a Group");
         }
-        if (groupRepository.existsByGroupLeader_IdAndIsDeletedIsFalse(leader.getId())){
+        if (groupRepository.existsByGroupMembers_IdAndIsDeletedIsFalseAndIdNot(leader.getId(), id)){
             throw new ResourceExist("Already Assigned to a Group As Member");
         }
 
 
-        List<Student> members = studentRepository.findAllByIdAndIsDeletedIsFalse(request.getGroupMembers())
-                .orElseThrow(() -> new ResourceNotFoundException("Some student is Not Exist"));
+        List<Student> members = studentRepository.findAllByIdInAndIsDeletedIsFalse(request.getGroupMembers());
+        if (members.isEmpty()) {
+            throw new ResourceNotFoundException("Some student is Not Exist");
+        }
 
         if (members.size() != request.getGroupMembers().size()) {
 
@@ -128,8 +132,8 @@ public class GroupService {
             throw new ResourceNotFoundException("Group members not found: " + missingIds);
         }
         for(Student member : members){
-            boolean alreadyMember = groupRepository.existsByGroupMembers_IdAndIsDeletedIsFalse(member.getId());
-            boolean alreadyLeader = groupRepository.existsByGroupLeader_IdAndIsDeletedIsFalse(member.getId());
+            boolean alreadyMember = groupRepository.existsByGroupMembers_IdAndIsDeletedIsFalseAndIdNot(member.getId(), id);
+            boolean alreadyLeader = groupRepository.existsByGroupLeader_IdAndIsDeletedIsFalseAndIdNot(member.getId(), id);
 
             if (alreadyMember || alreadyLeader) {
                 throw new ResourceExist("Already Assigned to a Group");
@@ -164,7 +168,7 @@ public class GroupService {
 
         boolean isMember = group.getGroupMembers()
                 .stream()
-                .anyMatch(s -> s.getId().equals(groupId));
+                .anyMatch(s -> s.getId().equals(groupLeader));
 
         if (!isMember) {
             throw new ResourceBadRequest("Leader must be a group member");

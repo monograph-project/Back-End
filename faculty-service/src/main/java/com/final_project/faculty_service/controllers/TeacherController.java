@@ -40,6 +40,8 @@ public class TeacherController {
                                                        @RequestParam("file") MultipartFile profile){
         return new ResponseEntity<>(teacherService.updateProfile(id ,profile), HttpStatus.OK);
     }
+
+
     @GetMapping("/{id}")
     public ResponseEntity<TeacherResponse> findById(@PathVariable String id){
         return new ResponseEntity<>(teacherService.findById(id), HttpStatus.OK);

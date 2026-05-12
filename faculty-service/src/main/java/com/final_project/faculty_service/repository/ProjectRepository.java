@@ -14,7 +14,9 @@ import java.util.Optional;
 @Repository
 public interface ProjectRepository extends MongoRepository<Project,String> {
     Page<Project> findByIsDeletedIsFalse(Pageable pageable);
+    Page<Project> findByPublishedIsTrueAndIsDeletedIsFalse(Pageable pageable);
     Optional<Project> findByIdAndIsDeletedIsFalse(String  id);
+    Optional<Project> findByIdAndPublishedIsTrueAndIsDeletedIsFalse(String id);
     @Query("""
         {
           '_id': ?0,

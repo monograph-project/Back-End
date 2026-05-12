@@ -2,6 +2,7 @@ package com.final_project.versioncontrolservice.controller;
 
 import com.final_project.versioncontrolservice.dto.DocumentBlameResponse;
 import com.final_project.versioncontrolservice.dto.ContributorUser;
+import com.final_project.versioncontrolservice.exception.BadRequestException;
 import com.final_project.versioncontrolservice.model.RepositoryDocument;
 import com.final_project.versioncontrolservice.service.*;
 import com.final_project.versioncontrolservice.exception.NotFoundException;
@@ -67,6 +68,18 @@ public class FileViewController {
         return ResponseEntity.ok(response);
     }
 
+    private boolean isDocumentBlameFile(String filePath) {
+        if (filePath == null) {
+            return false;
+        }
+
+        String lower = filePath.toLowerCase();
+
+        return lower.endsWith(".docx")
+                || lower.endsWith(".pdf")
+                || lower.endsWith(".xlsx")
+                || lower.endsWith(".pptx");
+    }
     /**
      * Get file history (blame)
      * GET /repos/{owner}/{repo}/blame/{path}?ref=main
@@ -79,8 +92,8 @@ public class FileViewController {
             HttpServletRequest request,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        ContributorUser user = authService.getContributorUser(jwt.getSubject())
-                ;
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
+
         var meta = vicRepositoryService.loadMeta(owner, repo);
 
         String username = user != null ? user.getUsername() : "";
@@ -92,6 +105,11 @@ public class FileViewController {
         String prefix = "/repos/" + owner + "/" + repo + "/blame/";
         String filePath = fullPath.substring(fullPath.indexOf(prefix) + prefix.length());
 
+        if (isDocumentBlameFile(filePath)) {
+            throw new BadRequestException(
+                    "This file requires document blame mode. Use /document-blame/" + filePath
+            );
+        }
         String commitHash = resolveRef(meta, ref);
         if (commitHash.isEmpty()) {
             throw new NotFoundException("ref not found: " + ref);
@@ -117,15 +135,15 @@ public class FileViewController {
         var meta = vicRepositoryService.loadMeta(owner, repo);
 
         String username = user != null ? user.getUsername() : "";
+
         if (!RepoAccessRules.canRead(meta, username)) {
             throw new com.final_project.versioncontrolservice.exception.ForbiddenException("forbidden");
         }
 
-        String fullPath = request.getRequestURI();
-        String prefix = "/repos/" + owner + "/" + repo + "/document-blame/";
-        String filePath = fullPath.substring(fullPath.indexOf(prefix) + prefix.length());
+        String filePath = extractWildcardPath(request, "/document-blame/");
 
         String commitHash = resolveRef(meta, ref);
+
         if (commitHash.isEmpty()) {
             throw new NotFoundException("ref not found: " + ref);
         }
@@ -288,18 +306,57 @@ public class FileViewController {
     // ─── Helper Methods ───────────────────────────────────────────────────
 
     private String resolveRef(RepositoryDocument meta, String ref) {
+        String requested = ref == null ? "" : ref.trim();
         // Try as branch name
-        String hash = meta.getBranchHeads().get(ref);
-        if (hash != null && !hash.isEmpty()) {
-            return hash;
+        if (meta.getBranchHeads() != null) {
+            String hash = meta.getBranchHeads().get(requested);
+            if (hash != null && !hash.isBlank()) {
+                return hash.trim();
+            }
         }
 
         // Try as full SHA
-        if (ref.length() == 40 && ref.matches("[0-9a-f]{40}")) {
-            return ref;
+        if (requested.length() == 40 && requested.matches("[0-9a-fA-F]{40}")) {
+            return requested;
+        }
+
+        String fallbackBranch = defaultBranchName(meta);
+        if (meta.getBranchHeads() != null) {
+            String fallbackHash = meta.getBranchHeads().get(fallbackBranch);
+            if (fallbackHash != null && !fallbackHash.isBlank()) {
+                return fallbackHash.trim();
+            }
+            for (String branchHash : meta.getBranchHeads().values()) {
+                if (branchHash != null && !branchHash.isBlank()) {
+                    return branchHash.trim();
+                }
+            }
         }
 
         return "";
+    }
+
+    private String defaultBranchName(RepositoryDocument meta) {
+        String symbolic = meta == null ? "" : String.valueOf(meta.getSymbolicHead() == null ? "" : meta.getSymbolicHead()).trim();
+        String symbolicBranch = symbolic.replaceFirst("^refs/heads/", "").trim();
+        if (meta != null && meta.getBranchHeads() != null && !meta.getBranchHeads().isEmpty()) {
+            if (!symbolicBranch.isBlank()) {
+                String hash = meta.getBranchHeads().get(symbolicBranch);
+                if (hash != null && !hash.isBlank()) {
+                    return symbolicBranch;
+                }
+            }
+            for (Map.Entry<String, String> entry : meta.getBranchHeads().entrySet()) {
+                if (entry.getValue() != null && !entry.getValue().isBlank()) {
+                    return entry.getKey();
+                }
+            }
+            if (!symbolicBranch.isBlank()) {
+                return symbolicBranch;
+            }
+            return meta.getBranchHeads().keySet().iterator().next();
+        }
+        return symbolicBranch.isBlank() ? "main" : symbolicBranch;
     }
 
     private FileContentResponse getFileAtCommit(String owner, String repo, String commitHash, String filePath) {
@@ -1157,5 +1214,16 @@ public class FileViewController {
             this.timestamp = timestamp;
             this.parents = parents;
         }
+    }
+
+    private String extractWildcardPath(HttpServletRequest request, String marker) {
+        String fullPath = request.getRequestURI();
+        int index = fullPath.indexOf(marker);
+
+        if (index < 0) {
+            throw new NotFoundException("path not found");
+        }
+
+        return fullPath.substring(index + marker.length());
     }
 }

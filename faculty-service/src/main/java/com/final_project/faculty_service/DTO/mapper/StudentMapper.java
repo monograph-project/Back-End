@@ -49,6 +49,7 @@ public class StudentMapper implements BaseMapper<StudentRequest, StudentResponse
     public StudentResponse toResponse(Student student) {
 
         StudentResponse studentResponse  = new StudentResponse();
+        studentResponse.setKeycloak(student.getKeycloakId());
         studentResponse.setId(student.getId());
         studentResponse.setFirstName(student.getFirstName());
         studentResponse.setFatherName(student.getFatherName());

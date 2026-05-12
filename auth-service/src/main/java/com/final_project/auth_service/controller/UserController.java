@@ -83,6 +83,18 @@ public class UserController {
         AuthorResponse user = userService.getUserAsAuthor(id);
         return ResponseEntity.ok(user);
     }
+
+    @GetMapping("/public/author/{id}")
+    @Operation(summary = "Get public author profile", description = "Retrieves public author information for published articles")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Author found"),
+            @ApiResponse(responseCode = "404", description = "Author not found")
+    })
+    public ResponseEntity<AuthorResponse> getPublicAuthor(
+            @PathVariable String id) {
+        AuthorResponse user = userService.getUserAsAuthor(id);
+        return ResponseEntity.ok(user);
+    }
     /**
      * Get user by ID.
      *

@@ -33,7 +33,7 @@ public class EmployeeMapper implements BaseMapper<EmployeeRequest, EmployeeRespo
     @Override
     public EmployeeResponse toResponse(Employee employee) {
         EmployeeResponse res = new EmployeeResponse();
-
+        res.setKeycloak(employee.getKeycloakId());
         res.setId(employee.getId());
         res.setCode(employee.getCode());
         res.setFirstName(employee.getFirstName());

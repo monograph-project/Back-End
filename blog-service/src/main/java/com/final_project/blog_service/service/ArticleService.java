@@ -160,6 +160,7 @@ public class ArticleService {
             String authorId
     ) {
         try {
+            List<MultipartFile> safeInlineFiles = inlineFiles == null ? List.of() : inlineFiles;
             List<ArticleBlockRequest> blocks = objectMapper.readValue(
                     blocksJson,
                     new com.fasterxml.jackson.core.type.TypeReference<List<ArticleBlockRequest>>() {}
@@ -170,19 +171,19 @@ public class ArticleService {
             String coverFileId = null;
             String coverUrl = null;
 
-            if (!coverImage.isEmpty()) {
+            if (coverImage != null && !coverImage.isEmpty()) {
                 FileUploadResponse cover = fileUploadService.uploadArticleImage(coverImage, authorId, "drafts");
                 coverFileId = cover.getFileId();
                 coverUrl = cover.getCdnUrl();
             }
 
-            if (!inlineFiles.isEmpty()) {
+            if (!safeInlineFiles.isEmpty()) {
                 for (ArticleBlockRequest block : blocks) {
                     if ((block.getType() == ArticleBlockType.IMAGE || block.getType() == ArticleBlockType.VIDEO)
                             && block.getData().containsKey("uploadIndex")) {
 
                         int index = ((Number) block.getData().get("uploadIndex")).intValue();
-                        MultipartFile file = inlineFiles.get(index);
+                        MultipartFile file = safeInlineFiles.get(index);
 
                         FileUploadResponse uploaded = block.getType() == ArticleBlockType.IMAGE
                                 ? fileUploadService.uploadArticleImage(file, authorId, "drafts")
@@ -290,10 +291,16 @@ public class ArticleService {
                         .authorUserId(author.getId())
 
                         .blogPostId(article.getId())
-                        .blogPostUrl("current:post")
+                        .blogPostUrl("/story/" + article.getId())
 
                         .blogPostTitle(article.getTitle())
                         .eventType(ArticleEventType.ARTICLE_PUBLISHED)
+                        .metadata(Map.of(
+                                "uiPath", "/author/publish/" + article.getId(),
+                                "publicPath", "/story/" + article.getId(),
+                                "articleId", article.getId(),
+                                "articleStatus", "PUBLISHED"
+                        ))
                         .build()
         );
         return mapToResponse(published);
@@ -321,6 +328,16 @@ public class ArticleService {
         // Increment views asynchronously
         incrementViewsAsync(articleId);
 
+        return mapToResponse(article);
+    }
+
+    @Transactional(readOnly = true)
+    public ArticleResponse getPublishedArticleById(String articleId) {
+        Article article = articleRepository.findByIdAndStatsIsPublish(articleId);
+        if (article == null) {
+            throw new ResourceNotFoundException("Published article not found: " + articleId);
+        }
+        incrementViewsAsync(articleId);
         return mapToResponse(article);
     }
 
@@ -381,6 +398,16 @@ public class ArticleService {
     }
 
     /**
+     * Get every article for admin moderation, including drafts awaiting review.
+     */
+    @Transactional(readOnly = true)
+    public PaginatedResponse<ArticlePreviewResponse> getAllArticlesForAdmin(int page, int pageSize) {
+        Pageable pageable = PageRequest.of(page, pageSize);
+        Page<Article> articles = articleRepository.findAll(pageable);
+        return mapToPaginatedResponse(articles, page, pageSize);
+    }
+
+    /**
      * Soft delete article (archive)
      */
     @Transactional
@@ -417,6 +444,10 @@ public class ArticleService {
                 .articleId(articleId)
                 .parentCommentId(null)  // Top-level comment
                 .authorId(writer.getId())
+                .author(Comment.Author.builder()
+                        .displayName(writer.getUserName())
+                        .profileImageUrl(writer.getProfile())
+                        .build())
                 .body(request.getBody())
                 .status(CommentStatus.PUBLISHED)
                 .engagement(Comment.Engagement.builder()
@@ -927,6 +958,8 @@ public class ArticleService {
                 .subtitle(article.getSubtitle())
                 .coverImageUrl(article.getMetadata().getCoverImageUrl())
                 .description(article.getMetadata().getDescription())
+                .status(article.getStatus())
+                .visibility(article.getVisibility())
                 .stats(StatsResponse.builder()
                         .views(article.getStats().getViews())
                         .reads(article.getStats().getReads())
@@ -947,6 +980,11 @@ public class ArticleService {
                 .articleId(comment.getArticleId())
                 .parentCommentId(comment.getParentCommentId())
                 .body(comment.getBody())
+                .author(AuthorResponse.builder()
+                        .id(comment.getAuthorId())
+                        .displayName(comment.getAuthor() != null ? comment.getAuthor().getDisplayName() : null)
+                        .profileImageUrl(comment.getAuthor() != null ? comment.getAuthor().getProfileImageUrl() : null)
+                        .build())
                 .engagement(CommentEngagementResponse.builder()
                         .likes(comment.getEngagement().getLikes())
                         .replyCount(comment.getEngagement().getReplyCount())

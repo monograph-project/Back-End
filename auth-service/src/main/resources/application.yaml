@@ -28,7 +28,7 @@ google:
   client-secret: ${GOOGLE_CLIENT_SECRET}
 
 app:
-  default-role: ${APP_DEFAULT_ROLE:faculty-user}
+  default-role: ${APP_DEFAULT_ROLE:AUTHOR_USER}
   app:
     jwt:
       secret: ${CUSTOME_SECRET}

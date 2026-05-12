@@ -28,4 +28,5 @@ public class EmployeeResponse {
     private String createdAt;
     private String createdBy;
     private String photoUrl;
+    private String keycloak;
 }

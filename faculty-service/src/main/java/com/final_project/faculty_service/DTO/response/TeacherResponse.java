@@ -28,4 +28,5 @@ public class TeacherResponse {
     private String createdBy;
     private String  createdAt;
     private String  updatedAt;
+    private String keycloak;
 }

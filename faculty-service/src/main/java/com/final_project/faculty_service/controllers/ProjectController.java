@@ -23,6 +23,11 @@ public class ProjectController {
         return new ResponseEntity<>(projectService.findAll(pageable), HttpStatus.OK);
     }
 
+    @GetMapping("/public")
+    public ResponseEntity<PageResponse<ProjectResponse>> findPublished(Pageable pageable){
+        return new ResponseEntity<>(projectService.findPublished(pageable), HttpStatus.OK);
+    }
+
     @PostMapping
     public ResponseEntity<ProjectResponse> create(@Valid @RequestBody ProjectRequest request){
         return new ResponseEntity<>(projectService.create(request), HttpStatus.CREATED);
@@ -38,6 +43,18 @@ public class ProjectController {
     @GetMapping("/{id}")
     public ResponseEntity<ProjectResponse> findById(@PathVariable String id){
         return new ResponseEntity<>(projectService.findById(id), HttpStatus.OK);
+    }
+
+    @GetMapping("/public/{id}")
+    public ResponseEntity<ProjectResponse> findPublishedById(@PathVariable String id){
+        return new ResponseEntity<>(projectService.findPublishedById(id), HttpStatus.OK);
+    }
+
+    @GetMapping("/public/{id}/download")
+    public ResponseEntity<Void> downloadPublished(@PathVariable String id){
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(projectService.getPublishedDownloadUri(id))
+                .build();
     }
 
     @GetMapping("/repo/{repoId}")
@@ -75,6 +92,21 @@ public class ProjectController {
     @PutMapping("/{id}")
     public ResponseEntity<ProjectResponse> update(@PathVariable String id,@Valid @RequestBody ProjectRequest request){
         return new ResponseEntity<>(projectService.update(id, request), HttpStatus.OK);
+    }
+
+    @PatchMapping("/{id}/publish")
+    public ResponseEntity<ProjectResponse> publish(@PathVariable String id){
+        return new ResponseEntity<>(projectService.publish(id), HttpStatus.OK);
+    }
+
+    @PatchMapping("/{id}/complete")
+    public ResponseEntity<ProjectResponse> complete(@PathVariable String id){
+        return new ResponseEntity<>(projectService.complete(id), HttpStatus.OK);
+    }
+
+    @PatchMapping("/{id}/unpublish")
+    public ResponseEntity<ProjectResponse> unpublish(@PathVariable String id){
+        return new ResponseEntity<>(projectService.unpublish(id), HttpStatus.OK);
     }
 
     @DeleteMapping("/{id}")

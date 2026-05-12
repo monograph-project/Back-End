@@ -57,7 +57,11 @@ public class TaskService {
 
 
         RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
-        ensureAcceptedRepoMember(meta, username, "Only repository contributors can create tasks");
+        if (!canManageTaskPlanning(meta, repoUser)) {
+            throw new com.final_project.versioncontrolservice.exception.ForbiddenException(
+                    "Only repository owners, admins, or teachers can create tasks"
+            );
+        }
         int number = getNextTaskNumber(owner, repo);
         Milestone milestone = null;
         if (request.getMilestoneNumber() != null) {
@@ -472,6 +476,19 @@ public class TaskService {
         return tasks.stream()
                 .map(MilestoneService.TaskResponse::fromDocument)
                 .toList();
+    }
+
+    private boolean canManageTaskPlanning(RepositoryDocument meta, UserDTO user) {
+        String username = user == null ? "" : user.getUsername();
+        if (RepoAccessRules.canAdmin(meta, username)) {
+            return true;
+        }
+        if (user == null || user.getRoles() == null) {
+            return false;
+        }
+        return user.getRoles().stream()
+                .map(role -> role == null ? "" : role.trim().toLowerCase())
+                .anyMatch(role -> role.equals("teacher") || role.equals("admin"));
     }
 
     private List<Task> visibleTasksForUser(List<Task> tasks, RepositoryDocument meta, String username) {

@@ -67,7 +67,7 @@ public class AuthenticationService {
 
     private final JwtEncoder jwtEncoder;
 
-    @Value("${app.default-role:faculty-user}")
+    @Value("${app.default-role:AUTHOR_USER}")
     private String defaultRole;
 
     public AuthResponse login(LoginRequest request) {

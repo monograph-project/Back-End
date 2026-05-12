@@ -171,7 +171,7 @@ public class StudentService {
         student.setBatch(batch);
         student.setSemester(seme);
         student.setDepartment(dep);
-        student.setCode(abb +"-" + batch.getYear() +"-"+seme.getAcademicYear().getName().split("-")[0]+"-"+ seq);
+        student.setCode(abb +"-" + batch.getName()+"-"+ seq);
 
         Student result = studentRepository.save(student);
 

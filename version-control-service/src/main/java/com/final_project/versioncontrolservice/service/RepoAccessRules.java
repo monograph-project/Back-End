@@ -17,7 +17,7 @@ public final class RepoAccessRules {
         if (u.isEmpty()) {
             return false;
         }
-        if (meta.getOwner() != null && meta.getOwner().getFirstName().equalsIgnoreCase(u)) {
+        if (meta.getOwner() != null && meta.getOwner().getUsername().equalsIgnoreCase(u)) {
             return true;
         }
         String role = collaboratorRole(meta, u);

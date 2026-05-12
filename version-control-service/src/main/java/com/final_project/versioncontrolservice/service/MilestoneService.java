@@ -46,6 +46,11 @@ public class MilestoneService {
         // Validate permissions
 
         RepositoryDocument meta = vicRepositoryService.loadMeta(ownerUser.getUsername(), repo);
+        if (!canManageTaskPlanning(meta, creatorUser)) {
+            throw new com.final_project.versioncontrolservice.exception.ForbiddenException(
+                    "Only repository owners, admins, or teachers can create milestones"
+            );
+        }
 
 
         // Generate milestone number
@@ -97,6 +102,19 @@ public class MilestoneService {
         Milestone milestone = milestoneRepository.findById(milestoneId)
                 .orElseThrow(() -> new NotFoundException("milestone not found"));
         applyMilestoneStats(owner, repo, milestone, true);
+    }
+
+    private boolean canManageTaskPlanning(RepositoryDocument meta, UserDTO user) {
+        String username = user == null ? "" : user.getUsername();
+        if (RepoAccessRules.canAdmin(meta, username)) {
+            return true;
+        }
+        if (user == null || user.getRoles() == null) {
+            return false;
+        }
+        return user.getRoles().stream()
+                .map(role -> role == null ? "" : role.trim().toLowerCase())
+                .anyMatch(role -> role.equals("teacher") || role.equals("admin"));
     }
 
     private void applyMilestoneStats(String owner, String repo, Milestone milestone, boolean persist) {

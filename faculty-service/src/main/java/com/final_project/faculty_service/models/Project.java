@@ -6,6 +6,8 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.LocalDateTime;
+
 @Data
 @Document
 public class Project {
@@ -17,5 +19,10 @@ public class Project {
     @DBRef
     private Teacher teacher;
     private RepositoryDTO projectRepository;
+    private ProjectStatus status = ProjectStatus.PLANNED;
+    private Integer progress = 0;
+    private Integer completion = 0;
+    private boolean published;
+    private LocalDateTime publishedAt;
     private boolean isDeleted;
 }
