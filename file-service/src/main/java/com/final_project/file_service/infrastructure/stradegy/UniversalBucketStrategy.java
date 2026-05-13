@@ -6,6 +6,8 @@ import com.final_project.file_service.domain.model.OwnerType;
 import com.final_project.file_service.domain.ports.BucketStrategy;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
 @Service
 public class UniversalBucketStrategy implements BucketStrategy {
 
@@ -27,7 +29,7 @@ public class UniversalBucketStrategy implements BucketStrategy {
     public String resolveKey(FileMetadata m) {
 
         if (m.getCategory() == FileCategory.BLOG) {
-            return "user/" + m.getOwnerId() + "/" + m.getSubFolder() + "/" + m.getFileName();
+            return "user/" + m.getOwnerId() + "/" + m.getSubFolder() + "/" + uniqueFileName(m.getFileName());
         }
         if (isUser(m.getOwnerType())) {
             String base = m.getOwnerType().name().toLowerCase() + "/" + m.getOwnerId() + "/";
@@ -49,6 +51,14 @@ public class UniversalBucketStrategy implements BucketStrategy {
         }
         return "university/" + m.getOwnerId() + "/" + m.getCategory().name().toLowerCase() + "/" + m.getFileName();
     }
+
+    private String uniqueFileName(String fileName) {
+        String safeName = fileName == null || fileName.isBlank()
+                ? "file"
+                : fileName.replace("\\", "-").replace("/", "-");
+        return UUID.randomUUID() + "-" + safeName;
+    }
+
     private boolean isUser(OwnerType type) {
         return type == OwnerType.STUDENT ||
                 type == OwnerType.TEACHER ||

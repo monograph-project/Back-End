@@ -22,6 +22,11 @@ public class FileService {
 
     private final FileRecordService fileRecordService;
     public String upload(FileMetadata metadata, InputStream stream) {
+        FileRecord record = uploadRecord(metadata, stream);
+        return storage.generatePresignedUrl(record.getBucket(), record.getObjectKey());
+    }
+
+    public FileRecord uploadRecord(FileMetadata metadata, InputStream stream) {
         String bucket = strategy.resolveBucket(metadata);
         String key = strategy.resolveKey(metadata);
         FileRecord record = new FileRecord(
@@ -35,9 +40,9 @@ public class FileService {
                 metadata.getSubFolder(),
                 Instant.now()
         );
-        fileRecordService.add(record);
+        FileRecord saved = fileRecordService.add(record);
         storage.upload(bucket, key, stream, metadata.getContentType());
-        return storage.generatePresignedUrl(bucket, key);
+        return saved;
     }
     public InputStream download(FileMetadata metadata) {
         return storage.download(

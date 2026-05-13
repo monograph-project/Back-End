@@ -3,6 +3,8 @@ package com.final_project.faculty_service.DTO.request;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
+import java.util.Set;
+
 @Data
 public class SignupRequest {
 
@@ -33,5 +35,7 @@ public class SignupRequest {
     @JsonProperty("profile")
     private String profile;
 
+    @JsonProperty("role_names")
+    private Set<String> roleNames;
 
 }

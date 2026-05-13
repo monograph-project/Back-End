@@ -24,8 +24,13 @@ public class ProjectController {
     }
 
     @GetMapping("/public")
-    public ResponseEntity<PageResponse<ProjectResponse>> findPublished(Pageable pageable){
-        return new ResponseEntity<>(projectService.findPublished(pageable), HttpStatus.OK);
+    public ResponseEntity<PageResponse<ProjectResponse>> findPublished(
+            Pageable pageable,
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "search", required = false) String search,
+            @RequestParam(value = "keyword", required = false) String keyword
+    ){
+        return new ResponseEntity<>(projectService.findPublished(pageable, firstNonBlank(q, search, keyword)), HttpStatus.OK);
     }
 
     @PostMapping
@@ -113,5 +118,17 @@ public class ProjectController {
     public ResponseEntity<Void> delete(@PathVariable String id){
         projectService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
+        }
+        return null;
     }
 }

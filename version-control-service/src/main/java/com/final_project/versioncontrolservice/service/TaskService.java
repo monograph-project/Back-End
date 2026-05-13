@@ -42,14 +42,15 @@ public class TaskService {
     /**
      * Create a new task (with optional milestone assignment)
      */
-    public MilestoneService.TaskResponse createTask(String owner, String repo, TaskRequest request, String username) {
+    public MilestoneService.TaskResponse createTask(String owner, String repo, TaskRequest request, ContributorUser creatorUser) {
         validateTaskRequest(request);
 
         UserDTO ownerUser = authService.getUserByUsername(owner);
         if (ownerUser == null) {
             throw new NotFoundException("User Not Found");
         }
-        UserDTO repoUser = authService.getUserByUsername(username);
+        String creatorUsername = creatorUser == null ? "" : creatorUser.getUsername();
+        UserDTO repoUser = authService.getUserByUsername(creatorUsername);
         if (repoUser == null) {
             throw new NotFoundException("Repo User Not Found");
         }
@@ -57,7 +58,7 @@ public class TaskService {
 
 
         RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
-        if (!canManageTaskPlanning(meta, repoUser)) {
+        if (!canManageTaskPlanning(meta, creatorUser)) {
             throw new com.final_project.versioncontrolservice.exception.ForbiddenException(
                     "Only repository owners, admins, or teachers can create tasks"
             );
@@ -121,7 +122,7 @@ public class TaskService {
         }
 
         // Send notification
-//        sendTaskNotification(owner, repo, saved, "created", username);
+//        sendTaskNotification(owner, repo, saved, "created", creatorUsername);
 
         return MilestoneService.TaskResponse.fromDocument(saved);
     }
@@ -130,7 +131,8 @@ public class TaskService {
      * Assign task to a user
      */
     public MilestoneService.TaskResponse assignTask(String owner, String repo, int taskNumber,
-                                   String assignee, String assignedBy) {
+                                   String assignee, ContributorUser assignedByContributor) {
+        String assignedBy = assignedByContributor == null ? "" : assignedByContributor.getUsername();
         UserDTO assigneeUser = authService.getUserByUsername(assignee);
         if (assigneeUser == null) {
             throw new NotFoundException("User Not Found");
@@ -141,15 +143,14 @@ public class TaskService {
             throw new NotFoundException("Repo User Not Found");
         }
 
-        UserDTO assignedByUser =  authService.getUserByUsername(assignedBy);
+        UserDTO assignedByUser = authService.getUserByUsername(assignedBy);
         if (assignedByUser == null) {
             throw new NotFoundException("User Not Found");
         }
 
         RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
-        ensureAcceptedRepoMember(meta, assignedBy, "Only repository contributors can manage tasks");
         Task task = getTask(owner, repo, taskNumber);
-        ensureTaskCreator(task, assignedBy, "Only the task creator can assign contributors");
+        ensureCanAssignTask(meta, task, assignedByContributor, "Only task creators, repository admins, teachers, or admins can assign contributors");
         ensureAcceptedCollaborator(meta, assignee, "Tasks can only be assigned to accepted repository contributors");
         task.setAssignedTo(
                 MilestoneTaskUser.builder()
@@ -233,13 +234,15 @@ public class TaskService {
      * Review/grading a task submission
      */
     public MilestoneService.TaskResponse reviewTask(String owner, String repo, int taskNumber,
-                                                    ReviewRequest request, String reviewer) {
+                                                    ReviewRequest request, ContributorUser reviewerUser) {
         Task task = getTask(owner, repo, taskNumber);
+        ReviewRequest review = request == null ? new ReviewRequest(null, null, false, List.of()) : request;
+        String reviewer = reviewerUser == null ? "" : reviewerUser.getUsername();
 
 
         RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
-        if (!RepoAccessRules.canAdmin(meta, reviewer)) {
-            throw new ForbiddenException("only admins can review/grading tasks");
+        if (!RepoAccessRules.canAdmin(meta, reviewer) && !hasTaskOverviewRole(reviewerUser)) {
+            throw new ForbiddenException("only repository admins, teachers, or admins can review/grading tasks");
         }
 
         // Create review comment
@@ -248,25 +251,30 @@ public class TaskService {
         comment.setRepoOwner(owner);
         comment.setRepoName(repo);
         comment.setAuthor(reviewer);
-        comment.setBody(request.getFeedback());
+        comment.setBody(review.getFeedback());
         comment.setCreatedAt(Instant.now());
         comment.setUpdatedAt(Instant.now());
         comment.setReview(true);
-        comment.setReviewScore(request.getScore());
+        Integer reviewScore = normalizeCompletedTaskScore(
+                task,
+                review.getScore(),
+                review.isApproved()
+        );
+        comment.setReviewScore(reviewScore);
         commentRepository.save(comment);
 
         // Update task
         task.setReviewedBy(reviewer);
         task.setReviewedAt(Instant.now());
-        task.setReviewComments(request.getFeedback());
-        Integer reviewScore = normalizeReviewScore(task, request.getScore());
+        task.setReviewComments(review.getFeedback());
         task.setEarnedScore(reviewScore);
 
-        if (request.isApproved()) {
+        if (review.isApproved()) {
             task.setStatus(TaskStatus.COMPLETED);
             task.setCompletedAt(Instant.now());
         } else {
             task.setStatus(TaskStatus.PROGRESS);  // Back to in_progress for revisions
+            task.setCompletedAt(null);
         }
 
         task.setUpdatedAt(Instant.now());
@@ -279,7 +287,7 @@ public class TaskService {
             milestoneService.updateMilestoneProgress(owner, repo, task.getMilestoneId());
         }
 
-        if (request.isApproved()) {
+        if (review.isApproved()) {
             publishTaskCompletedEvent(owner, repo, updated, reviewer);
         }
         return MilestoneService.TaskResponse.fromDocument(updated);
@@ -324,10 +332,13 @@ public class TaskService {
         comment.setCreatedAt(Instant.now());
         comment.setUpdatedAt(Instant.now());
         comment.setReview(true);
-        comment.setReviewScore(request == null ? null : request.getScore());
+        Integer reviewScore = normalizeCompletedTaskScore(
+                task,
+                request == null ? null : request.getScore(),
+                true
+        );
+        comment.setReviewScore(reviewScore);
         commentRepository.save(comment);
-
-        Integer reviewScore = request == null ? null : normalizeReviewScore(task, request.getScore());
 
         task.setReviewedBy(reviewer);
         task.setReviewedAt(Instant.now());
@@ -370,13 +381,14 @@ public class TaskService {
     /**
      * Get student dashboard with all assigned tasks
      */
-    public StudentDashboard getStudentDashboard(String owner, String repo, String username) {
+    public StudentDashboard getStudentDashboard(String owner, String repo, ContributorUser viewerUser) {
         RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
         List<Task> tasks = visibleTasksForUser(
                 taskRepository.findByRepoOwner_UserNameAndRepoNameOrderByNumberDesc(owner, repo),
                 meta,
-                username
+                viewerUser
         );
+        String username = viewerUser == null ? "" : viewerUser.getUsername();
         List<Milestone> milestones = milestoneRepository
                 .findByRepoOwner_UserNameAndRepoNameOrderByNumberDesc(owner, repo);
         long totalTasks = tasks.size();
@@ -428,7 +440,7 @@ public class TaskService {
     public List<MilestoneService.TaskResponse> listTasks(
             String owner,
             String repo,
-            String viewerUsername,
+            ContributorUser viewerUser,
             String assignee,
             String status,
             Integer milestone,
@@ -438,7 +450,7 @@ public class TaskService {
         List<Task> tasks = visibleTasksForUser(
                 taskRepository.findByRepoOwner_UserNameAndRepoNameOrderByNumberDesc(owner, repo),
                 meta,
-                viewerUsername
+                viewerUser
         );
 
         if (assignee != null && !assignee.isBlank()) {
@@ -491,6 +503,11 @@ public class TaskService {
                 .anyMatch(role -> role.equals("teacher") || role.equals("admin"));
     }
 
+    private boolean canManageTaskPlanning(RepositoryDocument meta, ContributorUser user) {
+        String username = user == null ? "" : user.getUsername();
+        return RepoAccessRules.canAdmin(meta, username) || hasTaskOverviewRole(user);
+    }
+
     private List<Task> visibleTasksForUser(List<Task> tasks, RepositoryDocument meta, String username) {
         String viewer = normalizeUsername(username);
         if (viewer.isEmpty()) {
@@ -502,6 +519,41 @@ public class TaskService {
         return tasks.stream()
                 .filter(task -> isTaskCreator(task, viewer) || isTaskAssignee(task, viewer))
                 .toList();
+    }
+
+    private List<Task> visibleTasksForUser(List<Task> tasks, RepositoryDocument meta, ContributorUser user) {
+        String viewer = normalizeUsername(user == null ? null : user.getUsername());
+        if (viewer.isEmpty()) {
+            return List.of();
+        }
+        if (RepoAccessRules.canAdmin(meta, viewer) || hasTaskOverviewRole(user)) {
+            return tasks;
+        }
+        return tasks.stream()
+                .filter(task -> isTaskCreator(task, viewer) || isTaskAssignee(task, viewer))
+                .toList();
+    }
+
+    private boolean hasTaskOverviewRole(ContributorUser user) {
+        if (user == null) {
+            return false;
+        }
+        java.util.Set<String> roles = new java.util.HashSet<>();
+        if (user.getRoles() != null) {
+            roles.addAll(user.getRoles());
+        }
+        if (user.getRole() != null && !user.getRole().isBlank()) {
+            roles.add(user.getRole());
+        }
+        return roles.stream()
+                .map(role -> role == null ? "" : role.trim().toLowerCase(Locale.ROOT))
+                .map(role -> role.startsWith("role_") ? role.substring("role_".length()) : role)
+                .anyMatch(role -> role.equals("admin")
+                        || role.equals("admin_user")
+                        || role.equals("admin-user")
+                        || role.equals("teacher")
+                        || role.equals("teacher_user")
+                        || role.equals("teacher-user"));
     }
 
     private boolean isTaskCreator(Task task, String username) {
@@ -771,12 +823,33 @@ public class TaskService {
         return score;
     }
 
+    private Integer normalizeCompletedTaskScore(Task task, Integer score, boolean completed) {
+        if (score != null) {
+            return normalizeReviewScore(task, score);
+        }
+        if (!completed || task == null || task.getMaxScore() == null) {
+            return null;
+        }
+        return normalizeReviewScore(task, task.getMaxScore());
+    }
+
     private void ensureTaskCreator(Task task, String username, String message) {
         String actor = normalizeUsername(username);
         String creator = normalizeUsername(task.getCreatedBy());
         if (actor.isEmpty() || creator.isEmpty() || !creator.equals(actor)) {
             throw new ForbiddenException(message);
         }
+    }
+
+    private void ensureCanAssignTask(RepositoryDocument meta, Task task, ContributorUser user, String message) {
+        String actor = normalizeUsername(user == null ? null : user.getUsername());
+        if (actor.isEmpty()) {
+            throw new ForbiddenException(message);
+        }
+        if (RepoAccessRules.canAdmin(meta, actor) || hasTaskOverviewRole(user) || isTaskCreator(task, actor)) {
+            return;
+        }
+        throw new ForbiddenException(message);
     }
 
     private void ensureAssignedUser(Task task, String username, String message) {

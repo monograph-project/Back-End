@@ -48,7 +48,14 @@ public class ProjectService {
     }
 
     public PageResponse<ProjectResponse> findPublished(Pageable pageable) {
+        return findPublished(pageable, null);
+    }
+
+    public PageResponse<ProjectResponse> findPublished(Pageable pageable, String search) {
         Page<Project> projectPage = projectRepository.findByPublishedIsTrueAndIsDeletedIsFalse(pageable);
+        if (search != null && !search.isBlank()) {
+            projectPage = projectRepository.searchPublished(search.trim(), pageable);
+        }
         return toPageResponse(projectPage);
     }
 

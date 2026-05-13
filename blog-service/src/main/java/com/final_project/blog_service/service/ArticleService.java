@@ -13,6 +13,8 @@ import com.final_project.blog_service.utile.ContentBlockValidator;
 import com.final_project.blog_service.utile.ReadTimeCalculator;
 import com.final_project.blog_service.utile.SlugUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.bson.types.ObjectId;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -51,6 +53,8 @@ public class ArticleService {
     private final ContentBlockValidator contentBlockValidator;
     private final ReadTimeCalculator readTimeCalculator;
     private final FileUploadService fileUploadService;
+    private final ArticleViewRepository articleViewRepository;
+
     public ArticleService(ArticleRepository articleRepository,
                           CommentRepository commentRepository,
                           ReadTimeCalculator readTimeCalculator,
@@ -62,10 +66,12 @@ public class ArticleService {
                           ObjectMapper objectMapper,
                           ShareRepository shareRepository,
                           ContentBlockValidator contentBlockValidator,
-                          FileUploadService fileUploadService
+                          FileUploadService fileUploadService,
+                          ArticleViewRepository articleViewRepository
 
     ){
         this.fileUploadService = fileUploadService;
+        this.articleViewRepository = articleViewRepository;
         this.readTimeCalculator = readTimeCalculator;
         this.contentBlockValidator = contentBlockValidator;
         this.articleRepository = articleRepository;
@@ -96,8 +102,10 @@ public class ArticleService {
         validateFileReferences(request.getBlocks(), author.getId());
 
         Article article = Article.builder()
+                .id(request.getId())
                 .authorId(author.getId())
                 .title(request.getTitle())
+                .subtitle(request.getSubtitle())
                 .slug(generateUniqueSlug(request.getTitle()))
                 .metadata(
                         Metadata
@@ -153,13 +161,16 @@ public class ArticleService {
     public ArticleResponse createArticleWithFiles(
             String title,
             String description,
+            String subtitle,
             String tags,
             String blocksJson,
             MultipartFile coverImage,
             List<MultipartFile> inlineFiles,
+            String visibility,
             String authorId
     ) {
         try {
+            String articleId = new ObjectId().toHexString();
             List<MultipartFile> safeInlineFiles = inlineFiles == null ? List.of() : inlineFiles;
             List<ArticleBlockRequest> blocks = objectMapper.readValue(
                     blocksJson,
@@ -172,7 +183,7 @@ public class ArticleService {
             String coverUrl = null;
 
             if (coverImage != null && !coverImage.isEmpty()) {
-                FileUploadResponse cover = fileUploadService.uploadArticleImage(coverImage, authorId, "drafts");
+                FileUploadResponse cover = fileUploadService.uploadArticleImage(coverImage, authorId, articleId);
                 coverFileId = cover.getFileId();
                 coverUrl = cover.getCdnUrl();
             }
@@ -186,8 +197,8 @@ public class ArticleService {
                         MultipartFile file = safeInlineFiles.get(index);
 
                         FileUploadResponse uploaded = block.getType() == ArticleBlockType.IMAGE
-                                ? fileUploadService.uploadArticleImage(file, authorId, "drafts")
-                                : fileUploadService.uploadArticleVideo(file, authorId, "drafts");
+                                ? fileUploadService.uploadArticleImage(file, authorId, articleId)
+                                : fileUploadService.uploadArticleVideo(file, authorId, articleId);
 
 
                         block.getData().put("fileId", uploaded.getFileId());
@@ -198,13 +209,16 @@ public class ArticleService {
             }
 
             CreateArticleRequest request = CreateArticleRequest.builder()
+                    .id(articleId)
                     .title(title)
+                    .subtitle(subtitle)
                     .description(description)
                     .keywords(extractKeywords(title, description))
                     .tags(mappedTags)
                     .blocks(blocks)
                     .coverImageFileId(coverFileId)
                     .coverImageUrl(coverUrl)
+                    .visibility(parseVisibility(visibility))
                     .build();
 
             return createArticle(request, authorId);
@@ -309,8 +323,13 @@ public class ArticleService {
     /**
      * Get article by ID (with cache)
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public ArticleResponse getArticleById(String articleId) {
+        return getArticleById(articleId, null);
+    }
+
+    @Transactional
+    public ArticleResponse getArticleById(String articleId, String viewerKey) {
         String cacheKey = ARTICLE_CACHE_KEY + articleId;
 
         // Try cache first
@@ -326,18 +345,34 @@ public class ArticleService {
         redisTemplate.opsForValue().set(cacheKey, article.getId(), CACHE_TTL_MINUTES, TimeUnit.MINUTES);
 
         // Increment views asynchronously
-        incrementViewsAsync(articleId);
+        incrementViewsAsync(articleId, viewerKey);
 
         return mapToResponse(article);
     }
 
-    @Transactional(readOnly = true)
+    private ArticleVisiblity parseVisibility(String value) {
+        if (value == null || value.isBlank()) {
+            return ArticleVisiblity.PUBLIC;
+        }
+        try {
+            return ArticleVisiblity.valueOf(value.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return ArticleVisiblity.PUBLIC;
+        }
+    }
+
+    @Transactional
     public ArticleResponse getPublishedArticleById(String articleId) {
+        return getPublishedArticleById(articleId, null);
+    }
+
+    @Transactional
+    public ArticleResponse getPublishedArticleById(String articleId, String viewerKey) {
         Article article = articleRepository.findByIdAndStatsIsPublish(articleId);
         if (article == null) {
             throw new ResourceNotFoundException("Published article not found: " + articleId);
         }
-        incrementViewsAsync(articleId);
+        incrementViewsAsync(articleId, viewerKey);
         return mapToResponse(article);
     }
 
@@ -390,9 +425,16 @@ public class ArticleService {
      */
     @Transactional(readOnly = true)
     public PaginatedResponse<ArticlePreviewResponse> getPublishedArticles(int page, int pageSize) {
+        return getPublishedArticles(page, pageSize, null);
+    }
+
+    @Transactional(readOnly = true)
+    public PaginatedResponse<ArticlePreviewResponse> getPublishedArticles(int page, int pageSize, String search) {
         Pageable pageable = PageRequest.of(page, pageSize);
 
-        Page<Article> articles = articleRepository.findPublishedArticles(pageable);
+        Page<Article> articles = search == null || search.isBlank()
+                ? articleRepository.findPublishedArticles(pageable)
+                : articleRepository.searchPublishedArticles(search.trim(), pageable);
 
         return mapToPaginatedResponse(articles, page, pageSize);
     }
@@ -509,9 +551,9 @@ public class ArticleService {
             throw new  ResourceNotFoundException("User Not Found");
         }
 
-        UserProfileResponse owner = userServiceClient.getUserProfile(article.getAuthorId());
-        if (owner == null){
-            throw new ResourceNotFoundException("Not Found");
+        UserProfileResponse parentOwner = userServiceClient.getUserProfile(parentComment.getAuthorId());
+        if (parentOwner == null){
+            throw new ResourceNotFoundException("Parent comment author not found");
         }
 
         Comment reply = Comment.builder()
@@ -522,7 +564,9 @@ public class ArticleService {
                 .status(CommentStatus.PUBLISHED)
                 .author(Comment.Author
                         .builder()
-                        .displayName(replier.getDisplayName())
+                        .displayName(replier.getDisplayName() != null && !replier.getDisplayName().isBlank()
+                                ? replier.getDisplayName()
+                                : replier.getUsername())
                         .profileImageUrl(replier.getProfile())
                         .build())
                 .engagement(Comment.Engagement.builder()
@@ -563,10 +607,10 @@ public class ArticleService {
                         .actorName(replier.getUsername())
                         .actorEmail(replier.getEmail())
                         .profile(replier.getProfile())
-                        // For replies, author is the original comment owner, not article owner
-                        .authorUserId(owner.getId())
-                        .authorEmail(owner.getEmail())
-                        .authorName(owner.getUsername())
+                        // Replies notify the user who wrote the parent comment.
+                        .authorUserId(parentOwner.getId())
+                        .authorEmail(parentOwner.getEmail())
+                        .authorName(parentOwner.getDisplayName() != null ? parentOwner.getDisplayName() : parentOwner.getUsername())
                         .build()
         );
         return mapCommentToResponse(saved);
@@ -689,17 +733,34 @@ public class ArticleService {
         return mapLikeToResponse(saved);
     }
 
+    @Transactional(readOnly = true)
+    public boolean hasUserLikedArticle(String articleId, String userId) {
+        getArticleByIdOrThrow(articleId);
+        if (likeRepository.findByUserIdAndArticleId(userId, articleId).isPresent()) {
+            return true;
+        }
+        UserProfileResponse user = userServiceClient.getUserProfile(userId);
+        return user != null
+                && user.getId() != null
+                && !user.getId().equals(userId)
+                && likeRepository.findByUserIdAndArticleId(user.getId(), articleId).isPresent();
+    }
+
     /**
      * Unlike an article
      */
     @Transactional
     public void unlikeArticle(String articleId, String userId) {
         Article article = getArticleByIdOrThrow(articleId);
+        UserProfileResponse user = userServiceClient.getUserProfile(userId);
 
         likeRepository.deleteByUserIdAndArticleId(userId, articleId);
+        if (user != null && user.getId() != null && !user.getId().equals(userId)) {
+            likeRepository.deleteByUserIdAndArticleId(user.getId(), articleId);
+        }
 
-        // Update article like count
-        article.getStats().setLikes(Math.max(0, article.getStats().getLikes() - 1));
+        // Update article like count from persisted likes to avoid drift across id aliases.
+        article.getStats().setLikes(likeRepository.countByArticleId(articleId));
         articleRepository.save(article);
         invalidateCache(articleId);
 
@@ -826,8 +887,49 @@ public class ArticleService {
     }
 
     private void incrementViewsAsync(String articleId) {
-        // TODO: Implement async increment (use event bus/message queue)
-        log.debug("Incrementing views for article: {}", articleId);
+        incrementViewsAsync(articleId, null);
+    }
+
+    private void incrementViewsAsync(String articleId, String viewerKey) {
+        if (!recordArticleView(articleId, viewerKey)) {
+            return;
+        }
+        articleRepository.findById(articleId).ifPresent(article -> {
+            if (article.getStats() == null) {
+                article.setStats(Stats.builder()
+                        .views(0L)
+                        .reads(0L)
+                        .likes(0L)
+                        .commentCount(0L)
+                        .shareCount(0L)
+                        .build());
+            }
+            Stats stats = article.getStats();
+            stats.setViews((stats.getViews() == null ? 0L : stats.getViews()) + 1);
+            stats.setReads((stats.getReads() == null ? 0L : stats.getReads()) + 1);
+            articleRepository.save(article);
+            invalidateCache(articleId);
+        });
+    }
+
+    private boolean recordArticleView(String articleId, String viewerKey) {
+        if (viewerKey == null || viewerKey.isBlank()) {
+            return true;
+        }
+        String normalizedViewer = viewerKey.trim();
+        if (articleViewRepository.existsByArticleIdAndViewerKey(articleId, normalizedViewer)) {
+            return false;
+        }
+        try {
+            articleViewRepository.save(ArticleView.builder()
+                    .articleId(articleId)
+                    .viewerKey(normalizedViewer)
+                    .firstViewedAt(LocalDateTime.now())
+                    .build());
+            return true;
+        } catch (DuplicateKeyException ignored) {
+            return false;
+        }
     }
 
     private void validateAuthor(Article article, String userId) {
@@ -877,6 +979,7 @@ public class ArticleService {
                 .author(AuthorResponse
                         .builder()
                         .displayName(author.getUserName())
+                        .username(author.getUserName())
                         .email(author.getEmail())
                         .id(author.getId())
                         .profileImageUrl(author.getProfile())
@@ -950,6 +1053,7 @@ public class ArticleService {
                         .builder()
                         .profileImageUrl(user.getProfile())
                         .displayName(user.getUserName())
+                        .username(user.getUserName())
                         .email(user.getEmail())
                         .id(user.getId())
                         .totalArticles(total)
@@ -975,6 +1079,29 @@ public class ArticleService {
     }
 
     private CommentResponse mapCommentToResponse(Comment comment) {
+        String displayName = comment.getAuthor() != null ? comment.getAuthor().getDisplayName() : null;
+        String profileImageUrl = comment.getAuthor() != null ? comment.getAuthor().getProfileImageUrl() : null;
+        String email = null;
+        String username = null;
+        if ((displayName == null || displayName.isBlank() || profileImageUrl == null || profileImageUrl.isBlank())
+                && comment.getAuthorId() != null) {
+            UserProfileResponse user = userServiceClient.getUserProfile(comment.getAuthorId());
+            if (user != null) {
+                username = user.getUsername();
+                displayName = displayName == null || displayName.isBlank()
+                        ? (user.getDisplayName() != null && !user.getDisplayName().isBlank()
+                                ? user.getDisplayName()
+                                : user.getUsername())
+                        : displayName;
+                profileImageUrl = profileImageUrl == null || profileImageUrl.isBlank()
+                        ? user.getProfile()
+                        : profileImageUrl;
+                email = user.getEmail();
+            }
+        }
+        if (displayName == null || displayName.isBlank()) {
+            displayName = username != null && !username.isBlank() ? username : comment.getAuthorId();
+        }
         return CommentResponse.builder()
                 .id(comment.getId())
                 .articleId(comment.getArticleId())
@@ -982,8 +1109,10 @@ public class ArticleService {
                 .body(comment.getBody())
                 .author(AuthorResponse.builder()
                         .id(comment.getAuthorId())
-                        .displayName(comment.getAuthor() != null ? comment.getAuthor().getDisplayName() : null)
-                        .profileImageUrl(comment.getAuthor() != null ? comment.getAuthor().getProfileImageUrl() : null)
+                        .displayName(displayName)
+                        .profileImageUrl(profileImageUrl)
+                        .email(email)
+                        .username(username)
                         .build())
                 .engagement(CommentEngagementResponse.builder()
                         .likes(comment.getEngagement().getLikes())
@@ -1013,9 +1142,16 @@ public class ArticleService {
                 .createdAt(share.getCreatedAt())
                 .build();
     }
+    @Transactional
     public ArticleResponse getArticleByAuthorAndId(String authorId, String articleId) {
+        return getArticleByAuthorAndId(authorId, articleId, null);
+    }
+
+    @Transactional
+    public ArticleResponse getArticleByAuthorAndId(String authorId, String articleId, String viewerKey) {
         Article article = articleRepository.findArticleByIdAndAuthorId(articleId, authorId)
                 .orElseThrow(() -> new  ResourceNotFoundException("This Article by this user"));
+        incrementViewsAsync(articleId, viewerKey);
         return mapToResponse(article);
 
 
@@ -1261,6 +1397,7 @@ public class ArticleService {
         return AuthorResponse.builder()
                 .id(user.getId())
                 .displayName(user.getDisplayName())
+                .username(user.getUsername())
                 .profileImageUrl(user.getProfile())
                 .totalArticles(user.getTotalArticles() != null ? user.getTotalArticles() : 0L)
                 .build();

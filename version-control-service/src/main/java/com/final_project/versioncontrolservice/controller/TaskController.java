@@ -16,8 +16,11 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RequestMapping("/api/v1/task")
 @RestController
@@ -43,8 +46,8 @@ public class TaskController {
             @AuthenticationPrincipal Jwt jwt
 
     ) {
-        ContributorUser user = authService.getContributorUser(jwt.getSubject());
-        return ResponseEntity.ok(taskService.createTask(owner, repo, request, username));
+        ContributorUser user = contributorWithJwtRoles(jwt);
+        return ResponseEntity.ok(taskService.createTask(owner, repo, request, user));
     }
 
     /**
@@ -63,8 +66,8 @@ public class TaskController {
             @PathVariable String assignee,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        ContributorUser contributor = authService.getContributorUser(jwt.getSubject());
-        return ResponseEntity.ok(taskService.assignTask(owner, repo, number, assignee, contributor.getUsername()));
+        ContributorUser contributor = contributorWithJwtRoles(jwt);
+        return ResponseEntity.ok(taskService.assignTask(owner, repo, number, assignee, contributor));
     }
 
     /**
@@ -100,8 +103,8 @@ public class TaskController {
             @RequestBody TaskService.ReviewRequest request,
             @AuthenticationPrincipal Jwt jwt
             ) {
-        ContributorUser user = authService.getContributorUser(jwt.getSubject());
-        return ResponseEntity.ok(taskService.reviewTask(owner, repo, number, request, user.getUsername()));
+        ContributorUser user = contributorWithJwtRoles(jwt);
+        return ResponseEntity.ok(taskService.reviewTask(owner, repo, number, request, user));
     }
 
     @PostMapping(path = "/repos/{owner}/{repo}/tasks/{number}/complete",
@@ -114,7 +117,7 @@ public class TaskController {
             @RequestBody TaskService.CompleteTaskRequest request,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        ContributorUser user = authService.getContributorUser(jwt.getSubject());
+        ContributorUser user = contributorWithJwtRoles(jwt);
         return ResponseEntity.ok(taskService.completeTask(owner, repo, number, request, user.getUsername()));
     }
 
@@ -129,8 +132,8 @@ public class TaskController {
             @PathVariable String repo,
             @AuthenticationPrincipal Jwt jwt
             ) {
-        ContributorUser user = authService.getContributorUser(jwt.getSubject());
-        return ResponseEntity.ok(taskService.getStudentDashboard(owner, repo, user.getUsername()));
+        ContributorUser user = contributorWithJwtRoles(jwt);
+        return ResponseEntity.ok(taskService.getStudentDashboard(owner, repo, user));
     }
 
     /**
@@ -148,8 +151,34 @@ public class TaskController {
             @RequestParam(required = false) Integer milestone,
             @RequestParam(required = false) String search,
             @AuthenticationPrincipal Jwt jwt) {
+        ContributorUser user = contributorWithJwtRoles(jwt);
+        return ResponseEntity.ok(taskService.listTasks(owner, repo, user, assignee, status, milestone, search));
+    }
+
+    private ContributorUser contributorWithJwtRoles(Jwt jwt) {
         ContributorUser user = authService.getContributorUser(jwt.getSubject());
-        return ResponseEntity.ok(taskService.listTasks(owner, repo, user.getUsername(), assignee, status, milestone, search));
+        if (user == null) {
+            return null;
+        }
+
+        Set<String> roles = new HashSet<>();
+        if (user.getRoles() != null) {
+            roles.addAll(user.getRoles());
+        }
+
+        Object realmAccess = jwt.getClaim("realm_access");
+        if (realmAccess instanceof Map<?, ?> realmMap) {
+            Object jwtRoles = realmMap.get("roles");
+            if (jwtRoles instanceof Collection<?> collection) {
+                collection.stream()
+                        .map(role -> role == null ? "" : String.valueOf(role).trim())
+                        .filter(role -> !role.isBlank())
+                        .forEach(roles::add);
+            }
+        }
+
+        user.setRoles(roles);
+        return user;
     }
 
     @GetMapping(path = "/repos/{owner}/{repo}/tasks/{number}/eligible-pulls",

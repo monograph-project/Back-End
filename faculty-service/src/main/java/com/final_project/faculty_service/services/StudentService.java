@@ -35,9 +35,13 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class StudentService {
+    private static final String STUDENT_ROLE = "student-user";
+    private static final String AUTHOR_ROLE = "AUTHOR_USER";
+
     private final AuthService authService;
     private final StudentRepository studentRepository;
     private final SemesterRepository   semesterRepository;
@@ -161,7 +165,8 @@ public class StudentService {
         if(response.getId().isEmpty()){
             throw new ResourceNotFoundException("User couldn't save ");
         }
-        authService.assignRoleToUser(response.getId(), "student-user");
+        authService.assignRoleToUser(response.getId(), STUDENT_ROLE);
+        authService.assignRoleToUser(response.getId(), AUTHOR_ROLE);
 
         long seq = sequenceGeneratorService.generateSequence("sequence_student");
         Student student = studentMapper.toEntity(studentRequest);
@@ -189,6 +194,7 @@ public class StudentService {
         signupRequest.setUsername(studentRequest.getUsername());
         signupRequest.setPrivacyAgreed(true);
         signupRequest.setTermsAgreed(true);
+        signupRequest.setRoleNames(Set.of(STUDENT_ROLE, AUTHOR_ROLE));
         return signupRequest;
     }
 

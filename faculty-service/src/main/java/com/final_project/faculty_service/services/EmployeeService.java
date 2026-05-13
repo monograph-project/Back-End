@@ -32,9 +32,12 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class EmployeeService {
+    private static final String EMPLOYEE_ROLE = "faculty-user";
+    private static final String AUTHOR_ROLE = "AUTHOR_USER";
 
     private final EmployeeRepository employeeRepository;
     private final FacultyRepository facultyRepository;
@@ -145,7 +148,8 @@ public class EmployeeService {
         if(response.getId().isEmpty()){
             throw new ResourceNotFoundException("User couldn't save ");
         }
-        authService.assignRoleToUser(response.getId(), "faculty-user");
+        authService.assignRoleToUser(response.getId(), EMPLOYEE_ROLE);
+        authService.assignRoleToUser(response.getId(), AUTHOR_ROLE);
         long seq = sequenceGeneratorService.generateSequence("sequence_employee");
         String code = buildEmployeeCode(faculty, seq);
         employee.setCode(code);
@@ -202,6 +206,7 @@ public class EmployeeService {
         signupRequest.setTermsAgreed(true);
         signupRequest.setEmail(request.getEmail());
         signupRequest.setPhoneNumber(request.getPhone());
+        signupRequest.setRoleNames(Set.of(EMPLOYEE_ROLE, AUTHOR_ROLE));
         return signupRequest;
     }
 

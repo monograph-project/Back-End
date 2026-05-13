@@ -12,8 +12,8 @@ import java.util.List;
 @AllArgsConstructor
 public class FileRecordService {
     private final FileRecordRepository fileRecordRepository;
-    public void add(FileRecord fileRecord) {
-        fileRecordRepository.save(fileRecord);
+    public FileRecord add(FileRecord fileRecord) {
+        return fileRecordRepository.save(fileRecord);
     }
 
     public void remove(FileRecord fileRecord) {
