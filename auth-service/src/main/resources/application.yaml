@@ -29,6 +29,9 @@ google:
 
 app:
   default-role: ${APP_DEFAULT_ROLE:AUTHOR_USER}
+  frontend-base-url: ${APP_FRONTEND_BASE_URL:http://localhost:5173}
+  email-verification:
+    otp-expiration-minutes: ${APP_EMAIL_VERIFICATION_OTP_EXPIRATION_MINUTES:15}
   app:
     jwt:
       secret: ${CUSTOME_SECRET}

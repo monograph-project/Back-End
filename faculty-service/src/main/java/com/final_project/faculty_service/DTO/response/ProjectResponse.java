@@ -13,6 +13,9 @@ public class ProjectResponse {
     private GroupResponse group;
     private GroupTeacherResponse teacher;
     private RepositoryDTO projectRepository;
+    private String abstractText;
+    private String finalFileName;
+    private String finalFileDownloadUrl;
     private ProjectStatus status;
     private Integer progress;
     private Integer completion;

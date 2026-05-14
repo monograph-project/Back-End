@@ -41,6 +41,9 @@ public class ProjectMapper implements BaseMapper<ProjectRequest, ProjectResponse
         projectResponse.setId(entity.getId());
         projectResponse.setProjectName(entity.getProjectName());
         projectResponse.setProjectRepository(entity.getProjectRepository());
+        projectResponse.setAbstractText(entity.getAbstractText());
+        projectResponse.setFinalFileName(entity.getFinalFileName());
+        projectResponse.setFinalFileDownloadUrl(entity.getFinalFileDownloadUrl());
         projectResponse.setStatus(entity.getStatus());
         projectResponse.setProgress(entity.getProgress());
         projectResponse.setCompletion(entity.getCompletion());

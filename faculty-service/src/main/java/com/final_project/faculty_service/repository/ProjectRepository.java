@@ -21,6 +21,8 @@ public interface ProjectRepository extends MongoRepository<Project,String> {
           'isDeleted': false,
           '$or': [
             { 'projectName': { $regex: ?0, $options: 'i' } },
+            { 'abstractText': { $regex: ?0, $options: 'i' } },
+            { 'finalFileName': { $regex: ?0, $options: 'i' } },
             { 'status': { $regex: ?0, $options: 'i' } },
             { 'projectRepository.repositoryName': { $regex: ?0, $options: 'i' } },
             { 'projectRepository.owner': { $regex: ?0, $options: 'i' } },

@@ -14,6 +14,7 @@ public class UniversalBucketStrategy implements BucketStrategy {
     @Override
     public String resolveBucket(FileMetadata m) {
         if (m.getCategory() == FileCategory.BLOG) return "blogs";
+        if (m.getCategory() == FileCategory.CLI_APPLICATION) return "cli-applications";
 
         switch (m.getOwnerType()) {
             case UNIVERSITY:
@@ -30,6 +31,12 @@ public class UniversalBucketStrategy implements BucketStrategy {
 
         if (m.getCategory() == FileCategory.BLOG) {
             return "user/" + m.getOwnerId() + "/" + m.getSubFolder() + "/" + uniqueFileName(m.getFileName());
+        }
+        if (m.getCategory() == FileCategory.CLI_APPLICATION) {
+            String folder = m.getSubFolder() == null || m.getSubFolder().isBlank()
+                    ? "latest"
+                    : safePathPart(m.getSubFolder());
+            return folder + "/" + safePathPart(m.getFileName());
         }
         if (isUser(m.getOwnerType())) {
             String base = m.getOwnerType().name().toLowerCase() + "/" + m.getOwnerId() + "/";
@@ -55,8 +62,14 @@ public class UniversalBucketStrategy implements BucketStrategy {
     private String uniqueFileName(String fileName) {
         String safeName = fileName == null || fileName.isBlank()
                 ? "file"
-                : fileName.replace("\\", "-").replace("/", "-");
+                : safePathPart(fileName);
         return UUID.randomUUID() + "-" + safeName;
+    }
+
+    private String safePathPart(String value) {
+        return value == null || value.isBlank()
+                ? "file"
+                : value.replace("\\", "-").replace("/", "-");
     }
 
     private boolean isUser(OwnerType type) {

@@ -10,8 +10,6 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 
 import java.time.LocalDateTime;
-import java.util.List;
-
 @Data
 public class Faculty {
     @Id
@@ -29,8 +27,6 @@ public class Faculty {
     private LocalDateTime updatedAt;
     @DBRef
     private University university;
-    @DBRef
-    private Employee deanOfFaculty;
     @Indexed(unique = true)
     private String email;
     private String phone;

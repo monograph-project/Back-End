@@ -105,6 +105,18 @@ public class NotificationController {
         return ResponseEntity.ok(ApiResponse.success(notificationService.markRead(id)));
     }
 
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete a notification")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "Notification deleted"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Notification not found")
+    })
+    public ResponseEntity<Void> deleteNotification(@PathVariable UUID id) {
+        log.info("REST request to delete notification. Id={}", id);
+        notificationService.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
+
     // ── Query by user ─────────────────────────────────────────────────────────
 
     @GetMapping("/user/{userId}")

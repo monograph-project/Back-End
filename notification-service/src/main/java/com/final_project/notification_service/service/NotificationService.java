@@ -26,6 +26,7 @@ public interface NotificationService {
 
     NotificationResponse findById(UUID id);
     NotificationResponse markRead(UUID id);
+    void deleteById(UUID id);
 
     PagedResponse<NotificationResponse> findByUser(String userId, Pageable pageable);
 

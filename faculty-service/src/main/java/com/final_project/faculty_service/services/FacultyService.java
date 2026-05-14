@@ -2,17 +2,13 @@ package com.final_project.faculty_service.services;
 
 import com.final_project.faculty_service.DTO.mapper.FacultyMapper;
 import com.final_project.faculty_service.DTO.request.FacultyRequest;
-import com.final_project.faculty_service.DTO.response.DepartmentResponse;
 import com.final_project.faculty_service.DTO.response.FacultyResponse;
 import com.final_project.faculty_service.DTO.response.PageResponse;
 import com.final_project.faculty_service.helper.Helper;
 import com.final_project.faculty_service.models.*;
-import com.final_project.faculty_service.repository.EmployeeRepository;
 import com.final_project.faculty_service.repository.FacultyRepository;
 import com.final_project.faculty_service.repository.UniversityRepository;
-import com.final_project.faculty_service.services.exception.ResourceBadRequest;
 import com.final_project.faculty_service.services.exception.ResourceNotFoundException;
-import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,21 +20,18 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class FacultyService {
     private final FacultyRepository facultyRepository;
     private final UniversityRepository universityRepository;
-    private final EmployeeRepository employeeRepository;
     private final SequenceGeneratorService sequenceGeneratorService;
     private final FacultyMapper facultyMapper;
     private final WebClient fileWebClient;
 
-    public FacultyService(FacultyRepository facultyRepository, UniversityRepository universityRepository, EmployeeRepository employeeRepository, SequenceGeneratorService sequenceGeneratorService, FacultyMapper facultyMapper,  @Qualifier("fileServiceClient") WebClient fileWebClient) {
+    public FacultyService(FacultyRepository facultyRepository, UniversityRepository universityRepository, SequenceGeneratorService sequenceGeneratorService, FacultyMapper facultyMapper,  @Qualifier("fileServiceClient") WebClient fileWebClient) {
         this.facultyRepository = facultyRepository;
         this.universityRepository = universityRepository;
-        this.employeeRepository = employeeRepository;
         this.sequenceGeneratorService = sequenceGeneratorService;
         this.facultyMapper = facultyMapper;
         this.fileWebClient = fileWebClient;
@@ -83,18 +76,10 @@ public class FacultyService {
         University university = universityRepository.findByIdAndIsDeletedIsFalse(faculty.getUniversity().getId())
                 .orElseThrow(() -> new ResourceNotFoundException("university Not Found"));
 
-
-        Employee employee = employeeRepository.findByIdAndIsDeletedIsFalse(faculty.getDeanOfFaculty().getId())
-                .orElseThrow(() -> new ResourceNotFoundException("employee Not Found"));
-
-//        if (employee.get().getFacultyPosition().equals(FacultyPosition.DEAN)){
-//            throw new ResourceBadRequest("The Employee Doesn't have the Required Position");
-//        }
         long seq = sequenceGeneratorService.generateSequence("faculty_seq");
         faculty.setUniversity(university);
-        faculty.setDeanOfFaculty(employee);
 
-        faculty.setCode(Helper.generateAbbreviation(university.getName())+"-"+university.getShortName()+seq);
+        faculty.setCode(Helper.generateAbbreviation(university.getName())+"-"+university.getCode()+"-"+seq);
         Faculty fac =  facultyRepository.save(faculty);
         return facultyMapper.toResponse(fac);
     }
@@ -105,9 +90,6 @@ public class FacultyService {
         University un = universityRepository.findByIdAndIsDeletedIsFalse(fac.getUniversity().getId())
                 .orElseThrow(() -> new ResourceNotFoundException("University Not found"));
 
-        Employee emp = employeeRepository.findByIdAndIsDeletedIsFalse(fac.getDeanOfFaculty().getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Employee Not found"));
-        fac.setDeanOfFaculty(emp);
         fac.setUniversity(un);
         return facultyMapper.toResponse(fac);
     }
@@ -118,14 +100,14 @@ public class FacultyService {
         Faculty faculty = facultyMapper.toEntity(facultyRequest);
         University university =  universityRepository.findByIdAndIsDeletedIsFalse(faculty.getUniversity().getId())
                 .orElseThrow(() -> new ResourceNotFoundException("University Not found"));
-        Employee empl = employeeRepository.findByIdAndIsDeletedIsFalse(faculty.getDeanOfFaculty().getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Employee Not found"));
 
         faculty.setId(id);
-        faculty.setDeanOfFaculty(empl);
         faculty.setUniversity(university);
         faculty.setCode(savedFaculty.getCode());
-        faculty.setShortName(savedFaculty.getShortName());
+        faculty.setCreatedAt(savedFaculty.getCreatedAt());
+        faculty.setCreatedBy(savedFaculty.getCreatedBy());
+        faculty.setLogo(savedFaculty.getLogo());
+        faculty.setDeleted(savedFaculty.isDeleted());
         var updatedFaculty = facultyRepository.save(faculty);
         return facultyMapper.toResponse(updatedFaculty);
     }

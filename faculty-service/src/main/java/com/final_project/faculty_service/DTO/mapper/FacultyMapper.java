@@ -1,10 +1,8 @@
 package com.final_project.faculty_service.DTO.mapper;
 
 import com.final_project.faculty_service.DTO.request.FacultyRequest;
-import com.final_project.faculty_service.DTO.response.EmployeeResponseInFaculty;
 import com.final_project.faculty_service.DTO.response.FacultyResponse;
 import com.final_project.faculty_service.DTO.response.UniversityResponseInFaculty;
-import com.final_project.faculty_service.models.Employee;
 import com.final_project.faculty_service.models.Faculty;
 import com.final_project.faculty_service.models.University;
 import lombok.AllArgsConstructor;
@@ -25,12 +23,6 @@ public class FacultyMapper implements BaseMapper<FacultyRequest, FacultyResponse
         university.setId(faculty.getUniversity());
         currentFaculty.setUniversity(university);
 
-        Employee em = new  Employee();
-        em.setId(faculty.getDeanOfFaculty());
-        currentFaculty.setDeanOfFaculty(em);
-
-
-        currentFaculty.setCode(faculty.getCode());
         currentFaculty.setShortName(faculty.getShortName());
 
         currentFaculty.setDescription(faculty.getDescription());
@@ -38,7 +30,6 @@ public class FacultyMapper implements BaseMapper<FacultyRequest, FacultyResponse
         currentFaculty.setEstablishDate(faculty.getEstablishDate());
         currentFaculty.setEmail(faculty.getEmail());
         currentFaculty.setPhone(faculty.getPhone());
-        currentFaculty.setCode(faculty.getCode());
         return currentFaculty;
     }
 
@@ -57,18 +48,6 @@ public class FacultyMapper implements BaseMapper<FacultyRequest, FacultyResponse
                     faculty.getUniversity().getLogo()
             ));
         }
-        if (faculty.getDeanOfFaculty() != null) {
-            facultyResponse.setDeanOfFaculty(new EmployeeResponseInFaculty(
-                    faculty.getDeanOfFaculty().getId(),
-                    faculty.getDeanOfFaculty().getFirstName(),
-                    faculty.getDeanOfFaculty().getLastName(),
-                    faculty.getDeanOfFaculty().getEmail(),
-                    faculty.getDeanOfFaculty().getPhone(),
-                    faculty.getDeanOfFaculty().getEducationRank(),
-                    faculty.getDeanOfFaculty().getFacultyPosition()
-
-            ));
-        }
         facultyResponse.setId(faculty.getId());
         facultyResponse.setShortName(faculty.getShortName());
         facultyResponse.setCode(faculty.getCode());
@@ -79,8 +58,8 @@ public class FacultyMapper implements BaseMapper<FacultyRequest, FacultyResponse
         facultyResponse.setShortName(faculty.getShortName());
         facultyResponse.setEmail(faculty.getEmail());
         facultyResponse.setPhone(faculty.getPhone());
-        facultyResponse.setUpdateAt(faculty.getUpdatedAt().toString());
-        facultyResponse.setCreateAt(faculty.getCreatedAt().toString());
+        facultyResponse.setUpdateAt(faculty.getUpdatedAt() != null ? faculty.getUpdatedAt().toString() : null);
+        facultyResponse.setCreateAt(faculty.getCreatedAt() != null ? faculty.getCreatedAt().toString() : null);
         return facultyResponse;
     }
 }

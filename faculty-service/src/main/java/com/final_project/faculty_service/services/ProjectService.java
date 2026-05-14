@@ -217,10 +217,13 @@ public class ProjectService {
     public URI getPublishedDownloadUri(String id){
         Project current = projectRepository.findByIdAndPublishedIsTrueAndIsDeletedIsFalse(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+        if (current.getFinalFileDownloadUrl() != null && !current.getFinalFileDownloadUrl().isBlank()) {
+            return URI.create(current.getFinalFileDownloadUrl());
+        }
         if (current.getProjectRepository() == null ||
                 current.getProjectRepository().getCloneUrl() == null ||
                 current.getProjectRepository().getCloneUrl().isBlank()) {
-            throw new ResourceNotFoundException("Project repository download URL not found");
+            throw new ResourceNotFoundException("Project final file download URL not found");
         }
         return URI.create(current.getProjectRepository().getCloneUrl());
     }
@@ -289,6 +292,18 @@ public class ProjectService {
         project.setCompletion(request.getCompletion() != null
                 ? request.getCompletion()
                 : current != null ? current.getCompletion() : 0);
+        project.setAbstractText(firstNonBlank(
+                request.getAbstractText(),
+                current != null ? current.getAbstractText() : null
+        ));
+        project.setFinalFileName(firstNonBlank(
+                request.getFinalFileName(),
+                current != null ? current.getFinalFileName() : null
+        ));
+        project.setFinalFileDownloadUrl(firstNonBlank(
+                request.getFinalFileDownloadUrl(),
+                current != null ? current.getFinalFileDownloadUrl() : null
+        ));
 
         boolean nextPublished = request.getPublished() != null
                 ? request.getPublished()
@@ -302,6 +317,16 @@ public class ProjectService {
         } else {
             project.setPublishedAt(null);
         }
+    }
+
+    private String firstNonBlank(String preferred, String fallback) {
+        if (preferred != null && !preferred.isBlank()) {
+            return preferred.trim();
+        }
+        if (fallback != null && !fallback.isBlank()) {
+            return fallback.trim();
+        }
+        return null;
     }
 
     public void delete(String id){

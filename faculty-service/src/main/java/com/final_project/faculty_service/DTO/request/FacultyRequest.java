@@ -20,11 +20,6 @@ public class FacultyRequest {
     @NotBlank(message = "Please provide the university")
     private String university;
 
-    private String code;
-
-    @NotBlank(message = "Please provide the Dean of Faculty")
-    private String deanOfFaculty;
-
     @Email(message = "Invalid email format")
     @NotBlank(message = "Email is required")
     private String email;

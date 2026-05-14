@@ -50,4 +50,9 @@ public class FileRecordService {
         return fileRecordRepository.findByIdAndOwnerIdAndCategory(fileId,ownerId,category)
                 .orElseThrow(() -> new FileNotFound("Not Found"));
     }
+
+    public FileRecord findLatestByOwnerIdAndCategory(String ownerId, FileCategory category) {
+        return fileRecordRepository.findFirstByOwnerIdAndCategoryOrderByUploadedAtDesc(ownerId, category)
+                .orElseThrow(() -> new FileNotFound("File Not Found"));
+    }
 }

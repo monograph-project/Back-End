@@ -38,12 +38,19 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -66,12 +73,25 @@ public class AuthenticationService {
     private final JwtDecoder jwtDecoder;
 
     private final JwtEncoder jwtEncoder;
+    private final SecureRandom secureRandom = new SecureRandom();
+
+    private static final String OTP_HASH_ATTRIBUTE = "email_verification_otp_hash";
+    private static final String OTP_EXPIRES_ATTRIBUTE = "email_verification_otp_expires_at";
 
     @Value("${app.default-role:AUTHOR_USER}")
     private String defaultRole;
 
+    @Value("${app.frontend-base-url:http://localhost:5173}")
+    private String frontendBaseUrl;
+
+    @Value("${app.email-verification.otp-expiration-minutes:15}")
+    private long emailVerificationOtpMinutes;
+
     public AuthResponse login(LoginRequest request) {
         UserRepresentation user = resolveUser(request.getUsernameOrEmail());
+        if (!Boolean.TRUE.equals(user.isEmailVerified())) {
+            throw new UnauthorizedException("Email is not verified. Please verify the OTP code sent to your email.");
+        }
         AuthResponse authResponse = requestToken("password", Map.of(
                 "username", user.getUsername(),
                 "password", request.getPassword()
@@ -96,11 +116,14 @@ public class AuthenticationService {
                 request.getLastName(),
                 request.getPassword(),
                 true,
-                true,
+                false,
                 Map.of()
         );
 
         keycloakService.assignRealmRoles(userId, List.of(defaultRole));
+        String otpCode = generateOtpCode();
+        Instant otpExpiresAt = Instant.now().plus(Duration.ofMinutes(emailVerificationOtpMinutes));
+        storeEmailVerificationOtp(userId, request.getEmail(), otpCode, otpExpiresAt);
         auditLogService.logAuditEvent(userId, "USER_REGISTERED", "USER", userId, "User registered in Keycloak", "SUCCESS");
         eventPublisher.publishUserRegister(UserRegisteredEvent.builder()
                 .eventId(UUID.randomUUID().toString())
@@ -108,17 +131,16 @@ public class AuthenticationService {
                 .email(request.getEmail())
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
+                .verificationCode(otpCode)
+                .verificationExpiresAt(LocalDateTime.ofInstant(otpExpiresAt, ZoneOffset.UTC))
                 .registrationSource("WEB")
                 .occurredAt(LocalDateTime.now())
                 .build());
 
-        AuthResponse authResponse = requestToken("password", Map.of(
-                "username", request.getUsername(),
-                "password", request.getPassword()
-        ));
-        authResponse.setUser(toDTO(keycloakService.getUserById(userId)));
-        authResponse.setMessage("Signup successful. Verify your email in Keycloak");
-        return authResponse;
+        return AuthResponse.builder()
+                .user(toDTO(keycloakService.getUserById(userId)))
+                .message("Signup successful. Enter the OTP code sent to your email.")
+                .build();
     }
 
     public AuthResponse googleOAuth2Login(GoogleOAuth2Request request) {
@@ -219,9 +241,7 @@ public class AuthenticationService {
         );
         String resetToken = generateShortLivedToken(claims, 15);
 
-        String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
-
-        String resetUrl = baseUrl+"/reset-password?token=" + resetToken;
+        String resetUrl = frontendBaseUrl.replaceAll("/+$", "") + "/reset-password?token=" + resetToken;
         eventPublisher.publishResetPasswordEvent(
                 ResetPasswordEvent
                         .builder()
@@ -268,13 +288,124 @@ public class AuthenticationService {
 
 
     public void verifyEmail(EmailVerificationRequest request) {
-        throw new UnsupportedOperationException("Use Keycloak email verification actions instead of local verification tokens.");
+        UserRepresentation user = keycloakService.findUserByEmail(request.getEmail())
+                .orElseThrow(() -> new UnauthorizedException("Invalid or expired verification code"));
+
+        if (Boolean.TRUE.equals(user.isEmailVerified())) {
+            return;
+        }
+
+        Map<String, List<String>> attributes = user.getAttributes();
+        String expectedHash = firstAttribute(attributes, OTP_HASH_ATTRIBUTE);
+        String expiresAtRaw = firstAttribute(attributes, OTP_EXPIRES_ATTRIBUTE);
+        if (expectedHash == null || expiresAtRaw == null) {
+            log.warn("Email verification OTP attributes missing for userId={}", user.getId());
+            throw new InvalidUserException("Verification code is invalid or has expired");
+        }
+
+        Instant expiresAt;
+        try {
+            expiresAt = Instant.parse(expiresAtRaw);
+        } catch (Exception exception) {
+            log.warn("Email verification OTP expiry could not be parsed for userId={}", user.getId());
+            throw new InvalidUserException("Verification code is invalid or has expired");
+        }
+
+        if (Instant.now().isAfter(expiresAt)) {
+            log.warn("Email verification OTP expired for userId={}", user.getId());
+            clearEmailVerificationOtp(user.getId());
+            throw new InvalidUserException("Verification code has expired. Request a new code.");
+        }
+
+        String actualHash = hashOtp(user.getEmail(), request.getOtpCode());
+        if (!MessageDigest.isEqual(
+                expectedHash.getBytes(StandardCharsets.UTF_8),
+                actualHash.getBytes(StandardCharsets.UTF_8))) {
+            log.warn("Email verification OTP mismatch for userId={}", user.getId());
+            throw new InvalidUserException("Verification code is incorrect");
+        }
+
+        keycloakService.markEmailVerified(user.getId(), true);
+        clearEmailVerificationOtp(user.getId());
+        auditLogService.logAuditEvent(user.getId(), "EMAIL_VERIFIED", "USER", user.getId(), "Email verified with OTP", "SUCCESS");
     }
 
     public void resendVerificationEmail(ResendVerificationEmailRequest request) {
         UserRepresentation user = keycloakService.findUserByEmail(request.getEmail())
                 .orElseThrow(() -> new UnauthorizedException("User not found for email"));
-        keycloakService.sendVerifyEmail(user.getId());
+        if (Boolean.TRUE.equals(user.isEmailVerified())) {
+            return;
+        }
+        String otpCode = generateOtpCode();
+        Instant otpExpiresAt = Instant.now().plus(Duration.ofMinutes(emailVerificationOtpMinutes));
+        storeEmailVerificationOtp(user.getId(), user.getEmail(), otpCode, otpExpiresAt);
+        eventPublisher.publishUserRegister(UserRegisteredEvent.builder()
+                .eventId(UUID.randomUUID().toString())
+                .userId(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .verificationCode(otpCode)
+                .verificationExpiresAt(LocalDateTime.ofInstant(otpExpiresAt, ZoneOffset.UTC))
+                .registrationSource("RESEND")
+                .occurredAt(LocalDateTime.now())
+                .build());
+    }
+
+    private String generateOtpCode() {
+        return String.format("%06d", secureRandom.nextInt(1_000_000));
+    }
+
+    private void storeEmailVerificationOtp(String userId, String email, String otpCode, Instant expiresAt) {
+        UserRepresentation user = keycloakService.getUserById(userId);
+        Map<String, List<String>> attributes = mutableAttributes(user);
+        attributes.put(OTP_HASH_ATTRIBUTE, List.of(hashOtp(email, otpCode)));
+        attributes.put(
+                OTP_EXPIRES_ATTRIBUTE,
+                List.of(expiresAt.toString())
+        );
+        user.setAttributes(attributes);
+        keycloakService.updateUser(userId, user);
+    }
+
+    private void clearEmailVerificationOtp(String userId) {
+        UserRepresentation user = keycloakService.getUserById(userId);
+        Map<String, List<String>> attributes = mutableAttributes(user);
+        attributes.remove(OTP_HASH_ATTRIBUTE);
+        attributes.remove(OTP_EXPIRES_ATTRIBUTE);
+        user.setAttributes(attributes);
+        keycloakService.updateUser(userId, user);
+    }
+
+    private Map<String, List<String>> mutableAttributes(UserRepresentation user) {
+        Map<String, List<String>> source = user.getAttributes();
+        Map<String, List<String>> copy = new HashMap<>();
+        if (source != null) {
+            source.forEach((key, value) -> copy.put(key, value == null ? List.of() : new ArrayList<>(value)));
+        }
+        return copy;
+    }
+
+    private String firstAttribute(Map<String, List<String>> attributes, String key) {
+        if (attributes == null) return null;
+        List<String> values = attributes.get(key);
+        if (values == null || values.isEmpty()) return null;
+        String value = values.get(0);
+        return value == null || value.isBlank() ? null : value;
+    }
+
+    private String hashOtp(String email, String otpCode) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashed = digest.digest((email.trim().toLowerCase() + ":" + otpCode).getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(hashed.length * 2);
+            for (byte b : hashed) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is not available", exception);
+        }
     }
 
     private void ensureUserDoesNotExist(String username, String email) {

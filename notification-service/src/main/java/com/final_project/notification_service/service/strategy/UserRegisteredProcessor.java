@@ -28,9 +28,9 @@ public class UserRegisteredProcessor implements NotificationProcessor<UserRegist
         log.info("Processing USER_REGISTERED for userId={}", event.getUserId());
 
         String fullName  = event.getFirstName() + " " + event.getLastName();
-        String subject   = "Welcome to the platform, " + event.getFirstName() + "!";
+        String subject = "Your verification code for Kandahar University";
         String verifyUrl = props.getNotification().getBaseUrl()
-                + "/verify-email?token=" + event.getVerificationToken();
+                + "/signup?email=" + event.getEmail();
 
         // Send rich HTML email via template
         emailService.sendHtmlEmail(
@@ -41,6 +41,8 @@ public class UserRegisteredProcessor implements NotificationProcessor<UserRegist
                         "firstName",        event.getFirstName(),
                         "fullName",         fullName,
                         "verificationUrl",  verifyUrl,
+                        "verificationCode", event.getVerificationCode(),
+                        "verificationExpiresAt", event.getVerificationExpiresAt(),
                         "baseUrl",          props.getNotification().getBaseUrl()
                 )
         );
@@ -54,7 +56,7 @@ public class UserRegisteredProcessor implements NotificationProcessor<UserRegist
                 .channel(NotificationChannel.EMAIL)
                 .status(NotificationStatus.PROCESSING)
                 .subject(subject)
-                .body("Welcome email sent with verification link.")
+                .body("Signup OTP verification email sent.")
                 .idempotencyKey("user-registered:" + event.getEventId())
                 .build();
 

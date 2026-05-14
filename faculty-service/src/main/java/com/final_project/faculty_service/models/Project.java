@@ -19,6 +19,9 @@ public class Project {
     @DBRef
     private Teacher teacher;
     private RepositoryDTO projectRepository;
+    private String abstractText;
+    private String finalFileName;
+    private String finalFileDownloadUrl;
     private ProjectStatus status = ProjectStatus.PLANNED;
     private Integer progress = 0;
     private Integer completion = 0;

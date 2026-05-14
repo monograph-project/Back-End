@@ -11,7 +11,6 @@ public class FacultyResponse {
     private String description;
     private UniversityResponseInFaculty university;
     private String code;
-    private EmployeeResponseInFaculty deanOfFaculty;
     private String email;
     private String phone;
     private String updateAt;

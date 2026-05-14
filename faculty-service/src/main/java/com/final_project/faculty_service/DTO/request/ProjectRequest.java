@@ -18,6 +18,9 @@ public class ProjectRequest {
     private String  teacher;
 
     private String projectRepository;
+    private String abstractText;
+    private String finalFileName;
+    private String finalFileDownloadUrl;
 
     private ProjectStatus status;
 
