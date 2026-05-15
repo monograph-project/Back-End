@@ -10,10 +10,12 @@ import com.final_project.file_service.domain.service.FileRecordService;
 import com.final_project.file_service.domain.service.FileService;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,6 +42,13 @@ public class CliApplicationController {
 
     @PostMapping(value = "/vic.exe", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public FileUploadResponse uploadVicExecutable(@RequestPart("file") MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "vic.exe file is required");
+        }
+        String originalName = file.getOriginalFilename() == null ? "" : file.getOriginalFilename().trim();
+        if (!originalName.toLowerCase().endsWith(".exe")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only Windows .exe files are accepted");
+        }
         return uploadCliApplicationFile(file, LATEST_FOLDER, "vic.exe");
     }
 

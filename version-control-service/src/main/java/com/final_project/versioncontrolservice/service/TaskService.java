@@ -151,6 +151,9 @@ public class TaskService {
         RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
         Task task = getTask(owner, repo, taskNumber);
         ensureCanAssignTask(meta, task, assignedByContributor, "Only task creators, repository admins, teachers, or admins can assign contributors");
+        if (task.getStatus() == TaskStatus.COMPLETED) {
+            throw new BadRequestException("Completed tasks cannot be reassigned");
+        }
         ensureAcceptedCollaborator(meta, assignee, "Tasks can only be assigned to accepted repository contributors");
         task.setAssignedTo(
                 MilestoneTaskUser.builder()
@@ -241,8 +244,11 @@ public class TaskService {
 
 
         RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
-        if (!RepoAccessRules.canAdmin(meta, reviewer) && !hasTaskOverviewRole(reviewerUser)) {
+        if (!RepoAccessRules.canAdmin(meta, reviewer) && !hasTaskOverviewRole(reviewerUser) && !isTaskCreator(task, reviewer)) {
             throw new ForbiddenException("only repository admins, teachers, or admins can review/grading tasks");
+        }
+        if (isTaskAssignee(task, reviewer)) {
+            throw new ForbiddenException("Assigned contributors cannot review their own task submission");
         }
 
         // Create review comment

@@ -139,8 +139,13 @@ public class MilestoneService {
             milestone.setCompletionPercentage(0.0);
         }
 
-        // Auto-close if all required tasks completed
-        if (milestone.getRequiredTasks() != null && completedTasks >= milestone.getRequiredTasks()) {
+        boolean requiredTasksSatisfied = milestone.getRequiredTasks() != null
+                && milestone.getRequiredTasks() > 0
+                && completedTasks >= milestone.getRequiredTasks();
+        boolean allTasksCompleted = totalTasks > 0 && completedTasks >= totalTasks;
+
+        if ((requiredTasksSatisfied || allTasksCompleted)
+                && !"closed".equalsIgnoreCase(String.valueOf(milestone.getStatus()))) {
             milestone.setStatus("closed");
             milestone.setClosedAt(Instant.now());
         }
@@ -357,6 +362,7 @@ public class MilestoneService {
         private String reviewComments;
         private String submissionUrl;
         private String submissionBranch;
+        private String linkedPrId;
         private List<Task.RequirementCheck> requirementsChecklist;
         private Integer commentsCount;
 
@@ -380,6 +386,7 @@ public class MilestoneService {
             response.setReviewComments(doc.getReviewComments());
             response.setSubmissionUrl(doc.getSubmissionUrl());
             response.setSubmissionBranch(doc.getSubmissionBranch());
+            response.setLinkedPrId(doc.getLinkedPrId());
             response.setRequirementsChecklist(doc.getRequirementsChecklist());
             response.setCommentsCount(doc.getCommentsCount());
             return response;

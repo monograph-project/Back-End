@@ -39,6 +39,7 @@ public class SemesterMapper implements BaseMapper<SemesterRequest, SemesterRespo
         AcademicYear academicYear = semester.getAcademicYear();
         AcademicYearGroupResponse academicYearResponse = academicYear != null
                 ? new AcademicYearGroupResponse(
+                academicYear.getId(),
                 academicYear.getName(),
                 academicYear.getStartDate(),
                 academicYear.getEndDate()

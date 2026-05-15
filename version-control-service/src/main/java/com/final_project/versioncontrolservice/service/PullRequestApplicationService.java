@@ -134,6 +134,61 @@ public class PullRequestApplicationService {
 
 
 
+    public List<PullRequestMergeService.FileChange> listChangedFiles(String pullId, String owner, String repoName) {
+        PullRequestDiffContext context = diffContext(pullId, owner, repoName);
+        return pullRequestMergeService.compareFilesBetweenCommits(
+                context.document().getOwner().getUsername(),
+                context.document().getRepositoryName(),
+                context.targetHash(),
+                context.sourceHash()
+        );
+    }
+
+    public PullRequestMergeService.FileChange getChangedFileDiff(String pullId, String owner, String repoName, int fileIndex) {
+        List<PullRequestMergeService.FileChange> files = listChangedFiles(pullId, owner, repoName);
+        if (fileIndex < 0 || fileIndex >= files.size()) {
+            throw new NotFoundException("Pull request file not found");
+        }
+        return files.get(fileIndex);
+    }
+
+    private PullRequestDiffContext diffContext(String pullId, String owner, String repoName) {
+        RepositoryDocument document = repositoryService.loadMeta(owner, repoName);
+        if (document == null) {
+            throw new  NotFoundException("The Current Repository does not exist");
+        }
+
+        PullRequest pullRequest = pullRequestRepository
+                .findByIdAndRepoOwner_UsernameIgnoreCaseAndRepoNameIgnoreCase(
+                        pullId,
+                        document.getOwner().getUsername(),
+                        document.getRepositoryName()
+                )
+                .orElseThrow(() -> new NotFoundException("Pull request not found"));
+
+        String sourceHash = repositoryService.listBranchHash(document, pullRequest.getSourceBranch());
+        if (sourceHash == null || sourceHash.isBlank()) {
+            sourceHash = pullRequest.getSourceHash();
+        }
+
+        String targetHash = repositoryService.listBranchHash(document, pullRequest.getTargetBranch());
+        if (targetHash == null || targetHash.isBlank()) {
+            targetHash = pullRequest.getTargetHash();
+        }
+
+        if (sourceHash == null || sourceHash.isBlank() || targetHash == null || targetHash.isBlank()) {
+            throw new NotFoundException("Pull request branch ref not found");
+        }
+
+        return new PullRequestDiffContext(document, sourceHash, targetHash);
+    }
+
+    private record PullRequestDiffContext(
+            RepositoryDocument document,
+            String sourceHash,
+            String targetHash
+    ) {}
+
     public MergeResponse merge(String pullId, String owner, String repoName) throws IOException {
         RepositoryDocument document = repositoryService.loadMeta(owner, repoName);
         if (document == null) {

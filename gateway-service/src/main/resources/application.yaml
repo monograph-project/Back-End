@@ -3,6 +3,8 @@ spring:
     name: gateway-service
   config:
     import: optional:configserver:http://localhost:8888
+  codec:
+    max-in-memory-size: 16MB
 #  cloud:
 #    gateway:
 #      globalcors:

@@ -131,6 +131,59 @@ public class PullRequestMergeService {
         return changed;
     }
 
+    public List<FileChange> compareFilesBetweenCommits(
+            String owner,
+            String repo,
+            String targetHash,
+            String sourceHash
+    ) {
+        CommitInfo targetCommit = readCommit(owner, repo, targetHash);
+        CommitInfo sourceCommit = readCommit(owner, repo, sourceHash);
+
+        Map<String, TreeEntry> targetTree = readTreeRecursive(owner, repo, targetCommit.getTreeHash());
+        Map<String, TreeEntry> sourceTree = readTreeRecursive(owner, repo, sourceCommit.getTreeHash());
+
+        Set<String> allPaths = new TreeSet<>();
+        allPaths.addAll(targetTree.keySet());
+        allPaths.addAll(sourceTree.keySet());
+
+        List<FileChange> changes = new ArrayList<>();
+        for (String path : allPaths) {
+            TreeEntry target = targetTree.get(path);
+            TreeEntry source = sourceTree.get(path);
+            String targetBlob = hashOf(target);
+            String sourceBlob = hashOf(source);
+
+            if (Objects.equals(targetBlob, sourceBlob)) {
+                continue;
+            }
+
+            byte[] targetBytes = readBlobBytesOrEmpty(owner, repo, targetBlob);
+            byte[] sourceBytes = readBlobBytesOrEmpty(owner, repo, sourceBlob);
+            boolean binary = isBinaryBytes(targetBytes) || isBinaryBytes(sourceBytes);
+            String oldContent = binary ? null : decodeUtf8(targetBytes);
+            String newContent = binary ? null : decodeUtf8(sourceBytes);
+
+            changes.add(FileChange.builder()
+                    .path(path)
+                    .filename(path)
+                    .status(target == null ? "added" : source == null ? "deleted" : "modified")
+                    .baseSha(targetBlob)
+                    .oldSha(targetBlob)
+                    .headSha(sourceBlob)
+                    .newSha(sourceBlob)
+                    .binary(binary)
+                    .oldContent(oldContent)
+                    .baseContent(oldContent)
+                    .newContent(newContent)
+                    .headContent(newContent)
+                    .additions(binary ? null : countChangedLines(newContent))
+                    .deletions(binary ? null : countChangedLines(oldContent))
+                    .build());
+        }
+        return changes;
+    }
+
     public String createMergeCommit(
             String owner,
             String repo,
@@ -623,6 +676,13 @@ public class PullRequestMergeService {
         return entry == null ? null : entry.getHash();
     }
 
+    private Integer countChangedLines(String content) {
+        if (content == null || content.isEmpty()) {
+            return 0;
+        }
+        return (int) content.lines().count();
+    }
+
     private String normalizePath(String path) {
         return path == null ? "" : path.trim().replace("\\", "/");
     }
@@ -711,6 +771,25 @@ public class PullRequestMergeService {
         private String mode;
         private String type;
         private String hash;
+    }
+
+    @Data
+    @Builder
+    public static class FileChange {
+        private String path;
+        private String filename;
+        private String status;
+        private String baseSha;
+        private String oldSha;
+        private String headSha;
+        private String newSha;
+        private boolean binary;
+        private Integer additions;
+        private Integer deletions;
+        private String oldContent;
+        private String baseContent;
+        private String newContent;
+        private String headContent;
     }
 
     private class TreeNode {

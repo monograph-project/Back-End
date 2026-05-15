@@ -40,6 +40,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -56,6 +57,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 @Service
 @RequiredArgsConstructor
@@ -86,6 +89,9 @@ public class AuthenticationService {
 
     @Value("${app.email-verification.otp-expiration-minutes:15}")
     private long emailVerificationOtpMinutes;
+
+    @Value("${app.jwt.secret:at-least-32-character-very-long-secret-key}")
+    private String jwtSecret;
 
     public AuthResponse login(LoginRequest request) {
         UserRepresentation user = resolveUser(request.getUsernameOrEmail());
@@ -241,7 +247,8 @@ public class AuthenticationService {
         );
         String resetToken = generateShortLivedToken(claims, 15);
 
-        String resetUrl = frontendBaseUrl.replaceAll("/+$", "") + "/reset-password?token=" + resetToken;
+        String encodedResetToken = URLEncoder.encode(resetToken, StandardCharsets.UTF_8);
+        String resetUrl = frontendBaseUrl.replaceAll("/+$", "") + "/reset-password?token=" + encodedResetToken;
         eventPublisher.publishResetPasswordEvent(
                 ResetPasswordEvent
                         .builder()
@@ -261,9 +268,13 @@ public class AuthenticationService {
     }
 
     public void resetPassword(ResetPasswordRequest request) {
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new InvalidUserException("Passwords do not match");
+        }
+
         try {
             // 1. Decode and verify the JWT (Signature and Expiry checked automatically)
-            Jwt jwt = jwtDecoder.decode(request.getResetToken());
+            Jwt jwt = resetPasswordJwtDecoder().decode(request.getResetToken());
 
             // 2. Security Check: Ensure this is specifically a reset token
             if (!"PASSWORD_RESET".equals(jwt.getClaim("type"))) {
@@ -283,6 +294,14 @@ public class AuthenticationService {
             log.error("Invalid password reset token: {}", e.getMessage());
             throw new InvalidUserException("The reset link is invalid or has expired. Please request a new one.");
         }
+    }
+
+    private JwtDecoder resetPasswordJwtDecoder() {
+        SecretKey secretKey = new SecretKeySpec(jwtSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+        return NimbusJwtDecoder
+                .withSecretKey(secretKey)
+                .macAlgorithm(org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS256)
+                .build();
     }
 
 
