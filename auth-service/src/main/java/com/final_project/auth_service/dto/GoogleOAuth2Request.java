@@ -2,7 +2,6 @@ package com.final_project.auth_service.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,7 +14,6 @@ import lombok.NoArgsConstructor;
 @Schema(description = "Request to login with Google OAuth2")
 public class GoogleOAuth2Request {
 
-    @NotBlank(message = "ID token is required")
     @JsonProperty("id_token")
     @Schema(description = "Google ID token from frontend", example = "eyJhbGciOiJSUzI1NiIs...")
     private String idToken;

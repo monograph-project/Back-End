@@ -29,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +38,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
@@ -80,6 +82,8 @@ public class AuthenticationService {
 
     private static final String OTP_HASH_ATTRIBUTE = "email_verification_otp_hash";
     private static final String OTP_EXPIRES_ATTRIBUTE = "email_verification_otp_expires_at";
+    private static final String AUTH_PROVIDER_ATTRIBUTE = "auth_provider";
+    private static final String GOOGLE_AUTH_PROVIDER = "google";
 
     @Value("${app.default-role:AUTHOR_USER}")
     private String defaultRole;
@@ -92,6 +96,9 @@ public class AuthenticationService {
 
     @Value("${app.jwt.secret:at-least-32-character-very-long-secret-key}")
     private String jwtSecret;
+
+    @Value("${keycloak.google-identity-provider-alias:google}")
+    private String googleIdentityProviderAlias;
 
     public AuthResponse login(LoginRequest request) {
         UserRepresentation user = resolveUser(request.getUsernameOrEmail());
@@ -151,35 +158,85 @@ public class AuthenticationService {
 
     public AuthResponse googleOAuth2Login(GoogleOAuth2Request request) {
         try {
-            GoogleIdToken idToken = googleIdTokenVerifier.verify(request.getIdToken());
-            if (idToken == null) {
-                throw new UnauthorizedException("Invalid Google ID token");
+            String idTokenValue = request.getIdToken();
+            String accessTokenValue = request.getAccessToken();
+            boolean hasIdToken = idTokenValue != null && !idTokenValue.isBlank();
+            boolean hasAccessToken = accessTokenValue != null && !accessTokenValue.isBlank();
+
+            if (!hasIdToken && !hasAccessToken) {
+                throw new UnauthorizedException("Google token is required");
             }
 
-            GoogleIdToken.Payload payload = idToken.getPayload();
-            String email = payload.getEmail();
-            String givenName = (String) payload.get("given_name");
-            String familyName = (String) payload.get("family_name");
-            String username = email.split("@")[0];
+            GoogleProfile googleProfile;
+            if (hasIdToken) {
+                GoogleIdToken idToken = googleIdTokenVerifier.verify(idTokenValue);
+                if (idToken == null) {
+                    throw new UnauthorizedException("Invalid Google ID token");
+                }
 
-            Optional<UserRepresentation> existing = keycloakService.findUserByEmail(email);
-            if (existing.isEmpty()) {
-                String tempPassword = UUID.randomUUID().toString();
-                String userId = keycloakService.createUser(
-                        username,
-                        email,
-                        givenName,
-                        familyName,
-                        tempPassword,
-                        true,
-                        true,
-                        Map.of()
+                GoogleIdToken.Payload payload = idToken.getPayload();
+                if (!Boolean.TRUE.equals(payload.getEmailVerified())) {
+                    throw new UnauthorizedException("Google email is not verified");
+                }
+                googleProfile = new GoogleProfile(
+                        payload.getEmail(),
+                        (String) payload.get("given_name"),
+                        (String) payload.get("family_name"),
+                        (String) payload.get("picture"),
+                        true
                 );
-                keycloakService.assignRealmRoles(userId, List.of(defaultRole));
-                auditLogService.logAuditEvent(userId, "USER_REGISTERED_GOOGLE", "USER", userId, "Google user created in Keycloak", "SUCCESS");
+            } else {
+                googleProfile = fetchGoogleProfile(accessTokenValue);
+                if (!googleProfile.emailVerified()) {
+                    throw new UnauthorizedException("Google email is not verified");
+                }
             }
 
-            throw new UnsupportedOperationException("Google login should flow through Keycloak OIDC or brokered login instead of a local token exchange.");
+            String keycloakPassword = UUID.randomUUID().toString();
+            UserRepresentation user = keycloakService.findUserByEmail(googleProfile.email())
+                    .orElseGet(() -> {
+                        String userId = keycloakService.createUser(
+                                googleUsername(googleProfile.email()),
+                                googleProfile.email(),
+                                googleProfile.firstName(),
+                                googleProfile.lastName(),
+                                keycloakPassword,
+                                true,
+                                true,
+                                googleAttributes(googleProfile.picture())
+                        );
+                        keycloakService.assignRealmRoles(userId, List.of(defaultRole));
+                        auditLogService.logAuditEvent(userId, "USER_REGISTERED_GOOGLE", "USER", userId, "Google user created in Keycloak", "SUCCESS");
+                        return keycloakService.getUserById(userId);
+                    });
+
+            if (!GOOGLE_AUTH_PROVIDER.equals(firstAttribute(user.getAttributes(), AUTH_PROVIDER_ATTRIBUTE))) {
+                Map<String, List<String>> attributes = user.getAttributes() == null
+                        ? new HashMap<>()
+                        : new HashMap<>(user.getAttributes());
+                attributes.put(AUTH_PROVIDER_ATTRIBUTE, List.of(GOOGLE_AUTH_PROVIDER));
+                if (googleProfile.picture() != null && !googleProfile.picture().isBlank()) {
+                    attributes.put("profile", List.of(googleProfile.picture()));
+                }
+                user.setAttributes(attributes);
+                user.setEmailVerified(true);
+                keycloakService.updateUser(user.getId(), user);
+            }
+
+            keycloakService.setPassword(user.getId(), keycloakPassword, false);
+            AuthResponse authResponse = requestToken("password", Map.of(
+                    "username", user.getUsername(),
+                    "password", keycloakPassword,
+                    "scope", "openid profile email"
+            ));
+            UserRepresentation refreshedUser = keycloakService.getUserById(user.getId());
+            if (keycloakService.getUserRealmRoleNames(refreshedUser.getId()).stream().noneMatch(defaultRole::equals)) {
+                keycloakService.assignRealmRoles(refreshedUser.getId(), List.of(defaultRole));
+            }
+
+            authResponse.setUser(toDTO(refreshedUser));
+            auditLogService.logAuditEvent(refreshedUser.getId(), "LOGIN_SUCCESS_GOOGLE", "USER", refreshedUser.getId(), "User logged in with Google", "SUCCESS");
+            return authResponse;
         } catch (GeneralSecurityException | IOException exception) {
             throw new UnauthorizedException("Google authentication failed");
         }
@@ -449,13 +506,24 @@ public class AuthenticationService {
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-        form.add("client_id", "frontend");
+        form.add("client_id", keycloakConfig.getPublicClientId());
+        if (keycloakConfig.getPublicClientSecret() != null && !keycloakConfig.getPublicClientSecret().isBlank()) {
+            form.add("client_secret", keycloakConfig.getPublicClientSecret());
+        }
         form.add("grant_type", grantType);
 
         params.forEach(form::add);
 
         HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(form, headers);
-        ResponseEntity<String> response = restTemplate.postForEntity(keycloakConfig.tokenUrl(), entity, String.class);
+        ResponseEntity<String> response;
+        try {
+            response = restTemplate.postForEntity(keycloakConfig.tokenUrl(), entity, String.class);
+        } catch (HttpClientErrorException exception) {
+            if (exception.getStatusCode().value() == 400 || exception.getStatusCode().value() == 401) {
+                throw new UnauthorizedException("Invalid or expired token");
+            }
+            throw new KeycloakException("Failed to obtain token from Keycloak", exception);
+        }
 
         if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
             throw new KeycloakException("Failed to obtain token from Keycloak");
@@ -474,6 +542,57 @@ public class AuthenticationService {
             throw new KeycloakException("Failed to parse Keycloak token response", exception);
         }
     }
+
+    private GoogleProfile fetchGoogleProfile(String accessToken) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(
+                    "https://www.googleapis.com/oauth2/v3/userinfo",
+                    HttpMethod.GET,
+                    entity,
+                    String.class
+            );
+            JsonNode node = objectMapper.readTree(response.getBody());
+            String email = node.path("email").asText(null);
+            if (email == null || email.isBlank()) {
+                throw new UnauthorizedException("Google email is missing");
+            }
+            return new GoogleProfile(
+                    email,
+                    node.path("given_name").asText(null),
+                    node.path("family_name").asText(null),
+                    node.path("picture").asText(null),
+                    node.path("email_verified").asBoolean(false)
+            );
+        } catch (UnauthorizedException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new UnauthorizedException("Invalid Google access token");
+        }
+    }
+
+    private String googleUsername(String email) {
+        return email.split("@")[0].replaceAll("[^A-Za-z0-9]", "");
+    }
+
+    private Map<String, List<String>> googleAttributes(String profilePicture) {
+        Map<String, List<String>> attributes = new HashMap<>();
+        attributes.put(AUTH_PROVIDER_ATTRIBUTE, List.of(GOOGLE_AUTH_PROVIDER));
+        if (profilePicture != null && !profilePicture.isBlank()) {
+            attributes.put("profile", List.of(profilePicture));
+        }
+        return attributes;
+    }
+
+    private record GoogleProfile(
+            String email,
+            String firstName,
+            String lastName,
+            String picture,
+            boolean emailVerified
+    ) {}
 
     private UserDTO toDTO(UserRepresentation user) {
 

@@ -8,6 +8,8 @@ import com.final_project.blog_service.dto.response.*;
 import com.final_project.blog_service.event.BlogInteractionEvent;
 import com.final_project.blog_service.exception.ResourceNotFoundException;
 import com.final_project.blog_service.exception.UnauthorizedException;
+import com.final_project.blog_service.exception.UserNotFoundException;
+import com.final_project.blog_service.exception.UserServiceUnavailableException;
 import com.final_project.blog_service.kafka.KafkaProducer;
 import com.final_project.blog_service.utile.ContentBlockValidator;
 import com.final_project.blog_service.utile.ReadTimeCalculator;
@@ -972,19 +974,11 @@ public class ArticleService {
     }
     private ArticleResponse mapToResponse(Article article) {
 
-        UserAuthorResponse author = userServiceClient.getUserAuthor(article.getAuthorId());
         Long total = articleRepository.countByAuthorIdAndStatus(article.getAuthorId(), ArticleStatus.PUBLISHED);
+        AuthorResponse author = resolveAuthorResponse(article.getAuthorId(), total);
         return ArticleResponse.builder()
                 .id(article.getId())
-                .author(AuthorResponse
-                        .builder()
-                        .displayName(author.getUserName())
-                        .username(author.getUserName())
-                        .email(author.getEmail())
-                        .id(author.getId())
-                        .profileImageUrl(author.getProfile())
-                        .totalArticles(total)
-                        .build())
+                .author(author)
                 .slug(article.getSlug())
                 .title(article.getTitle())
                 .subtitle(article.getSubtitle())
@@ -1044,20 +1038,12 @@ public class ArticleService {
     }
 
     private ArticlePreviewResponse mapToPreview(Article article) {
-        UserAuthorResponse user = userServiceClient.getUserAuthor(article.getAuthorId());
         long total = articleRepository.countByAuthorIdAndStatus(article.getAuthorId(), ArticleStatus.PUBLISHED);
+        AuthorResponse author = resolveAuthorResponse(article.getAuthorId(), total);
         return ArticlePreviewResponse.builder()
                 .id(article.getId())
                 .slug(article.getSlug())
-                .author(AuthorResponse
-                        .builder()
-                        .profileImageUrl(user.getProfile())
-                        .displayName(user.getUserName())
-                        .username(user.getUserName())
-                        .email(user.getEmail())
-                        .id(user.getId())
-                        .totalArticles(total)
-                        .build())
+                .author(author)
                 .title(article.getTitle())
                 .subtitle(article.getSubtitle())
                 .coverImageUrl(article.getMetadata().getCoverImageUrl())
@@ -1075,6 +1061,31 @@ public class ArticleService {
                 .publishedAt(article.getPublishedAt())
                 .estimatedReadTime(article.getContent().getEstimatedReadTime())
                 .tags(article.getMetadata().getTags())
+                .build();
+    }
+
+    private AuthorResponse resolveAuthorResponse(String authorId, long totalArticles) {
+        try {
+            UserAuthorResponse user = userServiceClient.getUserAuthor(authorId);
+            return AuthorResponse.builder()
+                    .profileImageUrl(user.getProfile())
+                    .displayName(user.getUserName())
+                    .username(user.getUserName())
+                    .email(user.getEmail())
+                    .id(user.getId())
+                    .totalArticles(totalArticles)
+                    .build();
+        } catch (UserNotFoundException ex) {
+            log.warn("Author {} no longer exists in User Service; returning fallback author", authorId);
+        } catch (UserServiceUnavailableException ex) {
+            log.warn("User Service unavailable while resolving author {}; returning fallback author", authorId);
+        }
+
+        return AuthorResponse.builder()
+                .id(authorId)
+                .displayName("Unknown author")
+                .username(authorId)
+                .totalArticles(totalArticles)
                 .build();
     }
 
