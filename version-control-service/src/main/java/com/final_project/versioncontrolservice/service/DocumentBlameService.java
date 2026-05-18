@@ -76,6 +76,15 @@ public class DocumentBlameService {
             states.add(new SegmentState(segment, targetMeta));
         }
 
+        annotateSegmentChanges(
+                owner,
+                repo,
+                branch,
+                commitHash,
+                normalizedPath,
+                states
+        );
+
         blameWalk(
                 owner,
                 repo,
@@ -98,6 +107,8 @@ public class DocumentBlameService {
                                     .stableHash(state.segment.getStableHash())
                                     .page(state.segment.getPage())
                                     .orderIndex(state.segment.getOrderIndex())
+                                    .changeType(state.changeType)
+                                    .previousText(state.previousText)
                                     .commitSha(meta != null ? meta.sha : "")
                                     .shortSha(meta != null ? shortSha(meta.sha) : "")
                                     .author(meta != null ? meta.author : "")
@@ -115,6 +126,77 @@ public class DocumentBlameService {
                 .fileType(target.getFileType())
                 .segments(responseSegments)
                 .build();
+    }
+
+    private void annotateSegmentChanges(
+            String owner,
+            String repo,
+            String branch,
+            String commitHash,
+            String filePath,
+            List<SegmentState> states
+    ) {
+        CommitMeta commitMeta = readCommitMeta(owner, repo, commitHash);
+
+        if (commitMeta.parents == null || commitMeta.parents.isEmpty()) {
+            states.forEach(state -> state.changeType = "added");
+            return;
+        }
+
+        String parentHash = commitMeta.parents.get(0);
+        String parentBlobHash = findBlobHashAtCommit(owner, repo, parentHash, filePath);
+
+        if (parentBlobHash == null) {
+            states.forEach(state -> state.changeType = "added");
+            return;
+        }
+
+        DerivedDocumentIndex parent = loadOrCreateIndex(
+                owner,
+                repo,
+                branch,
+                parentHash,
+                filePath,
+                parentBlobHash
+        );
+
+        List<DerivedDocumentIndex.DocumentSegment> parentSegments =
+                safeSegments(parent.getSegments());
+
+        List<String> parentKeys = parentSegments.stream()
+                .map(this::blameMatchKey)
+                .toList();
+
+        List<String> childKeys = states.stream()
+                .map(state -> blameMatchKey(state.segment))
+                .toList();
+
+        boolean[] unchanged = findUnchangedChildSegments(parentKeys, childKeys);
+        boolean[] usedParents = markMatchedParents(parentKeys, childKeys);
+
+        for (int i = 0; i < states.size(); i++) {
+            SegmentState state = states.get(i);
+
+            if (unchanged[i]) {
+                state.changeType = "unchanged";
+                continue;
+            }
+
+            int parentIndex = findMostSimilarParent(
+                    state.segment,
+                    i,
+                    parentSegments,
+                    usedParents
+            );
+
+            if (parentIndex >= 0) {
+                usedParents[parentIndex] = true;
+                state.changeType = "modified";
+                state.previousText = parentSegments.get(parentIndex).getText();
+            } else {
+                state.changeType = "added";
+            }
+        }
     }
 
     private void blameWalk(
@@ -170,11 +252,11 @@ public class DocumentBlameService {
                 safeSegments(parent.getSegments());
 
         List<String> parentHashes = parentSegments.stream()
-                .map(segment -> safeHash(segment.getStableHash()))
+                .map(this::blameMatchKey)
                 .toList();
 
         List<String> childHashes = states.stream()
-                .map(state -> safeHash(state.segment.getStableHash()))
+                .map(state -> blameMatchKey(state.segment))
                 .toList();
 
         boolean[] unchangedChildSegments = findUnchangedChildSegments(parentHashes, childHashes);
@@ -202,7 +284,7 @@ public class DocumentBlameService {
         );
     }
 
-    private DerivedDocumentIndex loadOrCreateIndex(
+    private synchronized DerivedDocumentIndex loadOrCreateIndex(
             String owner,
             String repo,
             String branch,
@@ -211,7 +293,7 @@ public class DocumentBlameService {
             String blobHash
     ) {
         return derivedDocumentIndexRepository
-                .findByOwnerUsernameIgnoreCaseAndRepositoryNameIgnoreCaseAndCommitHashAndPathAndBlobHash(
+                .findFirstByOwnerUsernameIgnoreCaseAndRepositoryNameIgnoreCaseAndCommitHashAndPathAndBlobHashOrderByIndexedAtDesc(
                         owner,
                         repo,
                         commitHash,
@@ -430,6 +512,110 @@ public class DocumentBlameService {
         return unchanged;
     }
 
+    private boolean[] markMatchedParents(
+            List<String> parentHashes,
+            List<String> childHashes
+    ) {
+        boolean[] usedParents = new boolean[parentHashes.size()];
+
+        int[][] lcs = buildLcsTable(parentHashes, childHashes);
+        int i = 0;
+        int j = 0;
+
+        while (i < parentHashes.size() && j < childHashes.size()) {
+            if (Objects.equals(parentHashes.get(i), childHashes.get(j))) {
+                usedParents[i] = true;
+                i++;
+                j++;
+            } else if (lcs[i + 1][j] >= lcs[i][j + 1]) {
+                i++;
+            } else {
+                j++;
+            }
+        }
+
+        return usedParents;
+    }
+
+    private int findMostSimilarParent(
+            DerivedDocumentIndex.DocumentSegment child,
+            int childIndex,
+            List<DerivedDocumentIndex.DocumentSegment> parentSegments,
+            boolean[] usedParents
+    ) {
+        String childText = normalizeSegmentText(child.getText());
+        if (childText.isBlank()) {
+            return -1;
+        }
+
+        int bestIndex = -1;
+        double bestScore = 0.0;
+
+        for (int i = 0; i < parentSegments.size(); i++) {
+            if (usedParents[i]) {
+                continue;
+            }
+
+            String parentText = normalizeSegmentText(parentSegments.get(i).getText());
+            if (parentText.isBlank()) {
+                continue;
+            }
+
+            double score = textSimilarity(childText, parentText);
+            int distance = Math.abs(i - childIndex);
+            if (distance > 4) {
+                score *= 0.75;
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestIndex = i;
+            }
+        }
+
+        return bestScore >= 0.45 ? bestIndex : -1;
+    }
+
+    private double textSimilarity(String left, String right) {
+        if (Objects.equals(left, right)) {
+            return 1.0;
+        }
+
+        int maxLength = Math.max(left.length(), right.length());
+        if (maxLength == 0) {
+            return 1.0;
+        }
+
+        int distance = levenshteinDistance(left, right);
+        return 1.0 - ((double) distance / (double) maxLength);
+    }
+
+    private int levenshteinDistance(String left, String right) {
+        int[] previous = new int[right.length() + 1];
+        int[] current = new int[right.length() + 1];
+
+        for (int j = 0; j <= right.length(); j++) {
+            previous[j] = j;
+        }
+
+        for (int i = 1; i <= left.length(); i++) {
+            current[0] = i;
+            for (int j = 1; j <= right.length(); j++) {
+                int substitutionCost = left.charAt(i - 1) == right.charAt(j - 1) ? 0 : 1;
+                current[j] = Math.min(
+                        Math.min(current[j - 1] + 1, previous[j] + 1),
+                        previous[j - 1] + substitutionCost
+                );
+            }
+
+            int[] tmp = previous;
+            previous = current;
+            current = tmp;
+        }
+
+        return previous[right.length()];
+    }
+
     private int[][] buildLcsTable(
             List<String> a,
             List<String> b
@@ -457,6 +643,33 @@ public class DocumentBlameService {
 
     private String safeHash(String hash) {
         return hash != null ? hash : "";
+    }
+
+    private String blameMatchKey(DerivedDocumentIndex.DocumentSegment segment) {
+        if (segment == null) {
+            return "";
+        }
+
+        String text = normalizeSegmentText(segment.getText());
+
+        if (!text.isBlank()) {
+            return text;
+        }
+
+        return safeHash(segment.getStableHash());
+    }
+
+    private String normalizeSegmentText(String text) {
+        if (text == null) {
+            return "";
+        }
+
+        return text
+                .replace('\u00A0', ' ')
+                .replaceAll("\\r\\n?", "\n")
+                .replaceAll("[\\t ]+", " ")
+                .replaceAll("\\n{3,}", "\n\n")
+                .trim();
     }
 
     private String normalizePath(String path) {
@@ -556,6 +769,8 @@ public class DocumentBlameService {
     private static class SegmentState {
         private final DerivedDocumentIndex.DocumentSegment segment;
         private CommitMeta commitMeta;
+        private String changeType = "added";
+        private String previousText = "";
 
         private SegmentState(
                 DerivedDocumentIndex.DocumentSegment segment,

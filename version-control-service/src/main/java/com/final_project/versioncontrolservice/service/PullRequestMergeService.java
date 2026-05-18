@@ -19,6 +19,7 @@ import java.util.zip.DeflaterOutputStream;
 public class PullRequestMergeService {
 
     private final MinioStorageService minio;
+    private final DocumentExtractionService documentExtractionService;
 
     public MergeAnalysis analyze(
             String owner,
@@ -160,9 +161,10 @@ public class PullRequestMergeService {
 
             byte[] targetBytes = readBlobBytesOrEmpty(owner, repo, targetBlob);
             byte[] sourceBytes = readBlobBytesOrEmpty(owner, repo, sourceBlob);
-            boolean binary = isBinaryBytes(targetBytes) || isBinaryBytes(sourceBytes);
-            String oldContent = binary ? null : decodeUtf8(targetBytes);
-            String newContent = binary ? null : decodeUtf8(sourceBytes);
+            boolean document = documentExtractionService.supports(path);
+            boolean binary = !document && (isBinaryBytes(targetBytes) || isBinaryBytes(sourceBytes));
+            String oldContent = binary ? null : readableContent(owner, repo, path, targetBlob);
+            String newContent = binary ? null : readableContent(owner, repo, path, sourceBlob);
 
             changes.add(FileChange.builder()
                     .path(path)
@@ -286,14 +288,16 @@ public class PullRequestMergeService {
         byte[] targetBytes = readBlobBytesOrEmpty(owner, repo, targetHash);
         byte[] sourceBytes = readBlobBytesOrEmpty(owner, repo, sourceHash);
 
+        boolean document = documentExtractionService.supportsEditableMerge(path);
         boolean binary =
-                isBinaryBytes(baseBytes) ||
-                        isBinaryBytes(targetBytes) ||
-                        isBinaryBytes(sourceBytes);
+                !document &&
+                        (isBinaryBytes(baseBytes) ||
+                                isBinaryBytes(targetBytes) ||
+                                isBinaryBytes(sourceBytes));
 
-        String baseContent = binary ? "" : decodeUtf8(baseBytes);
-        String targetContent = binary ? "" : decodeUtf8(targetBytes);
-        String sourceContent = binary ? "" : decodeUtf8(sourceBytes);
+        String baseContent = binary ? "" : readableContent(owner, repo, path, baseHash);
+        String targetContent = binary ? "" : readableContent(owner, repo, path, targetHash);
+        String sourceContent = binary ? "" : readableContent(owner, repo, path, sourceHash);
 
 
         List<ConflictSegmentAnalysis> segments = binary
@@ -511,6 +515,21 @@ public class PullRequestMergeService {
             return "";
         }
         return new String(bytes, StandardCharsets.UTF_8);
+    }
+
+    private String readableContent(String owner, String repo, String path, String blobHash) {
+        byte[] bytes = readBlobBytesOrEmpty(owner, repo, blobHash);
+        if (bytes.length == 0) {
+            return "";
+        }
+        if (documentExtractionService.supports(path)) {
+            try {
+                return documentExtractionService.extractPlainText(path, bytes);
+            } catch (Exception ignored) {
+                return "";
+            }
+        }
+        return decodeUtf8(bytes);
     }
 
     private boolean isBinaryBytes(byte[] bytes) {

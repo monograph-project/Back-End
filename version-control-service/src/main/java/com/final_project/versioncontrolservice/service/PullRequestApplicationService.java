@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class PullRequestApplicationService {
     private final PullRequestMergeService pullRequestMergeService;
+    private final DocumentExtractionService documentExtractionService;
     private final PullRequestConflictRepository pullRequestConflictRepository;
 
     private final PullRequestRepository pullRequestRepository;
@@ -539,7 +540,15 @@ public class PullRequestApplicationService {
                                     Function.identity()
                             ));
 
-            PullRequestMergeService.TreeEntry resolvedEntry = file.isBinary()
+            PullRequestMergeService.TreeEntry resolvedEntry =
+                    documentExtractionService.supportsEditableMerge(file.getPath())
+                    ? buildResolvedDocumentEntry(
+                            document.getOwner().getUsername(),
+                            document.getRepositoryName(),
+                            file,
+                            blockResolutions
+                    )
+                    : file.isBinary()
                     ? buildResolvedBinaryEntry(file, blockResolutions)
                     : buildResolvedTextEntry(
                             document.getOwner().getUsername(),
@@ -644,6 +653,93 @@ public class PullRequestApplicationService {
                 file.getPath(),
                 resolvedContent.getBytes(java.nio.charset.StandardCharsets.UTF_8)
         );
+    }
+
+    private PullRequestMergeService.TreeEntry buildResolvedDocumentEntry(
+            String owner,
+            String repo,
+            PullRequestConflict.ConflictFile file,
+            Map<String, ResolveConflictRequest.BlockResolution> blockResolutions
+    ) {
+        PullRequestConflict.ConflictResolution uniformResolution = null;
+        boolean hasConflictBlock = false;
+
+        for (PullRequestConflict.FileSegment segment : file.getSegments()) {
+            if (segment.getType() == PullRequestConflict.SegmentType.PLAIN) {
+                continue;
+            }
+            hasConflictBlock = true;
+
+            ResolveConflictRequest.BlockResolution blockResolution = blockResolutions.get(segment.getId());
+            if (blockResolution == null) {
+                throw new BadRequestException("Missing resolution for conflict block: " + segment.getId());
+            }
+
+            PullRequestConflict.ConflictResolution resolution = blockResolution.getResolution();
+            if (resolution == PullRequestConflict.ConflictResolution.CUSTOM ||
+                    resolution == PullRequestConflict.ConflictResolution.BOTH) {
+                uniformResolution = null;
+                break;
+            }
+
+            if (uniformResolution == null) {
+                uniformResolution = resolution;
+            } else if (uniformResolution != resolution) {
+                uniformResolution = null;
+                break;
+            }
+        }
+
+        if (hasConflictBlock &&
+                uniformResolution == PullRequestConflict.ConflictResolution.SOURCE &&
+                file.getSourceHash() != null &&
+                !file.getSourceHash().isBlank()) {
+            markDocumentSegmentsResolved(file, blockResolutions, uniformResolution, file.getSourceHash());
+            return existingBlobEntry(file.getPath(), file.getSourceHash());
+        }
+
+        if (hasConflictBlock &&
+                uniformResolution == PullRequestConflict.ConflictResolution.TARGET &&
+                file.getTargetHash() != null &&
+                !file.getTargetHash().isBlank()) {
+            markDocumentSegmentsResolved(file, blockResolutions, uniformResolution, file.getTargetHash());
+            return existingBlobEntry(file.getPath(), file.getTargetHash());
+        }
+
+        String resolvedContent = buildResolvedFileContent(file, blockResolutions);
+        byte[] mergedDocument = documentExtractionService.buildSimpleDocument(file.getPath(), resolvedContent);
+        return pullRequestMergeService.createBlobEntry(owner, repo, file.getPath(), mergedDocument);
+    }
+
+    private void markDocumentSegmentsResolved(
+            PullRequestConflict.ConflictFile file,
+            Map<String, ResolveConflictRequest.BlockResolution> blockResolutions,
+            PullRequestConflict.ConflictResolution resolution,
+            String selectedHash
+    ) {
+        for (PullRequestConflict.FileSegment segment : file.getSegments()) {
+            if (segment.getType() == PullRequestConflict.SegmentType.PLAIN) {
+                segment.setResolved(true);
+                continue;
+            }
+            ResolveConflictRequest.BlockResolution blockResolution = blockResolutions.get(segment.getId());
+            if (blockResolution == null) {
+                throw new BadRequestException("Missing resolution for conflict block: " + segment.getId());
+            }
+            segment.setResolution(resolution);
+            segment.setResolved(true);
+            segment.setResolvedChunk(selectedHash);
+        }
+    }
+
+    private PullRequestMergeService.TreeEntry existingBlobEntry(String path, String hash) {
+        return PullRequestMergeService.TreeEntry.builder()
+                .path(path)
+                .name(leafName(path))
+                .mode("100644")
+                .type("blob")
+                .hash(hash)
+                .build();
     }
 
     private PullRequestMergeService.TreeEntry buildResolvedBinaryEntry(

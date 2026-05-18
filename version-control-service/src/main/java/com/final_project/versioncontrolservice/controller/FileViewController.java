@@ -272,6 +272,39 @@ public class FileViewController {
     }
 
     /**
+     * Get raw file bytes at a branch/ref.
+     * GET /repos/{owner}/{repo}/tree/{ref}/{path}
+     */
+    @GetMapping(value = "/tree/{ref}/**", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+    public ResponseEntity<byte[]> getRawFileAtRef(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @PathVariable String ref,
+            HttpServletRequest request
+    ) {
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
+        var meta = vicRepositoryService.loadMeta(owner, repo);
+
+        String username = user != null ? user.getUsername() : "";
+        if (!RepoAccessRules.canRead(meta, username)) {
+            throw new com.final_project.versioncontrolservice.exception.ForbiddenException("forbidden");
+        }
+
+        String filePath = extractWildcardPath(request, "/tree/" + ref + "/");
+        String commitHash = resolveRef(meta, ref);
+        if (commitHash.isEmpty()) {
+            throw new NotFoundException("ref not found: " + ref);
+        }
+
+        byte[] bytes = getFileBytesAtCommit(owner, repo, commitHash, filePath);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .contentLength(bytes.length)
+                .body(bytes);
+    }
+
+    /**
      * Compare two commits/branches
      * GET /repos/{owner}/{repo}/compare/base...head
      */
@@ -387,7 +420,9 @@ public class FileViewController {
             byte[] blobData = minioStorageService.getObjectBytes(owner, repo, blobHash);
             VicObjectFormat.ParsedObject blobObj = VicObjectFormat.parseCompressed(blobData);
 
-            String content = new String(blobObj.content(), StandardCharsets.UTF_8);
+            String content = isBinaryPreviewFile(fileName)
+                    ? null
+                    : new String(blobObj.content(), StandardCharsets.UTF_8);
             long size = blobObj.content().length;
 
             // Detect language for syntax highlighting
@@ -405,6 +440,68 @@ public class FileViewController {
         } catch (Exception e) {
             throw new NotFoundException("file not found: " + e.getMessage());
         }
+    }
+
+    private byte[] getFileBytesAtCommit(String owner, String repo, String commitHash, String filePath) {
+        try {
+            byte[] commitData = minioStorageService.getObjectBytes(owner, repo, commitHash);
+            VicObjectFormat.ParsedObject commitObj = VicObjectFormat.parseCompressed(commitData);
+            VicObjectFormat.CommitData commitInfo = VicObjectFormat.parseCommitContent(commitObj.content());
+
+            String[] pathParts = filePath.split("/");
+            String currentTree = commitInfo.tree();
+
+            for (int i = 0; i < pathParts.length - 1; i++) {
+                currentTree = findTreeEntry(owner, repo, currentTree, pathParts[i]);
+                if (currentTree == null) {
+                    throw new NotFoundException("path not found: " + filePath);
+                }
+            }
+
+            String fileName = pathParts[pathParts.length - 1];
+            String blobHash = findBlobEntry(owner, repo, currentTree, fileName);
+            if (blobHash == null) {
+                throw new NotFoundException("file not found: " + filePath);
+            }
+
+            byte[] blobData = minioStorageService.getObjectBytes(owner, repo, blobHash);
+            VicObjectFormat.ParsedObject blobObj = VicObjectFormat.parseCompressed(blobData);
+
+            if (!"blob".equals(blobObj.type())) {
+                throw new NotFoundException("file object is not a blob: " + filePath);
+            }
+
+            return blobObj.content();
+        } catch (Exception e) {
+            throw new NotFoundException("file not found: " + e.getMessage());
+        }
+    }
+
+    private boolean isBinaryPreviewFile(String fileName) {
+        if (fileName == null) {
+            return false;
+        }
+        String lower = fileName.toLowerCase(Locale.ROOT);
+        return lower.endsWith(".doc")
+                || lower.endsWith(".docx")
+                || lower.endsWith(".pdf")
+                || lower.endsWith(".ppt")
+                || lower.endsWith(".pptx")
+                || lower.endsWith(".xls")
+                || lower.endsWith(".xlsx")
+                || lower.endsWith(".zip")
+                || lower.endsWith(".rar")
+                || lower.endsWith(".7z")
+                || lower.endsWith(".png")
+                || lower.endsWith(".jpg")
+                || lower.endsWith(".jpeg")
+                || lower.endsWith(".gif")
+                || lower.endsWith(".webp")
+                || lower.endsWith(".bmp")
+                || lower.endsWith(".mp3")
+                || lower.endsWith(".mp4")
+                || lower.endsWith(".mov")
+                || lower.endsWith(".avi");
     }
 
     private String findTreeEntry(String owner, String repo, String treeHash, String name) {
