@@ -36,7 +36,11 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/health", "/actuator/**", "/swagger-ui/**", "/auth/login","/auth/refresh", "/auth/register").permitAll()
-                        .requestMatchers("/api/v1/repos/*/*/info/refs", "/api/v1/repos/*/*/objects/*").permitAll()
+                        .requestMatchers(
+                                "/api/v1/repos/*/*/info/refs",
+                                "/api/v1/repos/*/*/objects/*",
+                                "/api/v1/repos/*/*/tree/**"
+                        ).permitAll()
                         .anyRequest().authenticated() // Ensure requests MUST be authenticated
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2

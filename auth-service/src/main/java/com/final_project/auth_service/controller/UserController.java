@@ -268,6 +268,17 @@ public class UserController {
         return ResponseEntity.ok(users);
     }
 
+    @GetMapping("/admins")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER', 'TEACHER_USER', 'FACULTY_USER')")
+    @Operation(summary = "Get admin users", description = "Retrieves active platform/admin users for workflow notifications")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Admin users retrieved successfully")
+    })
+    public ResponseEntity<List<UserDTO>> getAdminUsers() {
+        log.info("Fetching active admin users");
+        return ResponseEntity.ok(userService.getAdminUsers());
+    }
+
     /**
      * Suspend user account.
      *

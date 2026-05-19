@@ -9,6 +9,7 @@ import com.final_project.versioncontrolservice.exception.NotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -283,9 +284,11 @@ public class FileViewController {
             @PathVariable String ref,
             HttpServletRequest request
     ) {
-        ContributorUser user = authService.getContributorUser(jwt.getSubject());
         var meta = vicRepositoryService.loadMeta(owner, repo);
 
+        ContributorUser user = jwt != null
+                ? authService.getContributorUser(jwt.getSubject())
+                : null;
         String username = user != null ? user.getUsername() : "";
         if (!RepoAccessRules.canRead(meta, username)) {
             throw new com.final_project.versioncontrolservice.exception.ForbiddenException("forbidden");
@@ -300,6 +303,13 @@ public class FileViewController {
         byte[] bytes = getFileBytesAtCommit(owner, repo, commitHash, filePath);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment()
+                                .filename(downloadFileName(filePath), StandardCharsets.UTF_8)
+                                .build()
+                                .toString()
+                )
                 .contentLength(bytes.length)
                 .body(bytes);
     }
@@ -1322,5 +1332,15 @@ public class FileViewController {
         }
 
         return fullPath.substring(index + marker.length());
+    }
+
+    private String downloadFileName(String filePath) {
+        if (filePath == null || filePath.isBlank()) {
+            return "download";
+        }
+        String normalized = filePath.replace('\\', '/');
+        int slash = normalized.lastIndexOf('/');
+        String name = slash >= 0 ? normalized.substring(slash + 1) : normalized;
+        return name.isBlank() ? "download" : name;
     }
 }

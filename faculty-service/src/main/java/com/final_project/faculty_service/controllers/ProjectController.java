@@ -1,6 +1,7 @@
 package com.final_project.faculty_service.controllers;
 
 import com.final_project.faculty_service.DTO.request.ProjectRequest;
+import com.final_project.faculty_service.DTO.request.ProjectPublicResultRequest;
 import com.final_project.faculty_service.DTO.response.PageResponse;
 import com.final_project.faculty_service.DTO.response.ProjectResponse;
 import com.final_project.faculty_service.services.ProjectService;
@@ -97,6 +98,14 @@ public class ProjectController {
     @PutMapping("/{id}")
     public ResponseEntity<ProjectResponse> update(@PathVariable String id,@Valid @RequestBody ProjectRequest request){
         return new ResponseEntity<>(projectService.update(id, request), HttpStatus.OK);
+    }
+
+    @PatchMapping("/{id}/public-result")
+    public ResponseEntity<ProjectResponse> updatePublicResult(
+            @PathVariable String id,
+            @RequestBody ProjectPublicResultRequest request
+    ){
+        return new ResponseEntity<>(projectService.updatePublicResult(id, request), HttpStatus.OK);
     }
 
     @PatchMapping("/{id}/publish")

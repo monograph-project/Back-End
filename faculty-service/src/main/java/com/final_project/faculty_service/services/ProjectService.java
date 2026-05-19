@@ -5,6 +5,7 @@ import com.final_project.faculty_service.DTO.mapper.GroupMapper;
 import com.final_project.faculty_service.DTO.mapper.ProjectInvitationRequest;
 import com.final_project.faculty_service.DTO.mapper.ProjectMapper;
 import com.final_project.faculty_service.DTO.request.ProjectRequest;
+import com.final_project.faculty_service.DTO.request.ProjectPublicResultRequest;
 import com.final_project.faculty_service.DTO.response.GroupMemberResponse;
 import com.final_project.faculty_service.DTO.response.GroupResponse;
 import com.final_project.faculty_service.DTO.response.PageResponse;
@@ -42,6 +43,7 @@ public class ProjectService {
     private final ProjectMapper projectMapper;
     private StudentRepository studentRepository;
     private final VersionContolService versionContolService;
+    private final ProjectNotificationService projectNotificationService;
     public PageResponse<ProjectResponse> findAll(Pageable pageable) {
         Page<Project> projectPage = projectRepository.findByIsDeletedIsFalse(pageable);
         return toPageResponse(projectPage);
@@ -85,7 +87,13 @@ public class ProjectService {
         project.setTeacher(teacher);
         Group group = groupRepository.findByIdAndIsDeletedIsFalse(request.getGroup())
                 .orElseThrow(() -> new ResourceNotFoundException("Group not found"));
-        RepositoryDTO rep = versionContolService.getRpoById(request.getProjectRepository());
+        RepositoryDTO rep = current.getProjectRepository();
+        if (request.getProjectRepository() != null && !request.getProjectRepository().isBlank()) {
+            rep = versionContolService.getRpoById(request.getProjectRepository());
+            if(rep == null){
+                throw new ResourceNotFoundException("Repository Doesn't exist");
+            }
+        }
         if(rep == null){
             throw new ResourceNotFoundException("Repository Doesn't exist");
         }
@@ -220,12 +228,7 @@ public class ProjectService {
         if (current.getFinalFileDownloadUrl() != null && !current.getFinalFileDownloadUrl().isBlank()) {
             return URI.create(current.getFinalFileDownloadUrl());
         }
-        if (current.getProjectRepository() == null ||
-                current.getProjectRepository().getCloneUrl() == null ||
-                current.getProjectRepository().getCloneUrl().isBlank()) {
-            throw new ResourceNotFoundException("Project final file download URL not found");
-        }
-        return URI.create(current.getProjectRepository().getCloneUrl());
+        throw new ResourceNotFoundException("Project final file download URL not found");
     }
 
     public ProjectResponse findByRepositoryId(String repositoryId) {
@@ -260,8 +263,28 @@ public class ProjectService {
         if (project.getStatus() != ProjectStatus.COMPLETED) {
             throw new ResourceBadRequest("Only completed projects can be published");
         }
+        if (project.getAbstractText() == null || project.getAbstractText().isBlank()) {
+            throw new ResourceBadRequest("Project abstract is required before publishing");
+        }
+        if (project.getFinalFileDownloadUrl() == null || project.getFinalFileDownloadUrl().isBlank()) {
+            throw new ResourceBadRequest("Project final result file is required before publishing");
+        }
         project.setPublished(true);
         project.setPublishedAt(LocalDateTime.now());
+        Project saved = projectRepository.save(project);
+        projectNotificationService.notifyStudentsProjectPublished(saved);
+        return projectMapper.toResponse(saved);
+    }
+
+    public ProjectResponse updatePublicResult(String id, ProjectPublicResultRequest request){
+        Project project = projectRepository.findByIdAndIsDeletedIsFalse(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+        project.setAbstractText(firstNonBlank(request.getAbstractText(), project.getAbstractText()));
+        project.setFinalFileName(firstNonBlank(request.getFinalFileName(), project.getFinalFileName()));
+        project.setFinalFileDownloadUrl(firstNonBlank(
+                request.getFinalFileDownloadUrl(),
+                project.getFinalFileDownloadUrl()
+        ));
         return projectMapper.toResponse(projectRepository.save(project));
     }
 
@@ -271,7 +294,9 @@ public class ProjectService {
         project.setStatus(ProjectStatus.COMPLETED);
         project.setProgress(100);
         project.setCompletion(100);
-        return projectMapper.toResponse(projectRepository.save(project));
+        Project saved = projectRepository.save(project);
+        projectNotificationService.notifyAdminsProjectCompleted(saved);
+        return projectMapper.toResponse(saved);
     }
 
     public ProjectResponse unpublish(String id){
