@@ -29,5 +29,6 @@ public enum RepositoryEventType {
     TASK_ASSIGNED,
     TASK_SUBMITTED,
     TASK_COMPLETED,
+    TASK_DEADLINE_REMINDER,
 
 }

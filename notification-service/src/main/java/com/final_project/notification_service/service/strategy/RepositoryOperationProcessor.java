@@ -98,6 +98,13 @@ public class RepositoryOperationProcessor implements NotificationProcessor<Repos
                     safe(event.getMetadata() == null ? null : String.valueOf(event.getMetadata().get("message")))
             );
 
+            case TASK_DEADLINE_REMINDER -> notifyTaskDeadlineRecipients(
+                    event,
+                    NotificationType.REPOSITORY_TASK_DEADLINE_REMINDER,
+                    "Task #" + safeMetadata(event, "taskNumber") + " deadline is coming",
+                    safe(event.getMetadata() == null ? null : String.valueOf(event.getMetadata().get("message")))
+            );
+
             case REPOSITORY_PULLED, REPOSITORY_FETCHED, REPOSITORY_CLONED -> {
                 log.debug("No notification needed for eventType={}", event.getEventType());
             }
@@ -227,6 +234,32 @@ public class RepositoryOperationProcessor implements NotificationProcessor<Repos
         }
     }
 
+    private void notifyTaskDeadlineRecipients(
+            RepositoryOperationEvent event,
+            NotificationType notificationType,
+            String subject,
+            String body
+    ) {
+        List<RepositoryMemberRecipient> recipients = event.getRecipients();
+        if (recipients == null || recipients.isEmpty()) {
+            log.warn("No recipients found for task deadline reminder eventId={}", event.getEventId());
+            return;
+        }
+
+        for (RepositoryMemberRecipient recipient : recipients) {
+            saveNotification(
+                    event,
+                    recipient,
+                    notificationType,
+                    subject,
+                    body == null || body.isBlank() ? subject : body,
+                    resolveReferenceId(event),
+                    "REPOSITORY_TASK",
+                    NotificationChannel.EMAIL
+            );
+        }
+    }
+
     private void saveNotification(
             RepositoryOperationEvent event,
             RepositoryMemberRecipient recipient,
@@ -249,6 +282,34 @@ public class RepositoryOperationProcessor implements NotificationProcessor<Repos
                 .referenceType(referenceType)
                 .metadata(serializeMetadata(buildEventMetadataSnapshot(event, recipient)))
                 .idempotencyKey(event.getEventType() + ":" + event.getEventId() + ":" + recipient.getUserId())
+                .build();
+
+        notificationService.saveAndProcess(notification);
+    }
+
+    private void saveNotification(
+            RepositoryOperationEvent event,
+            RepositoryMemberRecipient recipient,
+            NotificationType type,
+            String subject,
+            String body,
+            String referenceId,
+            String referenceType,
+            NotificationChannel channel
+    ) {
+        Notification notification = Notification.builder()
+                .recipientUserId(recipient.getUserId())
+                .recipientEmail(recipient.getEmail())
+                .recipientName(recipient.getName())
+                .type(type)
+                .channel(channel)
+                .status(NotificationStatus.PROCESSING)
+                .subject(subject)
+                .body(body)
+                .referenceId(referenceId)
+                .referenceType(referenceType)
+                .metadata(serializeMetadata(buildEventMetadataSnapshot(event, recipient)))
+                .idempotencyKey(event.getEventType() + ":" + event.getEventId() + ":" + channel + ":" + recipient.getUserId())
                 .build();
 
         notificationService.saveAndProcess(notification);
