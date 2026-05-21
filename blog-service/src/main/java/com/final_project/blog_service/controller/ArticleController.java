@@ -26,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -50,19 +51,23 @@ public class ArticleController {
     public ResponseEntity<ArticleResponse> createArticleWithFiles(
             @RequestParam("title") String title,
             @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "subtitle", required = false) String subtitle,
             @RequestParam("blocks") String blocksJson,
             @RequestPart(value = "coverImage", required = false) MultipartFile coverImage,
             @RequestPart(value = "inlineFiles", required = false) List<MultipartFile> inlineFiles,
             @RequestParam(value = "tags") String tags,
+            @RequestParam(value = "visibility", required = false) String visibility,
             @PathVariable String author
     ) {
         ArticleResponse response = articleService.createArticleWithFiles(
                 title,
                 description,
+                subtitle,
                 tags,
                 blocksJson,
                 coverImage,
                 inlineFiles,
+                visibility,
                 author
         );
 
@@ -139,9 +144,43 @@ public class ArticleController {
     )
     public ResponseEntity<PaginatedResponse<ArticlePreviewResponse>> getPublishedArticles(
             @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int pageSize,
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "search", required = false) String search
+    ) {
+        PaginatedResponse<ArticlePreviewResponse> response = articleService.getPublishedArticles(page, pageSize, firstNonBlank(q, search));
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/public")
+    @Operation(
+            summary = "Get public published articles",
+            description = "Retrieves public published articles without requiring a reader session.",
+            tags = {"Articles"},
+            operationId = "getPublicPublishedArticles"
+    )
+    public ResponseEntity<PaginatedResponse<ArticlePreviewResponse>> getPublicPublishedArticles(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int pageSize,
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "search", required = false) String search
+    ) {
+        PaginatedResponse<ArticlePreviewResponse> response = articleService.getPublishedArticles(page, pageSize, firstNonBlank(q, search));
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/admin/all")
+    @Operation(
+            summary = "Get all articles for admin moderation",
+            description = "Retrieves drafts, published, and archived articles for the admin review desk.",
+            tags = {"Articles"},
+            operationId = "getAllArticlesForAdmin"
+    )
+    public ResponseEntity<PaginatedResponse<ArticlePreviewResponse>> getAllArticlesForAdmin(
+            @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int pageSize
     ) {
-        PaginatedResponse<ArticlePreviewResponse> response = articleService.getPublishedArticles(page, pageSize);
+        PaginatedResponse<ArticlePreviewResponse> response = articleService.getAllArticlesForAdmin(page, pageSize);
         return ResponseEntity.ok(response);
     }
 
@@ -162,6 +201,20 @@ public class ArticleController {
             @PathVariable String articleId
     ) {
         ArticleResponse response = articleService.getArticleById(articleId);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/public/{articleId}")
+    @Operation(
+            summary = "Get public published article by ID",
+            description = "Retrieves one published public article without requiring a reader session.",
+            tags = {"Articles"},
+            operationId = "getPublicArticleById"
+    )
+    public ResponseEntity<ArticleResponse> getPublicArticleById(
+            @PathVariable String articleId
+    ) {
+        ArticleResponse response = articleService.getPublishedArticleById(articleId);
         return ResponseEntity.ok(response);
     }
     /**
@@ -439,6 +492,26 @@ public class ArticleController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @GetMapping("/{articleId}/likes/me")
+    @Operation(
+            summary = "Check current user's article like",
+            description = "Returns whether the authenticated user has liked this article.",
+            tags = {"Engagement"},
+            operationId = "hasCurrentUserLikedArticle"
+    )
+    public ResponseEntity<Map<String, Object>> hasCurrentUserLikedArticle(
+            @PathVariable String articleId,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        String userId = jwt.getSubject();
+        boolean liked = articleService.hasUserLikedArticle(articleId, userId);
+        return ResponseEntity.ok(Map.of(
+                "articleId", articleId,
+                "userId", userId,
+                "liked", liked
+        ));
+    }
+
     /**
      * Unlike article.
      *
@@ -495,5 +568,17 @@ public class ArticleController {
         }
 
         return request;
+    }
+
+    private String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
+        }
+        return null;
     }
 }

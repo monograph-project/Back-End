@@ -83,6 +83,18 @@ public class UserController {
         AuthorResponse user = userService.getUserAsAuthor(id);
         return ResponseEntity.ok(user);
     }
+
+    @GetMapping("/public/author/{id}")
+    @Operation(summary = "Get public author profile", description = "Retrieves public author information for published articles")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Author found"),
+            @ApiResponse(responseCode = "404", description = "Author not found")
+    })
+    public ResponseEntity<AuthorResponse> getPublicAuthor(
+            @PathVariable String id) {
+        AuthorResponse user = userService.getUserAsAuthor(id);
+        return ResponseEntity.ok(user);
+    }
     /**
      * Get user by ID.
      *
@@ -254,6 +266,17 @@ public class UserController {
         log.info("Fetching all active users");
         List<UserDTO> users = userService.getAllActiveUsers();
         return ResponseEntity.ok(users);
+    }
+
+    @GetMapping("/admins")
+    @PreAuthorize("hasAnyRole('PLATFORM_ADMIN', 'OPERATOR', 'ADMIN_USER', 'TEACHER_USER', 'FACULTY_USER')")
+    @Operation(summary = "Get admin users", description = "Retrieves active platform/admin users for workflow notifications")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Admin users retrieved successfully")
+    })
+    public ResponseEntity<List<UserDTO>> getAdminUsers() {
+        log.info("Fetching active admin users");
+        return ResponseEntity.ok(userService.getAdminUsers());
     }
 
     /**

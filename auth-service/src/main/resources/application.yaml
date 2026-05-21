@@ -22,13 +22,18 @@ keycloak:
     client-id: ${KEYCLOAK_ADMIN_CLIENT_ID}
     client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
   public-client-id: ${KEYCLOAK_PUBLIC_CLIENT_ID}
+  public-client-secret: ${KEYCLOAK_PUBLIC_CLIENT_SECRET:}
+  google-identity-provider-alias: ${KEYCLOAK_GOOGLE_IDENTITY_PROVIDER_ALIAS:google}
 
 google:
   client-id: ${GOOGLE_CLIENT_ID}
   client-secret: ${GOOGLE_CLIENT_SECRET}
 
 app:
-  default-role: ${APP_DEFAULT_ROLE:faculty-user}
+  default-role: ${APP_DEFAULT_ROLE:AUTHOR_USER}
+  frontend-base-url: ${APP_FRONTEND_BASE_URL:http://localhost:5173}
+  email-verification:
+    otp-expiration-minutes: ${APP_EMAIL_VERIFICATION_OTP_EXPIRATION_MINUTES:15}
   app:
     jwt:
       secret: ${CUSTOME_SECRET}

@@ -175,6 +175,32 @@ services:
       retries: 20
       start_period: 30s
 
+  onlyoffice:
+    image: onlyoffice/documentserver:latest
+    container_name: onlyoffice_documentserver
+    ports:
+      - "8082:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      JWT_ENABLED: "false"
+      ALLOW_PRIVATE_IP_ADDRESS: "true"
+      ALLOW_META_IP_ADDRESS: "true"
+    volumes:
+      - onlyoffice_data:/var/www/onlyoffice/Data
+      - onlyoffice_logs:/var/log/onlyoffice
+      - onlyoffice_lib:/var/lib/onlyoffice
+      - onlyoffice_db:/var/lib/postgresql
+    networks:
+      - app_network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fsS http://localhost/healthcheck || exit 1" ]
+      interval: 20s
+      timeout: 10s
+      retries: 20
+      start_period: 90s
+
 networks:
   app_network:
     driver: bridge
@@ -192,4 +218,12 @@ volumes:
   pgadmin_data:
     driver: local
   postgres_data:
+    driver: local
+  onlyoffice_data:
+    driver: local
+  onlyoffice_logs:
+    driver: local
+  onlyoffice_lib:
+    driver: local
+  onlyoffice_db:
     driver: local

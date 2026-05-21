@@ -6,6 +6,7 @@ import com.final_project.versioncontrolservice.model.PullRequest;
 import com.final_project.versioncontrolservice.model.RepositoryDocument;
 import com.final_project.versioncontrolservice.service.AuthService;
 import com.final_project.versioncontrolservice.service.PullRequestApplicationService;
+import com.final_project.versioncontrolservice.service.PullRequestMergeService;
 import com.final_project.versioncontrolservice.service.RepoAccessRules;
 import com.final_project.versioncontrolservice.service.RepositoryService;
 import com.final_project.versioncontrolservice.exception.ForbiddenException;
@@ -63,6 +64,25 @@ public class PullRequestController {
             @PathVariable String id
     ) {
         return ResponseEntity.ok(pullRequestApplicationService.find(id, owner, repo));
+    }
+
+    @GetMapping(path = "/{owner}/{repo}/pulls/{id}/files", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<List<PullRequestMergeService.FileChange>> files(
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @PathVariable String id
+    ) {
+        return ResponseEntity.ok(pullRequestApplicationService.listChangedFiles(id, owner, repo));
+    }
+
+    @GetMapping(path = "/{owner}/{repo}/pulls/{id}/files/{fileIndex}/diff", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<PullRequestMergeService.FileChange> fileDiff(
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @PathVariable String id,
+            @PathVariable int fileIndex
+    ) {
+        return ResponseEntity.ok(pullRequestApplicationService.getChangedFileDiff(id, owner, repo, fileIndex));
     }
 
     @PostMapping(path = "/{owner}/{repo}/pulls/{id}/merge", produces = MediaType.APPLICATION_JSON_VALUE)

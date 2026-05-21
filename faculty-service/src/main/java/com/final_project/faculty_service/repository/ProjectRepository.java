@@ -14,7 +14,26 @@ import java.util.Optional;
 @Repository
 public interface ProjectRepository extends MongoRepository<Project,String> {
     Page<Project> findByIsDeletedIsFalse(Pageable pageable);
+    Page<Project> findByPublishedIsTrueAndIsDeletedIsFalse(Pageable pageable);
+    @Query("""
+        {
+          'published': true,
+          'isDeleted': false,
+          '$or': [
+            { 'projectName': { $regex: ?0, $options: 'i' } },
+            { 'abstractText': { $regex: ?0, $options: 'i' } },
+            { 'finalFileName': { $regex: ?0, $options: 'i' } },
+            { 'status': { $regex: ?0, $options: 'i' } },
+            { 'projectRepository.repositoryName': { $regex: ?0, $options: 'i' } },
+            { 'projectRepository.owner': { $regex: ?0, $options: 'i' } },
+            { 'projectRepository.description': { $regex: ?0, $options: 'i' } },
+            { 'projectRepository.visibility': { $regex: ?0, $options: 'i' } }
+          ]
+        }
+    """)
+    Page<Project> searchPublished(String query, Pageable pageable);
     Optional<Project> findByIdAndIsDeletedIsFalse(String  id);
+    Optional<Project> findByIdAndPublishedIsTrueAndIsDeletedIsFalse(String id);
     @Query("""
         {
           '_id': ?0,

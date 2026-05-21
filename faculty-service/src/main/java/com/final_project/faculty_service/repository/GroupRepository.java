@@ -13,10 +13,10 @@ import java.util.Optional;
 public interface GroupRepository extends MongoRepository<Group,String> {
     Page<Group> findByIsDeletedIsFalse(Pageable pageable);
     Optional<Group> findByIdAndIsDeletedIsFalse(String  id);
-    boolean existsByGroupLeaderAndIsDeletedIsFalse(String  groupLeader);
+    boolean existsByGroupLeader_IdAndIsDeletedIsFalse(String groupLeader);
     boolean existsAllByGroupMembersAndIsDeletedIsFalse(List<String> ids);
     boolean existsByGroupMembers_IdAndIsDeletedIsFalse(String member);
-    boolean existsByGroupLeader_IdAndIsDeletedIsFalse(String member);
+    boolean existsByGroupMembers_IdAndIsDeletedIsFalseAndIdNot(String member, String groupId);
     boolean existsByGroupLeader_IdAndIsDeletedIsFalseAndIdNot(String newLeaderId, String groupId);
 
 }

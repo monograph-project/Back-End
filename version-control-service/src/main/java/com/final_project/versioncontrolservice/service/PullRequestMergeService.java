@@ -19,6 +19,7 @@ import java.util.zip.DeflaterOutputStream;
 public class PullRequestMergeService {
 
     private final MinioStorageService minio;
+    private final DocumentExtractionService documentExtractionService;
 
     public MergeAnalysis analyze(
             String owner,
@@ -104,6 +105,85 @@ public class PullRequestMergeService {
                 .mergedEntries(merged)
                 .mergedTreeHash(mergedTreeHash)
                 .build();
+    }
+
+    public List<String> listChangedPathsBetweenCommits(
+            String owner,
+            String repo,
+            String targetHash,
+            String sourceHash
+    ) {
+        CommitInfo targetCommit = readCommit(owner, repo, targetHash);
+        CommitInfo sourceCommit = readCommit(owner, repo, sourceHash);
+
+        Map<String, TreeEntry> targetTree = readTreeRecursive(owner, repo, targetCommit.getTreeHash());
+        Map<String, TreeEntry> sourceTree = readTreeRecursive(owner, repo, sourceCommit.getTreeHash());
+
+        Set<String> allPaths = new TreeSet<>();
+        allPaths.addAll(targetTree.keySet());
+        allPaths.addAll(sourceTree.keySet());
+
+        List<String> changed = new ArrayList<>();
+        for (String path : allPaths) {
+            if (!Objects.equals(hashOf(targetTree.get(path)), hashOf(sourceTree.get(path)))) {
+                changed.add(path);
+            }
+        }
+        return changed;
+    }
+
+    public List<FileChange> compareFilesBetweenCommits(
+            String owner,
+            String repo,
+            String targetHash,
+            String sourceHash
+    ) {
+        CommitInfo targetCommit = readCommit(owner, repo, targetHash);
+        CommitInfo sourceCommit = readCommit(owner, repo, sourceHash);
+
+        Map<String, TreeEntry> targetTree = readTreeRecursive(owner, repo, targetCommit.getTreeHash());
+        Map<String, TreeEntry> sourceTree = readTreeRecursive(owner, repo, sourceCommit.getTreeHash());
+
+        Set<String> allPaths = new TreeSet<>();
+        allPaths.addAll(targetTree.keySet());
+        allPaths.addAll(sourceTree.keySet());
+
+        List<FileChange> changes = new ArrayList<>();
+        for (String path : allPaths) {
+            TreeEntry target = targetTree.get(path);
+            TreeEntry source = sourceTree.get(path);
+            String targetBlob = hashOf(target);
+            String sourceBlob = hashOf(source);
+
+            if (Objects.equals(targetBlob, sourceBlob)) {
+                continue;
+            }
+
+            byte[] targetBytes = readBlobBytesOrEmpty(owner, repo, targetBlob);
+            byte[] sourceBytes = readBlobBytesOrEmpty(owner, repo, sourceBlob);
+            boolean document = documentExtractionService.supports(path);
+            boolean binary = !document && (isBinaryBytes(targetBytes) || isBinaryBytes(sourceBytes));
+            String oldContent = binary ? null : readableContent(owner, repo, path, targetBlob);
+            String newContent = binary ? null : readableContent(owner, repo, path, sourceBlob);
+
+            changes.add(FileChange.builder()
+                    .path(path)
+                    .filename(path)
+                    .status(target == null ? "added" : source == null ? "deleted" : "modified")
+                    .baseSha(targetBlob)
+                    .oldSha(targetBlob)
+                    .headSha(sourceBlob)
+                    .newSha(sourceBlob)
+                    .binary(binary)
+                    .oldContent(oldContent)
+                    .baseContent(oldContent)
+                    .newContent(newContent)
+                    .headContent(newContent)
+                    .additions(binary ? null : countChangedLines(newContent))
+                    .deletions(binary ? null : countChangedLines(oldContent))
+                    .build());
+        }
+        return changes;
     }
 
     public String createMergeCommit(
@@ -208,14 +288,16 @@ public class PullRequestMergeService {
         byte[] targetBytes = readBlobBytesOrEmpty(owner, repo, targetHash);
         byte[] sourceBytes = readBlobBytesOrEmpty(owner, repo, sourceHash);
 
+        boolean document = documentExtractionService.supportsEditableMerge(path);
         boolean binary =
-                isBinaryBytes(baseBytes) ||
-                        isBinaryBytes(targetBytes) ||
-                        isBinaryBytes(sourceBytes);
+                !document &&
+                        (isBinaryBytes(baseBytes) ||
+                                isBinaryBytes(targetBytes) ||
+                                isBinaryBytes(sourceBytes));
 
-        String baseContent = binary ? "" : decodeUtf8(baseBytes);
-        String targetContent = binary ? "" : decodeUtf8(targetBytes);
-        String sourceContent = binary ? "" : decodeUtf8(sourceBytes);
+        String baseContent = binary ? "" : readableContent(owner, repo, path, baseHash);
+        String targetContent = binary ? "" : readableContent(owner, repo, path, targetHash);
+        String sourceContent = binary ? "" : readableContent(owner, repo, path, sourceHash);
 
 
         List<ConflictSegmentAnalysis> segments = binary
@@ -435,6 +517,21 @@ public class PullRequestMergeService {
         return new String(bytes, StandardCharsets.UTF_8);
     }
 
+    private String readableContent(String owner, String repo, String path, String blobHash) {
+        byte[] bytes = readBlobBytesOrEmpty(owner, repo, blobHash);
+        if (bytes.length == 0) {
+            return "";
+        }
+        if (documentExtractionService.supports(path)) {
+            try {
+                return documentExtractionService.extractPlainText(path, bytes);
+            } catch (Exception ignored) {
+                return "";
+            }
+        }
+        return decodeUtf8(bytes);
+    }
+
     private boolean isBinaryBytes(byte[] bytes) {
         if (bytes == null || bytes.length == 0) return false;
         for (byte value : bytes) {
@@ -598,6 +695,13 @@ public class PullRequestMergeService {
         return entry == null ? null : entry.getHash();
     }
 
+    private Integer countChangedLines(String content) {
+        if (content == null || content.isEmpty()) {
+            return 0;
+        }
+        return (int) content.lines().count();
+    }
+
     private String normalizePath(String path) {
         return path == null ? "" : path.trim().replace("\\", "/");
     }
@@ -686,6 +790,25 @@ public class PullRequestMergeService {
         private String mode;
         private String type;
         private String hash;
+    }
+
+    @Data
+    @Builder
+    public static class FileChange {
+        private String path;
+        private String filename;
+        private String status;
+        private String baseSha;
+        private String oldSha;
+        private String headSha;
+        private String newSha;
+        private boolean binary;
+        private Integer additions;
+        private Integer deletions;
+        private String oldContent;
+        private String baseContent;
+        private String newContent;
+        private String headContent;
     }
 
     private class TreeNode {

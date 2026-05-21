@@ -43,8 +43,8 @@ public class BlogController {
                 FileCategory.BLOG,
                 article
         );
-        String  url =  fileService.upload(fileMetadata, file.getInputStream());
-        FileRecord currentFile  = fileRecordService.findFileByNameAndOwnerId(file.getOriginalFilename(), ownerId);
+        FileRecord currentFile = fileService.uploadRecord(fileMetadata, file.getInputStream());
+        String url = fileStoragePort.generatePresignedUrl(currentFile.getBucket(), currentFile.getObjectKey());
         return FileUploadResponse
                 .builder()
                 .fileId(currentFile.getId())
@@ -59,7 +59,7 @@ public class BlogController {
     public FileMetadataResponse getFileMetadata(@PathVariable("fileId") String fileId, @PathVariable String ownerId){
 
         FileRecord file = fileRecordService.findByIdAndOwnerIdAndCategory(fileId, ownerId,FileCategory.BLOG);
-        String url =  fileStoragePort.generatePresignedUrl(file.getBucket(), file.getFileName());
+        String url =  fileStoragePort.generatePresignedUrl(file.getBucket(), file.getObjectKey());
         return FileMetadataResponse
                 .builder()
                 .fileId(file.getId())
@@ -74,7 +74,7 @@ public class BlogController {
             @PathVariable("userId") String userId
             ){
         List<FileRecord> files = fileRecordService.findAllByOwnerIdAndSubFolder( userId, articleId);
-        return  files.stream().map(f -> fileStoragePort.generatePresignedUrl(f.getBucket(), f.getFileName())).collect(Collectors.toList());
+        return  files.stream().map(f -> fileStoragePort.generatePresignedUrl(f.getBucket(), f.getObjectKey())).collect(Collectors.toList());
     }
 //    @DeleteMapping("/file/blog/{fileId}/article/{articleId}")
 //   public  void deleteFile(@PathVariable("fileId") String fileId, @PathVariable String articleId){

@@ -118,6 +118,16 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    @Transactional
+    public void deleteById(UUID id) {
+        if (!repository.existsById(id)) {
+            throw new NotificationNotFoundException(id);
+        }
+        repository.deleteById(id);
+        log.info("Deleted notification id={}", id);
+    }
+
+    @Override
     public PagedResponse<NotificationResponse> findByUser(String userId, Pageable pageable) {
         Page<Notification> page = repository.findByRecipientUserIdOrderByCreatedAtDesc(userId, pageable);
         return PagedResponse.of(page.map(mapper::toResponse));

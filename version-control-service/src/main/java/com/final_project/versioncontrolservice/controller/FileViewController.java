@@ -2,12 +2,14 @@ package com.final_project.versioncontrolservice.controller;
 
 import com.final_project.versioncontrolservice.dto.DocumentBlameResponse;
 import com.final_project.versioncontrolservice.dto.ContributorUser;
+import com.final_project.versioncontrolservice.exception.BadRequestException;
 import com.final_project.versioncontrolservice.model.RepositoryDocument;
 import com.final_project.versioncontrolservice.service.*;
 import com.final_project.versioncontrolservice.exception.NotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -67,6 +69,18 @@ public class FileViewController {
         return ResponseEntity.ok(response);
     }
 
+    private boolean isDocumentBlameFile(String filePath) {
+        if (filePath == null) {
+            return false;
+        }
+
+        String lower = filePath.toLowerCase();
+
+        return lower.endsWith(".docx")
+                || lower.endsWith(".pdf")
+                || lower.endsWith(".xlsx")
+                || lower.endsWith(".pptx");
+    }
     /**
      * Get file history (blame)
      * GET /repos/{owner}/{repo}/blame/{path}?ref=main
@@ -79,8 +93,8 @@ public class FileViewController {
             HttpServletRequest request,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        ContributorUser user = authService.getContributorUser(jwt.getSubject())
-                ;
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
+
         var meta = vicRepositoryService.loadMeta(owner, repo);
 
         String username = user != null ? user.getUsername() : "";
@@ -92,6 +106,11 @@ public class FileViewController {
         String prefix = "/repos/" + owner + "/" + repo + "/blame/";
         String filePath = fullPath.substring(fullPath.indexOf(prefix) + prefix.length());
 
+        if (isDocumentBlameFile(filePath)) {
+            throw new BadRequestException(
+                    "This file requires document blame mode. Use /document-blame/" + filePath
+            );
+        }
         String commitHash = resolveRef(meta, ref);
         if (commitHash.isEmpty()) {
             throw new NotFoundException("ref not found: " + ref);
@@ -117,15 +136,15 @@ public class FileViewController {
         var meta = vicRepositoryService.loadMeta(owner, repo);
 
         String username = user != null ? user.getUsername() : "";
+
         if (!RepoAccessRules.canRead(meta, username)) {
             throw new com.final_project.versioncontrolservice.exception.ForbiddenException("forbidden");
         }
 
-        String fullPath = request.getRequestURI();
-        String prefix = "/repos/" + owner + "/" + repo + "/document-blame/";
-        String filePath = fullPath.substring(fullPath.indexOf(prefix) + prefix.length());
+        String filePath = extractWildcardPath(request, "/document-blame/");
 
         String commitHash = resolveRef(meta, ref);
+
         if (commitHash.isEmpty()) {
             throw new NotFoundException("ref not found: " + ref);
         }
@@ -254,6 +273,48 @@ public class FileViewController {
     }
 
     /**
+     * Get raw file bytes at a branch/ref.
+     * GET /repos/{owner}/{repo}/tree/{ref}/{path}
+     */
+    @GetMapping(value = "/tree/{ref}/**", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+    public ResponseEntity<byte[]> getRawFileAtRef(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @PathVariable String ref,
+            HttpServletRequest request
+    ) {
+        var meta = vicRepositoryService.loadMeta(owner, repo);
+
+        ContributorUser user = jwt != null
+                ? authService.getContributorUser(jwt.getSubject())
+                : null;
+        String username = user != null ? user.getUsername() : "";
+        if (!RepoAccessRules.canRead(meta, username)) {
+            throw new com.final_project.versioncontrolservice.exception.ForbiddenException("forbidden");
+        }
+
+        String filePath = extractWildcardPath(request, "/tree/" + ref + "/");
+        String commitHash = resolveRef(meta, ref);
+        if (commitHash.isEmpty()) {
+            throw new NotFoundException("ref not found: " + ref);
+        }
+
+        byte[] bytes = getFileBytesAtCommit(owner, repo, commitHash, filePath);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment()
+                                .filename(downloadFileName(filePath), StandardCharsets.UTF_8)
+                                .build()
+                                .toString()
+                )
+                .contentLength(bytes.length)
+                .body(bytes);
+    }
+
+    /**
      * Compare two commits/branches
      * GET /repos/{owner}/{repo}/compare/base...head
      */
@@ -288,18 +349,57 @@ public class FileViewController {
     // ─── Helper Methods ───────────────────────────────────────────────────
 
     private String resolveRef(RepositoryDocument meta, String ref) {
+        String requested = ref == null ? "" : ref.trim();
         // Try as branch name
-        String hash = meta.getBranchHeads().get(ref);
-        if (hash != null && !hash.isEmpty()) {
-            return hash;
+        if (meta.getBranchHeads() != null) {
+            String hash = meta.getBranchHeads().get(requested);
+            if (hash != null && !hash.isBlank()) {
+                return hash.trim();
+            }
         }
 
         // Try as full SHA
-        if (ref.length() == 40 && ref.matches("[0-9a-f]{40}")) {
-            return ref;
+        if (requested.length() == 40 && requested.matches("[0-9a-fA-F]{40}")) {
+            return requested;
+        }
+
+        String fallbackBranch = defaultBranchName(meta);
+        if (meta.getBranchHeads() != null) {
+            String fallbackHash = meta.getBranchHeads().get(fallbackBranch);
+            if (fallbackHash != null && !fallbackHash.isBlank()) {
+                return fallbackHash.trim();
+            }
+            for (String branchHash : meta.getBranchHeads().values()) {
+                if (branchHash != null && !branchHash.isBlank()) {
+                    return branchHash.trim();
+                }
+            }
         }
 
         return "";
+    }
+
+    private String defaultBranchName(RepositoryDocument meta) {
+        String symbolic = meta == null ? "" : String.valueOf(meta.getSymbolicHead() == null ? "" : meta.getSymbolicHead()).trim();
+        String symbolicBranch = symbolic.replaceFirst("^refs/heads/", "").trim();
+        if (meta != null && meta.getBranchHeads() != null && !meta.getBranchHeads().isEmpty()) {
+            if (!symbolicBranch.isBlank()) {
+                String hash = meta.getBranchHeads().get(symbolicBranch);
+                if (hash != null && !hash.isBlank()) {
+                    return symbolicBranch;
+                }
+            }
+            for (Map.Entry<String, String> entry : meta.getBranchHeads().entrySet()) {
+                if (entry.getValue() != null && !entry.getValue().isBlank()) {
+                    return entry.getKey();
+                }
+            }
+            if (!symbolicBranch.isBlank()) {
+                return symbolicBranch;
+            }
+            return meta.getBranchHeads().keySet().iterator().next();
+        }
+        return symbolicBranch.isBlank() ? "main" : symbolicBranch;
     }
 
     private FileContentResponse getFileAtCommit(String owner, String repo, String commitHash, String filePath) {
@@ -330,7 +430,9 @@ public class FileViewController {
             byte[] blobData = minioStorageService.getObjectBytes(owner, repo, blobHash);
             VicObjectFormat.ParsedObject blobObj = VicObjectFormat.parseCompressed(blobData);
 
-            String content = new String(blobObj.content(), StandardCharsets.UTF_8);
+            String content = isBinaryPreviewFile(fileName)
+                    ? null
+                    : new String(blobObj.content(), StandardCharsets.UTF_8);
             long size = blobObj.content().length;
 
             // Detect language for syntax highlighting
@@ -348,6 +450,68 @@ public class FileViewController {
         } catch (Exception e) {
             throw new NotFoundException("file not found: " + e.getMessage());
         }
+    }
+
+    private byte[] getFileBytesAtCommit(String owner, String repo, String commitHash, String filePath) {
+        try {
+            byte[] commitData = minioStorageService.getObjectBytes(owner, repo, commitHash);
+            VicObjectFormat.ParsedObject commitObj = VicObjectFormat.parseCompressed(commitData);
+            VicObjectFormat.CommitData commitInfo = VicObjectFormat.parseCommitContent(commitObj.content());
+
+            String[] pathParts = filePath.split("/");
+            String currentTree = commitInfo.tree();
+
+            for (int i = 0; i < pathParts.length - 1; i++) {
+                currentTree = findTreeEntry(owner, repo, currentTree, pathParts[i]);
+                if (currentTree == null) {
+                    throw new NotFoundException("path not found: " + filePath);
+                }
+            }
+
+            String fileName = pathParts[pathParts.length - 1];
+            String blobHash = findBlobEntry(owner, repo, currentTree, fileName);
+            if (blobHash == null) {
+                throw new NotFoundException("file not found: " + filePath);
+            }
+
+            byte[] blobData = minioStorageService.getObjectBytes(owner, repo, blobHash);
+            VicObjectFormat.ParsedObject blobObj = VicObjectFormat.parseCompressed(blobData);
+
+            if (!"blob".equals(blobObj.type())) {
+                throw new NotFoundException("file object is not a blob: " + filePath);
+            }
+
+            return blobObj.content();
+        } catch (Exception e) {
+            throw new NotFoundException("file not found: " + e.getMessage());
+        }
+    }
+
+    private boolean isBinaryPreviewFile(String fileName) {
+        if (fileName == null) {
+            return false;
+        }
+        String lower = fileName.toLowerCase(Locale.ROOT);
+        return lower.endsWith(".doc")
+                || lower.endsWith(".docx")
+                || lower.endsWith(".pdf")
+                || lower.endsWith(".ppt")
+                || lower.endsWith(".pptx")
+                || lower.endsWith(".xls")
+                || lower.endsWith(".xlsx")
+                || lower.endsWith(".zip")
+                || lower.endsWith(".rar")
+                || lower.endsWith(".7z")
+                || lower.endsWith(".png")
+                || lower.endsWith(".jpg")
+                || lower.endsWith(".jpeg")
+                || lower.endsWith(".gif")
+                || lower.endsWith(".webp")
+                || lower.endsWith(".bmp")
+                || lower.endsWith(".mp3")
+                || lower.endsWith(".mp4")
+                || lower.endsWith(".mov")
+                || lower.endsWith(".avi");
     }
 
     private String findTreeEntry(String owner, String repo, String treeHash, String name) {
@@ -1157,5 +1321,26 @@ public class FileViewController {
             this.timestamp = timestamp;
             this.parents = parents;
         }
+    }
+
+    private String extractWildcardPath(HttpServletRequest request, String marker) {
+        String fullPath = request.getRequestURI();
+        int index = fullPath.indexOf(marker);
+
+        if (index < 0) {
+            throw new NotFoundException("path not found");
+        }
+
+        return fullPath.substring(index + marker.length());
+    }
+
+    private String downloadFileName(String filePath) {
+        if (filePath == null || filePath.isBlank()) {
+            return "download";
+        }
+        String normalized = filePath.replace('\\', '/');
+        int slash = normalized.lastIndexOf('/');
+        String name = slash >= 0 ? normalized.substring(slash + 1) : normalized;
+        return name.isBlank() ? "download" : name;
     }
 }

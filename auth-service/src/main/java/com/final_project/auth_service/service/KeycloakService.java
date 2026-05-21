@@ -74,11 +74,15 @@ public class KeycloakService {
     }
 
     public Optional<UserRepresentation> findUserByUsername(String username) {
-        return realm().users().searchByUsername(username, true).stream().findFirst();
+        return realm().users().searchByUsername(username, true).stream()
+                .findFirst()
+                .map(user -> getUserById(user.getId()));
     }
 
     public Optional<UserRepresentation> findUserByEmail(String email) {
-        return realm().users().searchByEmail(email, true).stream().findFirst();
+        return realm().users().searchByEmail(email, true).stream()
+                .findFirst()
+                .map(user -> getUserById(user.getId()));
     }
 
     public UserRepresentation getUserById(String userId) {

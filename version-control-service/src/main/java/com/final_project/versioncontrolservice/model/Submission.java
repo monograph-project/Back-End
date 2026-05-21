@@ -44,6 +44,9 @@ public class Submission {
     @Field("pull_request_url")
     private String pullRequestUrl;
 
+    @Field("pull_request_id")
+    private String pullRequestId;
+
     private List<String> files = new ArrayList<>();
     private String status;  // "submitted", "reviewed", "revision_requested", "accepted"
 

@@ -34,6 +34,10 @@ public class RepositoryStatisticsResponse {
         private int totalTasks;
         private int totalCompletedTasks;
         private int totalActivityScore;
+        private int totalMilestoneMarks;
+        private int totalAllocatedTaskMarks;
+        private int totalEarnedTaskMarks;
+        private double marksCompletionPercentage;
     }
 
     @Data
@@ -53,5 +57,8 @@ public class RepositoryStatisticsResponse {
         private int assignedTasks;
         private int completedTasks;
         private int activityScore;
+        private int assignedMarks;
+        private int earnedMarks;
+        private double marksPercentage;
     }
 }

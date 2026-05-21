@@ -292,16 +292,17 @@
 
         /* Verification Code */
         .verification-code {
-            background: #f9f9f9;
-            padding: 16px;
-            border-left: 4px solid #0a3d62;
+            background: #f5f7fa;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
             margin: 20px 0;
             font-family: 'Courier New', monospace;
             color: #0a3d62;
-            font-size: 13px;
-            word-break: break-all;
-            border-radius: 4px;
-            font-weight: 600;
+            font-size: 34px;
+            letter-spacing: 10px;
+            text-align: center;
+            border-radius: 12px;
+            font-weight: 800;
         }
 
         /* Next Steps */
@@ -480,10 +481,10 @@
                     <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path>
                     <path d="M12 6v6l4 2"></path>
                 </svg>
-                Your Account is Active
+                Verify Your Email
             </div>
             <div class="highlight-text">
-                Your student account is now ready to use. You have access to all course materials, university resources, and learning platforms.
+                Enter the one-time password below in the signup screen. This code is short lived and protects the account before first login.
             </div>
         </div>
 
@@ -495,29 +496,22 @@
             </div>
             <div class="info-card">
                 <div class="info-card-label">Registration Status</div>
-                <div class="info-card-value" style="color: #27ae60;">✓ Confirmed</div>
+                <div class="info-card-value" style="color: #e8b44d;">OTP Required</div>
             </div>
         </div>
 
         <!-- Verification CTA -->
         <div class="cta-section">
             <p style="font-size: 14px; color: #666; margin-bottom: 16px;">
-                Please verify your email address to activate all features:
+                Use this 6-digit code to verify your email address:
             </p>
-            <a th:href="${verificationUrl}" class="cta-button">
-                <svg style="width: 16px; height: 16px; display: inline; margin-right: 8px; vertical-align: -2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M9 11l3 3L22 4"></path>
-                    <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                Verify Your Email
-            </a>
-            <p class="cta-text">Click the button above or copy the link below:</p>
+            <div class="verification-code" th:text="${verificationCode}">123456</div>
+            <a th:href="${verificationUrl}" class="cta-button">Open Verification Page</a>
+            <p class="cta-text">The code expires in 15 minutes.</p>
         </div>
 
-        <div class="verification-code" th:text="${verificationUrl}">[Verification URL]</div>
-
         <p style="font-size: 13px; color: #999; margin-top: 20px;">
-            <strong>Note:</strong> This link will expire in 24 hours. If you didn't create this account, please contact our support team immediately.
+            <strong>Note:</strong> Never share this code. If you didn't create this account, please ignore this email or contact support.
         </p>
 
         <!-- What You Can Do -->
@@ -591,7 +585,7 @@
         <div class="next-steps">
             <strong style="color: #0a3d62; display: block; margin-bottom: 12px;">📋 Complete These Steps:</strong>
             <ol>
-                <li><strong>Verify</strong> your email address (link above)</li>
+                <li><strong>Verify</strong> your email address with the OTP code above</li>
                 <li><strong>Complete</strong> your student profile with personal information</li>
                 <li><strong>Select</strong> your courses and preferred schedule</li>
                 <li><strong>Attend</strong> orientation session (details in your portal)</li>

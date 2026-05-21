@@ -24,6 +24,9 @@ public class KeycloakConfig {
     @Value("${keycloak.public-client-id:frontend}")
     private String publicClientId;
 
+    @Value("${keycloak.public-client-secret:}")
+    private String publicClientSecret;
+
     @Bean
     public Keycloak keycloakAdminClient() {
         return KeycloakBuilder.builder()
@@ -53,6 +56,10 @@ public class KeycloakConfig {
 
     public String getPublicClientId() {
         return publicClientId;
+    }
+
+    public String getPublicClientSecret() {
+        return publicClientSecret;
     }
 
     public String tokenUrl() {

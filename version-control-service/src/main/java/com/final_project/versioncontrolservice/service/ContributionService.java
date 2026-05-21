@@ -147,27 +147,50 @@ public class ContributionService {
             throw new NotFoundException("User not found");
         }
 
-        List<ActivityEvent> events = new ArrayList<>();
-        // Get user's PRs
         List<PullRequest> userPRs = prRepository.findAll()
                 .stream()
-                .filter(pr -> pr.getAuthor().getUsername().equals(currentUser.getUsername()))
-                .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
-                .limit(limit)
+                .filter(pr -> pr.getAuthor() != null)
+                .filter(pr -> pr.getAuthor().getUsername() != null)
+                .filter(pr -> pr.getAuthor().getUsername().equalsIgnoreCase(currentUser.getUsername()))
                 .toList();
+
+        List<ActivityEvent> events = new ArrayList<>();
         for (PullRequest pr : userPRs) {
-            ActivityEvent event = new ActivityEvent(
-                    pr.getId(),
-                    EventType.PULL_REQUEST,
-                    pr.getStatus().toString(),
-                    pr.getTitle(),
-                    pr.getRepoOwner() + "/" + pr.getRepoName(),
-                    pr.getCreatedAt()
-            );
-            events.add(event);
+            if (pr.getCreatedAt() != null) {
+                events.add(new ActivityEvent(
+                        pr.getId(),
+                        EventType.PULL_REQUEST,
+                        pr.getStatus() == null ? "OPENED" : pr.getStatus().toString(),
+                        pr.getTitle(),
+                        repoSlug(pr),
+                        pr.getCreatedAt()
+                ));
+            }
+            if (pr.getStatus() == PullRequestStatus.MERGED && pr.getMergedAt() != null) {
+                events.add(new ActivityEvent(
+                        pr.getId() + "-merged",
+                        EventType.PULL_REQUEST,
+                        "MERGED",
+                        pr.getTitle(),
+                        repoSlug(pr),
+                        pr.getMergedAt()
+                ));
+            }
         }
 
-        return events;
+        return events.stream()
+                .sorted(Comparator.comparing(ActivityEvent::getTimestamp, Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(Math.max(1, limit))
+                .toList();
+    }
+
+    private String repoSlug(PullRequest pullRequest) {
+        String owner = "";
+        if (pullRequest.getRepoOwner() != null && pullRequest.getRepoOwner().getUsername() != null) {
+            owner = pullRequest.getRepoOwner().getUsername().trim();
+        }
+        String repoName = pullRequest.getRepoName() == null ? "" : pullRequest.getRepoName().trim();
+        return owner.isBlank() ? repoName : owner + "/" + repoName;
     }
 
 

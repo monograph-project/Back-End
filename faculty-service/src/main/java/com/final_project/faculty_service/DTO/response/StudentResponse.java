@@ -27,4 +27,5 @@ public class StudentResponse {
     private StudentDepartmentSemesterResponse department;
     private StudentStatus status;
     private String batch;
+    private String keycloak;
 }

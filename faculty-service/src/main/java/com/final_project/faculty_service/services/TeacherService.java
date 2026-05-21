@@ -37,9 +37,13 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class TeacherService {
+    private static final String TEACHER_ROLE = "teacher-user";
+    private static final String AUTHOR_ROLE = "AUTHOR_USER";
+
     private final DepartmentRepository departmentRepository;
     private final TeacherRepository teacherRepository;
     private final TeacherMapper teacherMapper;
@@ -152,7 +156,8 @@ public class TeacherService {
         if(response.getId().isEmpty()){
             throw new ResourceNotFoundException("User couldn't save ");
         }
-        authService.assignRoleToUser(response.getId(), "teacher-user");
+        authService.assignRoleToUser(response.getId(), TEACHER_ROLE);
+        authService.assignRoleToUser(response.getId(), AUTHOR_ROLE);
 
         Teacher mappedTeacher = teacherMapper.toEntity(request);
 
@@ -185,6 +190,7 @@ public class TeacherService {
         signupRequest.setEmail(request.getEmail());
         signupRequest.setPassword(request.getPassword());
         signupRequest.setPhoneNumber(request.getPhone());
+        signupRequest.setRoleNames(Set.of(TEACHER_ROLE, AUTHOR_ROLE));
         return signupRequest;
     }
     public TeacherResponse updateProfile(String teacher, MultipartFile logo){

@@ -1,4 +1,5 @@
 package com.final_project.notification_service.service.strategy;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.final_project.notification_service.event.BlogInteractionEvent;
 import com.final_project.notification_service.model.Notification;
 import com.final_project.notification_service.model.NotificationChannel;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
 public class BlogInteractionProcessor implements NotificationProcessor<BlogInteractionEvent> {
 
     private final NotificationService notificationService;
+    private final ObjectMapper objectMapper;
 
     @Override
     public void process(BlogInteractionEvent event) {
@@ -132,10 +134,29 @@ public class BlogInteractionProcessor implements NotificationProcessor<BlogInter
                 .body(body)
                 .referenceId(referenceId)
                 .referenceType(referenceType)
+                .metadata(serializeMetadata(event))
                 .idempotencyKey(event.getEventType() + ":" + event.getEventId())
                 .build();
 
         notificationService.saveAndProcess(notification);
+    }
+
+    private String serializeMetadata(BlogInteractionEvent event) {
+        try {
+            return objectMapper.writeValueAsString(java.util.Map.of(
+                    "uiPath", event.getMetadata() != null && event.getMetadata().get("uiPath") != null
+                            ? event.getMetadata().get("uiPath")
+                            : "/story/" + safe(event.getBlogPostId()),
+                    "publicPath", event.getBlogPostUrl() != null
+                            ? event.getBlogPostUrl()
+                            : "/story/" + safe(event.getBlogPostId()),
+                    "articleId", safe(event.getBlogPostId()),
+                    "articleTitle", safe(event.getBlogPostTitle())
+            ));
+        } catch (Exception e) {
+            log.warn("Failed to serialize blog notification metadata: {}", e.getMessage());
+            return null;
+        }
     }
 
     private boolean isSelfAction(BlogInteractionEvent event) {

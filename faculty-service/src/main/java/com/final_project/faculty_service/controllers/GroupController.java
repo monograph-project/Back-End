@@ -44,6 +44,11 @@ public class GroupController {
         return new ResponseEntity<>(groupService.update(id, request), HttpStatus.OK);
     }
 
+    @PutMapping("/{id}/leader/{leader}")
+    public ResponseEntity<GroupResponse> updateGroupLeader(@PathVariable String id, @PathVariable String leader){
+        return new ResponseEntity<>(groupService.updateGroupLeader(id, leader), HttpStatus.OK);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable String id){
         groupService.delete(id);

@@ -24,6 +24,9 @@ import java.util.List;
 )
 public class CreateArticleRequest {
 
+    @Schema(description = "Optional preallocated article id, used when files are uploaded before persistence")
+    private String id;
+
     @NotBlank
     @Size(max = 180)
     @Schema(example = "How to use microservices in university systems")
@@ -32,6 +35,10 @@ public class CreateArticleRequest {
     @Size(max = 500)
     @Schema(example = "A practical article about Spring Boot microservices.")
     private String description;
+
+    @Size(max = 500)
+    @Schema(example = "An exciting journey into blogging")
+    private String subtitle;
 
     @Builder.Default
     @Valid

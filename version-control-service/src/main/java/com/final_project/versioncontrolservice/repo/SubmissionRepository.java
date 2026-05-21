@@ -12,13 +12,15 @@ import java.util.Optional;
 @Repository
 public interface SubmissionRepository extends MongoRepository<Submission, ObjectId> {
 
-    List<Submission> findByTaskIdOrderBySubmittedAtDesc(ObjectId taskId);
+    List<Submission> findByTaskIdOrderBySubmittedAtDesc(String taskId);
 
     Optional<Submission> findTopByTaskIdAndSubmittedByOrderBySubmittedAtDesc(
-            ObjectId taskId, String submittedBy);
+            String taskId, String submittedBy);
 
     List<Submission> findBySubmittedByOrderBySubmittedAtDesc(String submittedBy);
 
-    long countByTaskIdAndStatus(ObjectId taskId, String status);
+    long countByTaskIdAndStatus(String taskId, String status);
+
+    List<Submission> findByPullRequestId(String pullRequestId);
 }
 

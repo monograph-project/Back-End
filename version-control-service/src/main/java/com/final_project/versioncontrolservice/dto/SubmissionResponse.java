@@ -33,6 +33,9 @@ public record SubmissionResponse(
         @JsonProperty("pull_request_url")
         String pullRequestUrl,
 
+        @JsonProperty("pull_request_id")
+        String pullRequestId,
+
         List<String> files,
 
         String status,
@@ -61,6 +64,7 @@ public record SubmissionResponse(
                 s.getBranchName(),
                 s.getCommitHash(),
                 s.getPullRequestUrl(),
+                s.getPullRequestId(),
                 s.getFiles(),
                 s.getStatus(),
                 s.getReviewedBy(),

@@ -25,6 +25,8 @@ public class RepositoryResponse {
     private RepositoryVisibility visibility = RepositoryVisibility.PUBLIC;
     private List<ContributorUser> collaborators = new ArrayList<>();
     private Map<String, String> branchHeads = new HashMap<>();
+    private String symbolicHead;
+    private String defaultBranch;
     private String cloneUrl;
 
     private LocalDateTime createdAt;

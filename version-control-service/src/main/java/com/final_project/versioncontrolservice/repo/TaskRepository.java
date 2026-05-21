@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.Instant;
 
 @Repository
 public interface TaskRepository extends MongoRepository<Task, String> {
@@ -74,4 +75,9 @@ public interface TaskRepository extends MongoRepository<Task, String> {
             String repoName,
             String searchTerm
     );
+
+        List<Task> findByLinkedPrId(String linkedPrId);
+
+    @Query("{'due_date': {'$gt': ?0, '$lte': ?1}, 'status': {'$nin': ['COMPLETED', 'CANCELLED']}, 'assigned_to': {'$ne': null}}")
+    List<Task> findDeadlineReminderCandidates(Instant now, Instant upperBound);
 }

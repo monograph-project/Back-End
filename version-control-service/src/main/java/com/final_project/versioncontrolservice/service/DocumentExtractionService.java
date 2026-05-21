@@ -10,6 +10,7 @@ import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.poi.xwpf.usermodel.IBodyElement;
+import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
@@ -18,6 +19,7 @@ import org.apache.poi.xwpf.usermodel.XWPFTableRow;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
@@ -34,6 +36,10 @@ public class DocumentExtractionService {
     public boolean supports(String filePath) {
         String lower = normalizedExtension(filePath);
         return "docx".equals(lower) || "pdf".equals(lower);
+    }
+
+    public boolean supportsEditableMerge(String filePath) {
+        return "docx".equals(normalizedExtension(filePath));
     }
 
     public String detectFileType(String filePath) {
@@ -79,6 +85,38 @@ public class DocumentExtractionService {
                 .fileType(type)
                 .segments(segments)
                 .build();
+    }
+
+    public String extractPlainText(String fileName, byte[] bytes) {
+        ExtractionResult extraction = extract(fileName, bytes);
+        List<DerivedDocumentIndex.DocumentSegment> segments =
+                extraction.getSegments() == null ? List.of() : extraction.getSegments();
+        return segments.stream()
+                .map(DerivedDocumentIndex.DocumentSegment::getText)
+                .filter(text -> text != null && !text.isBlank())
+                .reduce((left, right) -> left + System.lineSeparator() + right)
+                .orElse("");
+    }
+
+    public byte[] buildSimpleDocument(String fileName, String text) {
+        if (!supportsEditableMerge(fileName)) {
+            throw new BadRequestException("Editable document merge is not supported for: " + fileName);
+        }
+
+        try (XWPFDocument document = new XWPFDocument();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            String normalized = text == null ? "" : text.replaceAll("\\r\\n?", "\n");
+            String[] blocks = normalized.split("\\n{2,}", -1);
+            for (String block : blocks) {
+                XWPFParagraph paragraph = document.createParagraph();
+                XWPFRun run = paragraph.createRun();
+                run.setText(block == null || block.isBlank() ? " " : block.trim());
+            }
+            document.write(out);
+            return out.toByteArray();
+        } catch (Exception e) {
+            throw new BadRequestException("Failed to build merged DOCX: " + e.getMessage());
+        }
     }
 
     private List<DerivedDocumentIndex.DocumentSegment> extractDocx(byte[] bytes) {

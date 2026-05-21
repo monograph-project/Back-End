@@ -42,4 +42,5 @@ public class AuthorResponse {
     )
     private Long totalArticles;
     private String email;
+    private String username;
 }

@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import com.final_project.blog_service.model.ArticleStatus;
+import com.final_project.blog_service.model.ArticleVisiblity;
 
 @Data
 @NoArgsConstructor
@@ -49,6 +51,16 @@ public class ArticlePreviewResponse {
             description = "Short description or excerpt"
     )
     private String description;
+    @Schema(
+            title = "Article Status",
+            example = "DRAFT"
+    )
+    private ArticleStatus status;
+    @Schema(
+            title = "Article Visibility",
+            example = "PUBLIC"
+    )
+    private ArticleVisiblity visibility;
     @Schema(
             title = "Article Statistics",
             description = "Engagement metrics"

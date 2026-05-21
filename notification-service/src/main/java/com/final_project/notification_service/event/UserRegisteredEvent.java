@@ -18,6 +18,8 @@ public class UserRegisteredEvent {
     private String firstName;
     private String lastName;
     private String verificationToken;
+    private String verificationCode;
+    private LocalDateTime verificationExpiresAt;
     private String registrationSource;      // WEB, MOBILE, API
     private LocalDateTime occurredAt;
 }

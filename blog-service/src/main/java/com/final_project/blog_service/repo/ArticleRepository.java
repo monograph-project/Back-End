@@ -37,6 +37,21 @@ public interface ArticleRepository extends MongoRepository<Article, String> {
     @Query("{ 'status': 'PUBLISHED', 'visibility': 'PUBLIC' }")
     Page<Article> findPublishedArticles(Pageable pageable);
 
+    @Query("""
+            {
+              'status': 'PUBLISHED',
+              'visibility': 'PUBLIC',
+              '$or': [
+                { 'title': { $regex: ?0, $options: 'i' } },
+                { 'subtitle': { $regex: ?0, $options: 'i' } },
+                { 'metadata.description': { $regex: ?0, $options: 'i' } },
+                { 'metadata.tags': { $regex: ?0, $options: 'i' } },
+                { 'metadata.keywords': { $regex: ?0, $options: 'i' } }
+              ]
+            }
+            """)
+    Page<Article> searchPublishedArticles(String query, Pageable pageable);
+
     @Query("{'_id': '?0' ,'status':  'PUBLISHED', 'visibility' :  'PUBLIC'}")
     Article findByIdAndStatsIsPublish(String id);
 

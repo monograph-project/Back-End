@@ -48,6 +48,7 @@ public class TeacherMapper implements BaseMapper<TeacherRequest, TeacherResponse
         teacherResponse.setCreatedBy(teacher.getCreatedBy());
         teacherResponse.setPhone(teacher.getPhone());
         teacherResponse.setEmail(teacher.getEmail());
+        teacherResponse.setKeycloak(teacher.getKeycloakId());
         teacherResponse.setDepartment( new TeacherDepartmentResponse(
                 teacher.getDepartment().getId(),
                 teacher.getDepartment().getName(),

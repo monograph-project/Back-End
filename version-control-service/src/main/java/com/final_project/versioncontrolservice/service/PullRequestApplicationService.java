@@ -17,6 +17,9 @@ import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
+import com.final_project.versioncontrolservice.model.Task;
+import com.final_project.versioncontrolservice.repo.TaskRepository;
+import com.final_project.versioncontrolservice.service.TaskService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -25,6 +28,7 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class PullRequestApplicationService {
     private final PullRequestMergeService pullRequestMergeService;
+    private final DocumentExtractionService documentExtractionService;
     private final PullRequestConflictRepository pullRequestConflictRepository;
 
     private final PullRequestRepository pullRequestRepository;
@@ -33,6 +37,8 @@ public class PullRequestApplicationService {
     private final AuthService authService;
     private final KafkaProducer kafkaProducer;
     private final FacultyProjectService facultyProjectService;
+        private final TaskService taskService;
+        private final TaskRepository taskRepository;
     private final AppProperties appProperties;
     public PullRequestResponse create(
             String owner,
@@ -129,6 +135,61 @@ public class PullRequestApplicationService {
 
 
 
+    public List<PullRequestMergeService.FileChange> listChangedFiles(String pullId, String owner, String repoName) {
+        PullRequestDiffContext context = diffContext(pullId, owner, repoName);
+        return pullRequestMergeService.compareFilesBetweenCommits(
+                context.document().getOwner().getUsername(),
+                context.document().getRepositoryName(),
+                context.targetHash(),
+                context.sourceHash()
+        );
+    }
+
+    public PullRequestMergeService.FileChange getChangedFileDiff(String pullId, String owner, String repoName, int fileIndex) {
+        List<PullRequestMergeService.FileChange> files = listChangedFiles(pullId, owner, repoName);
+        if (fileIndex < 0 || fileIndex >= files.size()) {
+            throw new NotFoundException("Pull request file not found");
+        }
+        return files.get(fileIndex);
+    }
+
+    private PullRequestDiffContext diffContext(String pullId, String owner, String repoName) {
+        RepositoryDocument document = repositoryService.loadMeta(owner, repoName);
+        if (document == null) {
+            throw new  NotFoundException("The Current Repository does not exist");
+        }
+
+        PullRequest pullRequest = pullRequestRepository
+                .findByIdAndRepoOwner_UsernameIgnoreCaseAndRepoNameIgnoreCase(
+                        pullId,
+                        document.getOwner().getUsername(),
+                        document.getRepositoryName()
+                )
+                .orElseThrow(() -> new NotFoundException("Pull request not found"));
+
+        String sourceHash = repositoryService.listBranchHash(document, pullRequest.getSourceBranch());
+        if (sourceHash == null || sourceHash.isBlank()) {
+            sourceHash = pullRequest.getSourceHash();
+        }
+
+        String targetHash = repositoryService.listBranchHash(document, pullRequest.getTargetBranch());
+        if (targetHash == null || targetHash.isBlank()) {
+            targetHash = pullRequest.getTargetHash();
+        }
+
+        if (sourceHash == null || sourceHash.isBlank() || targetHash == null || targetHash.isBlank()) {
+            throw new NotFoundException("Pull request branch ref not found");
+        }
+
+        return new PullRequestDiffContext(document, sourceHash, targetHash);
+    }
+
+    private record PullRequestDiffContext(
+            RepositoryDocument document,
+            String sourceHash,
+            String targetHash
+    ) {}
+
     public MergeResponse merge(String pullId, String owner, String repoName) throws IOException {
         RepositoryDocument document = repositoryService.loadMeta(owner, repoName);
         if (document == null) {
@@ -198,6 +259,24 @@ public class PullRequestApplicationService {
             PullRequest saved = pullRequestRepository.save(pullRequest);
 
             publishPullRequestMergedEvent(saved, mergedRepository);
+
+                        // Auto-complete any tasks linked to this pull request (best-effort)
+                        try {
+                                List<Task> linkedTasks = taskRepository.findByLinkedPrId(saved.getId());
+                                for (Task task : linkedTasks) {
+                                        try {
+                                                TaskService.CompleteTaskRequest req = TaskService.CompleteTaskRequest.builder()
+                                                                .pullRequestId(saved.getId())
+                                                                .feedback("Auto-completed on PR merge")
+                                                                .score(null)
+                                                                .build();
+                                                taskService.completeTask(mergedRepository.getOwner().getUsername(), mergedRepository.getRepositoryName(), task.getNumber(), req, mergedRepository.getOwner().getUsername());
+                                        } catch (Exception ex) {
+                                                log.warn("Failed to auto-complete task #{} for PR {}: {}", task.getNumber(), saved.getId(), ex.getMessage());
+                                        }
+                                }
+                        } catch (Exception ignored) {
+                        }
 
             return MergeResponse.builder()
                     .mergedAt(saved.getMergedAt())
@@ -316,6 +395,23 @@ public class PullRequestApplicationService {
         pullRequest.setTargetHash(mergeCommitHash);
         PullRequest saved = pullRequestRepository.save(pullRequest);
         publishPullRequestMergedEvent(saved, mergedRepository);
+                // Auto-complete any tasks linked to this pull request (best-effort)
+                try {
+                        List<Task> linkedTasks = taskRepository.findByLinkedPrId(saved.getId());
+                        for (Task task : linkedTasks) {
+                                try {
+                                        TaskService.CompleteTaskRequest req = TaskService.CompleteTaskRequest.builder()
+                                                        .pullRequestId(saved.getId())
+                                                        .feedback("Auto-completed on PR merge")
+                                                        .score(null)
+                                                        .build();
+                                        taskService.completeTask(mergedRepository.getOwner().getUsername(), mergedRepository.getRepositoryName(), task.getNumber(), req, mergedRepository.getOwner().getUsername());
+                                } catch (Exception ex) {
+                                        log.warn("Failed to auto-complete task #{} for PR {}: {}", task.getNumber(), saved.getId(), ex.getMessage());
+                                }
+                        }
+                } catch (Exception ignored) {
+                }
 
 
 
@@ -444,7 +540,15 @@ public class PullRequestApplicationService {
                                     Function.identity()
                             ));
 
-            PullRequestMergeService.TreeEntry resolvedEntry = file.isBinary()
+            PullRequestMergeService.TreeEntry resolvedEntry =
+                    documentExtractionService.supportsEditableMerge(file.getPath())
+                    ? buildResolvedDocumentEntry(
+                            document.getOwner().getUsername(),
+                            document.getRepositoryName(),
+                            file,
+                            blockResolutions
+                    )
+                    : file.isBinary()
                     ? buildResolvedBinaryEntry(file, blockResolutions)
                     : buildResolvedTextEntry(
                             document.getOwner().getUsername(),
@@ -549,6 +653,93 @@ public class PullRequestApplicationService {
                 file.getPath(),
                 resolvedContent.getBytes(java.nio.charset.StandardCharsets.UTF_8)
         );
+    }
+
+    private PullRequestMergeService.TreeEntry buildResolvedDocumentEntry(
+            String owner,
+            String repo,
+            PullRequestConflict.ConflictFile file,
+            Map<String, ResolveConflictRequest.BlockResolution> blockResolutions
+    ) {
+        PullRequestConflict.ConflictResolution uniformResolution = null;
+        boolean hasConflictBlock = false;
+
+        for (PullRequestConflict.FileSegment segment : file.getSegments()) {
+            if (segment.getType() == PullRequestConflict.SegmentType.PLAIN) {
+                continue;
+            }
+            hasConflictBlock = true;
+
+            ResolveConflictRequest.BlockResolution blockResolution = blockResolutions.get(segment.getId());
+            if (blockResolution == null) {
+                throw new BadRequestException("Missing resolution for conflict block: " + segment.getId());
+            }
+
+            PullRequestConflict.ConflictResolution resolution = blockResolution.getResolution();
+            if (resolution == PullRequestConflict.ConflictResolution.CUSTOM ||
+                    resolution == PullRequestConflict.ConflictResolution.BOTH) {
+                uniformResolution = null;
+                break;
+            }
+
+            if (uniformResolution == null) {
+                uniformResolution = resolution;
+            } else if (uniformResolution != resolution) {
+                uniformResolution = null;
+                break;
+            }
+        }
+
+        if (hasConflictBlock &&
+                uniformResolution == PullRequestConflict.ConflictResolution.SOURCE &&
+                file.getSourceHash() != null &&
+                !file.getSourceHash().isBlank()) {
+            markDocumentSegmentsResolved(file, blockResolutions, uniformResolution, file.getSourceHash());
+            return existingBlobEntry(file.getPath(), file.getSourceHash());
+        }
+
+        if (hasConflictBlock &&
+                uniformResolution == PullRequestConflict.ConflictResolution.TARGET &&
+                file.getTargetHash() != null &&
+                !file.getTargetHash().isBlank()) {
+            markDocumentSegmentsResolved(file, blockResolutions, uniformResolution, file.getTargetHash());
+            return existingBlobEntry(file.getPath(), file.getTargetHash());
+        }
+
+        String resolvedContent = buildResolvedFileContent(file, blockResolutions);
+        byte[] mergedDocument = documentExtractionService.buildSimpleDocument(file.getPath(), resolvedContent);
+        return pullRequestMergeService.createBlobEntry(owner, repo, file.getPath(), mergedDocument);
+    }
+
+    private void markDocumentSegmentsResolved(
+            PullRequestConflict.ConflictFile file,
+            Map<String, ResolveConflictRequest.BlockResolution> blockResolutions,
+            PullRequestConflict.ConflictResolution resolution,
+            String selectedHash
+    ) {
+        for (PullRequestConflict.FileSegment segment : file.getSegments()) {
+            if (segment.getType() == PullRequestConflict.SegmentType.PLAIN) {
+                segment.setResolved(true);
+                continue;
+            }
+            ResolveConflictRequest.BlockResolution blockResolution = blockResolutions.get(segment.getId());
+            if (blockResolution == null) {
+                throw new BadRequestException("Missing resolution for conflict block: " + segment.getId());
+            }
+            segment.setResolution(resolution);
+            segment.setResolved(true);
+            segment.setResolvedChunk(selectedHash);
+        }
+    }
+
+    private PullRequestMergeService.TreeEntry existingBlobEntry(String path, String hash) {
+        return PullRequestMergeService.TreeEntry.builder()
+                .path(path)
+                .name(leafName(path))
+                .mode("100644")
+                .type("blob")
+                .hash(hash)
+                .build();
     }
 
     private PullRequestMergeService.TreeEntry buildResolvedBinaryEntry(

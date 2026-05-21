@@ -62,6 +62,28 @@ public class AuthService {
                 .collectList()
                 .block();
     }
+
+    public List<UserDto> getAdminUsers() {
+        return authServiceClient.get()
+                .uri("/api/v1/users/admins")
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(
+                                        new RuntimeException("Auth service client error: " + body)
+                                ))
+                )
+                .onStatus(HttpStatusCode::is5xxServerError, response ->
+                        response.bodyToMono(String.class)
+                                .flatMap(body -> Mono.error(
+                                        new RuntimeException("Auth service server error: " + body)
+                                ))
+                )
+                .bodyToFlux(UserDto.class)
+                .collectList()
+                .block();
+    }
+
     public void  assignRoleToUser(String userId, String roleId){
          authServiceClient.post()
                 .uri("/api/v1/roles/{roleName}/assign-to-user/{userId}",roleId, userId )

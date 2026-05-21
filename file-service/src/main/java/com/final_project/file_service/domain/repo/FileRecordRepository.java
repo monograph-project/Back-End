@@ -13,4 +13,5 @@ public interface FileRecordRepository extends MongoRepository<FileRecord, String
     Optional<List<FileRecord>> findAllByOwnerIdAndSubFolder(String ownerId, String subFolder);
     Optional<FileRecord> findByFileNameAndOwnerId(String fileName,String ownerId);
     Optional<FileRecord> findByIdAndOwnerIdAndCategory(String fileId,String ownerId,FileCategory category);
+    Optional<FileRecord> findFirstByOwnerIdAndCategoryOrderByUploadedAtDesc(String ownerId, FileCategory category);
 }

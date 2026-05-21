@@ -23,7 +23,7 @@ public interface DerivedDocumentIndexRepository extends MongoRepository<DerivedD
     );
 
     Optional<DerivedDocumentIndex>
-    findByOwnerUsernameIgnoreCaseAndRepositoryNameIgnoreCaseAndCommitHashAndPathAndBlobHash(
+    findFirstByOwnerUsernameIgnoreCaseAndRepositoryNameIgnoreCaseAndCommitHashAndPathAndBlobHashOrderByIndexedAtDesc(
             String ownerUsername,
             String repositoryName,
             String commitHash,

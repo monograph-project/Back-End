@@ -16,8 +16,11 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RequestMapping("/api/v1/task")
 @RestController
@@ -25,6 +28,7 @@ import java.util.Map;
 public class TaskController {
     private final AuthService authService;
     private final TaskService taskService;
+        private final com.final_project.versioncontrolservice.repo.TaskRepository taskRepository;
     /**
      * Create a new task
      * POST /repos/{owner}/{repo}/tasks
@@ -38,10 +42,12 @@ public class TaskController {
             @PathVariable String owner,
             @PathVariable String repo,
             @RequestBody TaskService.TaskRequest request,
-            @PathVariable String username
+            @PathVariable String username,
+            @AuthenticationPrincipal Jwt jwt
 
     ) {
-        return ResponseEntity.ok(taskService.createTask(owner, repo, request, username));
+        ContributorUser user = contributorWithJwtRoles(jwt);
+        return ResponseEntity.ok(taskService.createTask(owner, repo, request, user));
     }
 
     /**
@@ -57,9 +63,11 @@ public class TaskController {
             @PathVariable String owner,
             @PathVariable String repo,
             @PathVariable int number,
-            @PathVariable String assignee
+            @PathVariable String assignee,
+            @AuthenticationPrincipal Jwt jwt
     ) {
-        return ResponseEntity.ok(taskService.assignTask(owner, repo, number, assignee, user));
+        ContributorUser contributor = contributorWithJwtRoles(jwt);
+        return ResponseEntity.ok(taskService.assignTask(owner, repo, number, assignee, contributor));
     }
 
     /**
@@ -95,8 +103,22 @@ public class TaskController {
             @RequestBody TaskService.ReviewRequest request,
             @AuthenticationPrincipal Jwt jwt
             ) {
-        ContributorUser user = authService.getContributorUser(jwt.getSubject());
-        return ResponseEntity.ok(taskService.reviewTask(owner, repo, number, request, user.getUsername()));
+        ContributorUser user = contributorWithJwtRoles(jwt);
+        return ResponseEntity.ok(taskService.reviewTask(owner, repo, number, request, user));
+    }
+
+    @PostMapping(path = "/repos/{owner}/{repo}/tasks/{number}/complete",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<MilestoneService.TaskResponse> completeTask(
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @PathVariable int number,
+            @RequestBody TaskService.CompleteTaskRequest request,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        ContributorUser user = contributorWithJwtRoles(jwt);
+        return ResponseEntity.ok(taskService.completeTask(owner, repo, number, request, user.getUsername()));
     }
 
     /**
@@ -110,8 +132,8 @@ public class TaskController {
             @PathVariable String repo,
             @AuthenticationPrincipal Jwt jwt
             ) {
-        ContributorUser user = authService.getContributorUser(jwt.getSubject());
-        return ResponseEntity.ok(taskService.getStudentDashboard(owner, repo, user.getUsername()));
+        ContributorUser user = contributorWithJwtRoles(jwt);
+        return ResponseEntity.ok(taskService.getStudentDashboard(owner, repo, user));
     }
 
     /**
@@ -127,7 +149,93 @@ public class TaskController {
             @RequestParam(required = false) String assignee,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Integer milestone,
-            @RequestParam(required = false) String search) {
-        return ResponseEntity.ok(taskService.listTasks(owner, repo, assignee, status, milestone, search));
+            @RequestParam(required = false) String search,
+            @AuthenticationPrincipal Jwt jwt) {
+        ContributorUser user = contributorWithJwtRoles(jwt);
+        return ResponseEntity.ok(taskService.listTasks(owner, repo, user, assignee, status, milestone, search));
     }
+
+    private ContributorUser contributorWithJwtRoles(Jwt jwt) {
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
+        if (user == null) {
+            return null;
+        }
+
+        Set<String> roles = new HashSet<>();
+        if (user.getRoles() != null) {
+            roles.addAll(user.getRoles());
+        }
+
+        Object realmAccess = jwt.getClaim("realm_access");
+        if (realmAccess instanceof Map<?, ?> realmMap) {
+            Object jwtRoles = realmMap.get("roles");
+            if (jwtRoles instanceof Collection<?> collection) {
+                collection.stream()
+                        .map(role -> role == null ? "" : String.valueOf(role).trim())
+                        .filter(role -> !role.isBlank())
+                        .forEach(roles::add);
+            }
+        }
+
+        user.setRoles(roles);
+        return user;
+    }
+
+    @GetMapping(path = "/repos/{owner}/{repo}/tasks/{number}/eligible-pulls",
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<List<TaskService.TaskPullRequestCandidateResponse>> listEligiblePullRequests(
+            @PathVariable String owner,
+            @PathVariable String repo,
+            @PathVariable int number,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        ContributorUser user = authService.getContributorUser(jwt.getSubject());
+        return ResponseEntity.ok(taskService.listEligiblePullRequests(owner, repo, number, user.getUsername()));
+    }
+
+        /**
+         * Manual trigger: complete tasks linked to a given pull request id.
+         * POST /repos/{owner}/{repo}/tasks/complete-by-pr
+         */
+        @PostMapping(path = "/repos/{owner}/{repo}/tasks/complete-by-pr",
+                        consumes = MediaType.APPLICATION_JSON_VALUE,
+                        produces = MediaType.APPLICATION_JSON_VALUE)
+        public ResponseEntity<Map<String, Object>> completeTasksByPullRequest(
+                        @PathVariable String owner,
+                        @PathVariable String repo,
+                        @RequestBody TaskService.CompleteTaskRequest request,
+                        @AuthenticationPrincipal Jwt jwt
+        ) {
+                ContributorUser user = authService.getContributorUser(jwt.getSubject());
+                String reviewer = user == null ? "system" : user.getUsername();
+
+                String prId = request == null ? null : request.getPullRequestId();
+                if (prId == null || prId.isBlank()) {
+                        return ResponseEntity.badRequest().body(Map.of("error", "pullRequestId is required"));
+                }
+
+                List<com.final_project.versioncontrolservice.model.Task> linked = taskRepository.findByLinkedPrId(prId);
+                int completed = 0;
+                int failed = 0;
+                List<MilestoneService.TaskResponse> completedResponses = new java.util.ArrayList<>();
+
+                for (com.final_project.versioncontrolservice.model.Task task : linked) {
+                        try {
+                                MilestoneService.TaskResponse resp = taskService.completeTask(owner, repo, task.getNumber(), request, reviewer);
+                                if (resp != null) {
+                                        completedResponses.add(resp);
+                                        completed++;
+                                }
+                        } catch (Exception ex) {
+                                failed++;
+                        }
+                }
+
+                return ResponseEntity.ok(Map.of(
+                                "pullRequestId", prId,
+                                "completed", completed,
+                                "failed", failed,
+                                "responses", completedResponses
+                ));
+        }
 }

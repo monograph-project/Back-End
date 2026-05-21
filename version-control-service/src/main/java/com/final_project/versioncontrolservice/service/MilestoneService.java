@@ -3,6 +3,7 @@ package com.final_project.versioncontrolservice.service;
 import com.final_project.versioncontrolservice.dto.MilestoneTaskUser;
 import com.final_project.versioncontrolservice.dto.UserDTO;
 import com.final_project.versioncontrolservice.event.RepositoryOperationEvent;
+import com.final_project.versioncontrolservice.exception.BadRequestException;
 import com.final_project.versioncontrolservice.exception.ForbiddenException;
 import com.final_project.versioncontrolservice.exception.NotFoundException;
 import com.final_project.versioncontrolservice.kafka.KafkaProducer;
@@ -33,6 +34,7 @@ public class MilestoneService {
      */
     public MilestoneResponse createMilestone(String owner, String repo,
                                              MilestoneRequest request, String username) {
+        validateMilestoneRequest(request);
         UserDTO ownerUser = authService.getUserByUsername(owner);
         if (ownerUser == null) {
             throw new NotFoundException("There is not such uers");
@@ -44,6 +46,11 @@ public class MilestoneService {
         // Validate permissions
 
         RepositoryDocument meta = vicRepositoryService.loadMeta(ownerUser.getUsername(), repo);
+        if (!canManageTaskPlanning(meta, creatorUser)) {
+            throw new com.final_project.versioncontrolservice.exception.ForbiddenException(
+                    "Only repository owners, admins, or teachers can create milestones"
+            );
+        }
 
 
         // Generate milestone number
@@ -94,6 +101,24 @@ public class MilestoneService {
     public void updateMilestoneProgress(String owner, String repo, String  milestoneId) {
         Milestone milestone = milestoneRepository.findById(milestoneId)
                 .orElseThrow(() -> new NotFoundException("milestone not found"));
+        applyMilestoneStats(owner, repo, milestone, true);
+    }
+
+    private boolean canManageTaskPlanning(RepositoryDocument meta, UserDTO user) {
+        String username = user == null ? "" : user.getUsername();
+        if (RepoAccessRules.canAdmin(meta, username)) {
+            return true;
+        }
+        if (user == null || user.getRoles() == null) {
+            return false;
+        }
+        return user.getRoles().stream()
+                .map(role -> role == null ? "" : role.trim().toLowerCase())
+                .anyMatch(role -> role.equals("teacher") || role.equals("admin"));
+    }
+
+    private void applyMilestoneStats(String owner, String repo, Milestone milestone, boolean persist) {
+        String milestoneId = milestone.getId();
 
         // Count tasks by status
         long totalTasks = taskRepository.countByMilestone(owner, repo, milestoneId);
@@ -114,14 +139,21 @@ public class MilestoneService {
             milestone.setCompletionPercentage(0.0);
         }
 
-        // Auto-close if all required tasks completed
-        if (milestone.getRequiredTasks() != null && completedTasks >= milestone.getRequiredTasks()) {
+        boolean requiredTasksSatisfied = milestone.getRequiredTasks() != null
+                && milestone.getRequiredTasks() > 0
+                && completedTasks >= milestone.getRequiredTasks();
+        boolean allTasksCompleted = totalTasks > 0 && completedTasks >= totalTasks;
+
+        if ((requiredTasksSatisfied || allTasksCompleted)
+                && !"closed".equalsIgnoreCase(String.valueOf(milestone.getStatus()))) {
             milestone.setStatus("closed");
             milestone.setClosedAt(Instant.now());
         }
 
-        milestone.setUpdatedAt(Instant.now());
-        milestoneRepository.save(milestone);
+        if (persist) {
+            milestone.setUpdatedAt(Instant.now());
+            milestoneRepository.save(milestone);
+        }
     }
 
     /**
@@ -133,6 +165,7 @@ public class MilestoneService {
 
         return milestones.stream()
                 .map(m -> {
+                    applyMilestoneStats(owner, repo, m, false);
                     MilestoneResponse response = MilestoneResponse.fromDocument(m);
 
                     // Get tasks for this milestone
@@ -153,6 +186,7 @@ public class MilestoneService {
             int number,
             MilestoneRequest request
     ) {
+        validateMilestoneRequest(request);
         Milestone milestone = milestoneRepository
                 .findByRepoOwner_UserNameAndRepoNameAndNumber(owner, repo, number)
                 .orElseThrow(() -> new NotFoundException("milestone #" + number + " not found"));
@@ -188,24 +222,25 @@ public class MilestoneService {
         milestone.setUpdatedAt(Instant.now());
 
         Milestone saved = milestoneRepository.save(milestone);
+        applyMilestoneStats(owner, repo, saved, true);
         return MilestoneResponse.fromDocument(saved);
     }
     /**
      * Get milestone by number
      */
     public Milestone getMilestone(String owner, String repo, int number) {
-        return  milestoneRepository.findByRepoOwner_UserNameAndRepoNameAndNumber(owner, repo, number)
+        Milestone milestone = milestoneRepository.findByRepoOwner_UserNameAndRepoNameAndNumber(owner, repo, number)
                 .orElseThrow(() -> new NotFoundException("milestone #" + number + " not found"));
-
+        applyMilestoneStats(owner, repo, milestone, false);
+        return milestone;
     }
     /**
      * Close a milestone
      */
     public MilestoneResponse closeMilestone(String owner, String repo, int number, String username) {
         Milestone milestone = getMilestone(owner, repo, number);
-        RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
-        if (!RepoAccessRules.canAdmin(meta, username)) {
-            throw new ForbiddenException("only repository admins can close milestones");
+        if (!Objects.equals(normalizeUsername(milestone.getCreatedBy()), normalizeUsername(username))) {
+            throw new ForbiddenException("only the milestone creator can close milestones");
         }
 
         milestone.setStatus("closed");
@@ -222,10 +257,8 @@ public class MilestoneService {
      */
     public MilestoneResponse reopenMilestone(String owner, String repo, int number, String username) {
         Milestone milestone = getMilestone(owner, repo, number);
-
-        RepositoryDocument meta = vicRepositoryService.loadMeta(owner, repo);
-        if (!RepoAccessRules.canAdmin(meta, username)) {
-            throw new ForbiddenException("only repository admins can reopen milestones");
+        if (!Objects.equals(normalizeUsername(milestone.getCreatedBy()), normalizeUsername(username))) {
+            throw new ForbiddenException("only the milestone creator can reopen milestones");
         }
 
         milestone.setStatus("open");
@@ -315,6 +348,7 @@ public class MilestoneService {
         private int number;
         private String title;
         private String description;
+        private String createdBy;
         private MilestoneTaskUser assignedTo;
         private String status;
         private String priority;
@@ -328,6 +362,7 @@ public class MilestoneService {
         private String reviewComments;
         private String submissionUrl;
         private String submissionBranch;
+        private String linkedPrId;
         private List<Task.RequirementCheck> requirementsChecklist;
         private Integer commentsCount;
 
@@ -337,6 +372,7 @@ public class MilestoneService {
             response.setNumber(doc.getNumber());
             response.setTitle(doc.getTitle());
             response.setDescription(doc.getDescription());
+            response.setCreatedBy(doc.getCreatedBy());
             response.setAssignedTo(doc.getAssignedTo());
             response.setStatus(doc.getStatus().getStatus());
             response.setPriority(doc.getPriority().value());
@@ -350,11 +386,38 @@ public class MilestoneService {
             response.setReviewComments(doc.getReviewComments());
             response.setSubmissionUrl(doc.getSubmissionUrl());
             response.setSubmissionBranch(doc.getSubmissionBranch());
+            response.setLinkedPrId(doc.getLinkedPrId());
             response.setRequirementsChecklist(doc.getRequirementsChecklist());
             response.setCommentsCount(doc.getCommentsCount());
             return response;
         }
 
 
+    }
+
+    private String normalizeUsername(String username) {
+        return String.valueOf(username == null ? "" : username).trim().toLowerCase(Locale.ROOT);
+    }
+
+    private void validateMilestoneRequest(MilestoneRequest request) {
+        if (request == null) {
+            return;
+        }
+        Integer maxScore = request.getMaxScore();
+        Integer passingScore = request.getPassingScore();
+        Integer requiredTasks = request.getRequiredTasks();
+
+        if (maxScore != null && maxScore < 0) {
+            throw new BadRequestException("milestone max score cannot be negative");
+        }
+        if (passingScore != null && passingScore < 0) {
+            throw new BadRequestException("milestone passing score cannot be negative");
+        }
+        if (maxScore != null && passingScore != null && passingScore > maxScore) {
+            throw new BadRequestException("milestone passing score cannot exceed the milestone max score");
+        }
+        if (requiredTasks != null && requiredTasks < 0) {
+            throw new BadRequestException("milestone required tasks cannot be negative");
+        }
     }
 }

@@ -29,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -37,18 +38,29 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 @Service
 @RequiredArgsConstructor
@@ -66,12 +78,33 @@ public class AuthenticationService {
     private final JwtDecoder jwtDecoder;
 
     private final JwtEncoder jwtEncoder;
+    private final SecureRandom secureRandom = new SecureRandom();
 
-    @Value("${app.default-role:faculty-user}")
+    private static final String OTP_HASH_ATTRIBUTE = "email_verification_otp_hash";
+    private static final String OTP_EXPIRES_ATTRIBUTE = "email_verification_otp_expires_at";
+    private static final String AUTH_PROVIDER_ATTRIBUTE = "auth_provider";
+    private static final String GOOGLE_AUTH_PROVIDER = "google";
+
+    @Value("${app.default-role:AUTHOR_USER}")
     private String defaultRole;
+
+    @Value("${app.frontend-base-url:http://localhost:5173}")
+    private String frontendBaseUrl;
+
+    @Value("${app.email-verification.otp-expiration-minutes:15}")
+    private long emailVerificationOtpMinutes;
+
+    @Value("${app.jwt.secret:at-least-32-character-very-long-secret-key}")
+    private String jwtSecret;
+
+    @Value("${keycloak.google-identity-provider-alias:google}")
+    private String googleIdentityProviderAlias;
 
     public AuthResponse login(LoginRequest request) {
         UserRepresentation user = resolveUser(request.getUsernameOrEmail());
+        if (!Boolean.TRUE.equals(user.isEmailVerified())) {
+            throw new UnauthorizedException("Email is not verified. Please verify the OTP code sent to your email.");
+        }
         AuthResponse authResponse = requestToken("password", Map.of(
                 "username", user.getUsername(),
                 "password", request.getPassword()
@@ -96,11 +129,14 @@ public class AuthenticationService {
                 request.getLastName(),
                 request.getPassword(),
                 true,
-                true,
+                false,
                 Map.of()
         );
 
         keycloakService.assignRealmRoles(userId, List.of(defaultRole));
+        String otpCode = generateOtpCode();
+        Instant otpExpiresAt = Instant.now().plus(Duration.ofMinutes(emailVerificationOtpMinutes));
+        storeEmailVerificationOtp(userId, request.getEmail(), otpCode, otpExpiresAt);
         auditLogService.logAuditEvent(userId, "USER_REGISTERED", "USER", userId, "User registered in Keycloak", "SUCCESS");
         eventPublisher.publishUserRegister(UserRegisteredEvent.builder()
                 .eventId(UUID.randomUUID().toString())
@@ -108,50 +144,99 @@ public class AuthenticationService {
                 .email(request.getEmail())
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
+                .verificationCode(otpCode)
+                .verificationExpiresAt(LocalDateTime.ofInstant(otpExpiresAt, ZoneOffset.UTC))
                 .registrationSource("WEB")
                 .occurredAt(LocalDateTime.now())
                 .build());
 
-        AuthResponse authResponse = requestToken("password", Map.of(
-                "username", request.getUsername(),
-                "password", request.getPassword()
-        ));
-        authResponse.setUser(toDTO(keycloakService.getUserById(userId)));
-        authResponse.setMessage("Signup successful. Verify your email in Keycloak");
-        return authResponse;
+        return AuthResponse.builder()
+                .user(toDTO(keycloakService.getUserById(userId)))
+                .message("Signup successful. Enter the OTP code sent to your email.")
+                .build();
     }
 
     public AuthResponse googleOAuth2Login(GoogleOAuth2Request request) {
         try {
-            GoogleIdToken idToken = googleIdTokenVerifier.verify(request.getIdToken());
-            if (idToken == null) {
-                throw new UnauthorizedException("Invalid Google ID token");
+            String idTokenValue = request.getIdToken();
+            String accessTokenValue = request.getAccessToken();
+            boolean hasIdToken = idTokenValue != null && !idTokenValue.isBlank();
+            boolean hasAccessToken = accessTokenValue != null && !accessTokenValue.isBlank();
+
+            if (!hasIdToken && !hasAccessToken) {
+                throw new UnauthorizedException("Google token is required");
             }
 
-            GoogleIdToken.Payload payload = idToken.getPayload();
-            String email = payload.getEmail();
-            String givenName = (String) payload.get("given_name");
-            String familyName = (String) payload.get("family_name");
-            String username = email.split("@")[0];
+            GoogleProfile googleProfile;
+            if (hasIdToken) {
+                GoogleIdToken idToken = googleIdTokenVerifier.verify(idTokenValue);
+                if (idToken == null) {
+                    throw new UnauthorizedException("Invalid Google ID token");
+                }
 
-            Optional<UserRepresentation> existing = keycloakService.findUserByEmail(email);
-            if (existing.isEmpty()) {
-                String tempPassword = UUID.randomUUID().toString();
-                String userId = keycloakService.createUser(
-                        username,
-                        email,
-                        givenName,
-                        familyName,
-                        tempPassword,
-                        true,
-                        true,
-                        Map.of()
+                GoogleIdToken.Payload payload = idToken.getPayload();
+                if (!Boolean.TRUE.equals(payload.getEmailVerified())) {
+                    throw new UnauthorizedException("Google email is not verified");
+                }
+                googleProfile = new GoogleProfile(
+                        payload.getEmail(),
+                        (String) payload.get("given_name"),
+                        (String) payload.get("family_name"),
+                        (String) payload.get("picture"),
+                        true
                 );
-                keycloakService.assignRealmRoles(userId, List.of(defaultRole));
-                auditLogService.logAuditEvent(userId, "USER_REGISTERED_GOOGLE", "USER", userId, "Google user created in Keycloak", "SUCCESS");
+            } else {
+                googleProfile = fetchGoogleProfile(accessTokenValue);
+                if (!googleProfile.emailVerified()) {
+                    throw new UnauthorizedException("Google email is not verified");
+                }
             }
 
-            throw new UnsupportedOperationException("Google login should flow through Keycloak OIDC or brokered login instead of a local token exchange.");
+            String keycloakPassword = UUID.randomUUID().toString();
+            UserRepresentation user = keycloakService.findUserByEmail(googleProfile.email())
+                    .orElseGet(() -> {
+                        String userId = keycloakService.createUser(
+                                googleUsername(googleProfile.email()),
+                                googleProfile.email(),
+                                googleProfile.firstName(),
+                                googleProfile.lastName(),
+                                keycloakPassword,
+                                true,
+                                true,
+                                googleAttributes(googleProfile.picture())
+                        );
+                        keycloakService.assignRealmRoles(userId, List.of(defaultRole));
+                        auditLogService.logAuditEvent(userId, "USER_REGISTERED_GOOGLE", "USER", userId, "Google user created in Keycloak", "SUCCESS");
+                        return keycloakService.getUserById(userId);
+                    });
+
+            if (!GOOGLE_AUTH_PROVIDER.equals(firstAttribute(user.getAttributes(), AUTH_PROVIDER_ATTRIBUTE))) {
+                Map<String, List<String>> attributes = user.getAttributes() == null
+                        ? new HashMap<>()
+                        : new HashMap<>(user.getAttributes());
+                attributes.put(AUTH_PROVIDER_ATTRIBUTE, List.of(GOOGLE_AUTH_PROVIDER));
+                if (googleProfile.picture() != null && !googleProfile.picture().isBlank()) {
+                    attributes.put("profile", List.of(googleProfile.picture()));
+                }
+                user.setAttributes(attributes);
+                user.setEmailVerified(true);
+                keycloakService.updateUser(user.getId(), user);
+            }
+
+            keycloakService.setPassword(user.getId(), keycloakPassword, false);
+            AuthResponse authResponse = requestToken("password", Map.of(
+                    "username", user.getUsername(),
+                    "password", keycloakPassword,
+                    "scope", "openid profile email"
+            ));
+            UserRepresentation refreshedUser = keycloakService.getUserById(user.getId());
+            if (keycloakService.getUserRealmRoleNames(refreshedUser.getId()).stream().noneMatch(defaultRole::equals)) {
+                keycloakService.assignRealmRoles(refreshedUser.getId(), List.of(defaultRole));
+            }
+
+            authResponse.setUser(toDTO(refreshedUser));
+            auditLogService.logAuditEvent(refreshedUser.getId(), "LOGIN_SUCCESS_GOOGLE", "USER", refreshedUser.getId(), "User logged in with Google", "SUCCESS");
+            return authResponse;
         } catch (GeneralSecurityException | IOException exception) {
             throw new UnauthorizedException("Google authentication failed");
         }
@@ -219,9 +304,8 @@ public class AuthenticationService {
         );
         String resetToken = generateShortLivedToken(claims, 15);
 
-        String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
-
-        String resetUrl = baseUrl+"/reset-password?token=" + resetToken;
+        String encodedResetToken = URLEncoder.encode(resetToken, StandardCharsets.UTF_8);
+        String resetUrl = frontendBaseUrl.replaceAll("/+$", "") + "/reset-password?token=" + encodedResetToken;
         eventPublisher.publishResetPasswordEvent(
                 ResetPasswordEvent
                         .builder()
@@ -241,9 +325,13 @@ public class AuthenticationService {
     }
 
     public void resetPassword(ResetPasswordRequest request) {
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new InvalidUserException("Passwords do not match");
+        }
+
         try {
             // 1. Decode and verify the JWT (Signature and Expiry checked automatically)
-            Jwt jwt = jwtDecoder.decode(request.getResetToken());
+            Jwt jwt = resetPasswordJwtDecoder().decode(request.getResetToken());
 
             // 2. Security Check: Ensure this is specifically a reset token
             if (!"PASSWORD_RESET".equals(jwt.getClaim("type"))) {
@@ -265,16 +353,135 @@ public class AuthenticationService {
         }
     }
 
+    private JwtDecoder resetPasswordJwtDecoder() {
+        SecretKey secretKey = new SecretKeySpec(jwtSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+        return NimbusJwtDecoder
+                .withSecretKey(secretKey)
+                .macAlgorithm(org.springframework.security.oauth2.jose.jws.MacAlgorithm.HS256)
+                .build();
+    }
+
 
 
     public void verifyEmail(EmailVerificationRequest request) {
-        throw new UnsupportedOperationException("Use Keycloak email verification actions instead of local verification tokens.");
+        UserRepresentation user = keycloakService.findUserByEmail(request.getEmail())
+                .orElseThrow(() -> new UnauthorizedException("Invalid or expired verification code"));
+
+        if (Boolean.TRUE.equals(user.isEmailVerified())) {
+            return;
+        }
+
+        Map<String, List<String>> attributes = user.getAttributes();
+        String expectedHash = firstAttribute(attributes, OTP_HASH_ATTRIBUTE);
+        String expiresAtRaw = firstAttribute(attributes, OTP_EXPIRES_ATTRIBUTE);
+        if (expectedHash == null || expiresAtRaw == null) {
+            log.warn("Email verification OTP attributes missing for userId={}", user.getId());
+            throw new InvalidUserException("Verification code is invalid or has expired");
+        }
+
+        Instant expiresAt;
+        try {
+            expiresAt = Instant.parse(expiresAtRaw);
+        } catch (Exception exception) {
+            log.warn("Email verification OTP expiry could not be parsed for userId={}", user.getId());
+            throw new InvalidUserException("Verification code is invalid or has expired");
+        }
+
+        if (Instant.now().isAfter(expiresAt)) {
+            log.warn("Email verification OTP expired for userId={}", user.getId());
+            clearEmailVerificationOtp(user.getId());
+            throw new InvalidUserException("Verification code has expired. Request a new code.");
+        }
+
+        String actualHash = hashOtp(user.getEmail(), request.getOtpCode());
+        if (!MessageDigest.isEqual(
+                expectedHash.getBytes(StandardCharsets.UTF_8),
+                actualHash.getBytes(StandardCharsets.UTF_8))) {
+            log.warn("Email verification OTP mismatch for userId={}", user.getId());
+            throw new InvalidUserException("Verification code is incorrect");
+        }
+
+        keycloakService.markEmailVerified(user.getId(), true);
+        clearEmailVerificationOtp(user.getId());
+        auditLogService.logAuditEvent(user.getId(), "EMAIL_VERIFIED", "USER", user.getId(), "Email verified with OTP", "SUCCESS");
     }
 
     public void resendVerificationEmail(ResendVerificationEmailRequest request) {
         UserRepresentation user = keycloakService.findUserByEmail(request.getEmail())
                 .orElseThrow(() -> new UnauthorizedException("User not found for email"));
-        keycloakService.sendVerifyEmail(user.getId());
+        if (Boolean.TRUE.equals(user.isEmailVerified())) {
+            return;
+        }
+        String otpCode = generateOtpCode();
+        Instant otpExpiresAt = Instant.now().plus(Duration.ofMinutes(emailVerificationOtpMinutes));
+        storeEmailVerificationOtp(user.getId(), user.getEmail(), otpCode, otpExpiresAt);
+        eventPublisher.publishUserRegister(UserRegisteredEvent.builder()
+                .eventId(UUID.randomUUID().toString())
+                .userId(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .verificationCode(otpCode)
+                .verificationExpiresAt(LocalDateTime.ofInstant(otpExpiresAt, ZoneOffset.UTC))
+                .registrationSource("RESEND")
+                .occurredAt(LocalDateTime.now())
+                .build());
+    }
+
+    private String generateOtpCode() {
+        return String.format("%06d", secureRandom.nextInt(1_000_000));
+    }
+
+    private void storeEmailVerificationOtp(String userId, String email, String otpCode, Instant expiresAt) {
+        UserRepresentation user = keycloakService.getUserById(userId);
+        Map<String, List<String>> attributes = mutableAttributes(user);
+        attributes.put(OTP_HASH_ATTRIBUTE, List.of(hashOtp(email, otpCode)));
+        attributes.put(
+                OTP_EXPIRES_ATTRIBUTE,
+                List.of(expiresAt.toString())
+        );
+        user.setAttributes(attributes);
+        keycloakService.updateUser(userId, user);
+    }
+
+    private void clearEmailVerificationOtp(String userId) {
+        UserRepresentation user = keycloakService.getUserById(userId);
+        Map<String, List<String>> attributes = mutableAttributes(user);
+        attributes.remove(OTP_HASH_ATTRIBUTE);
+        attributes.remove(OTP_EXPIRES_ATTRIBUTE);
+        user.setAttributes(attributes);
+        keycloakService.updateUser(userId, user);
+    }
+
+    private Map<String, List<String>> mutableAttributes(UserRepresentation user) {
+        Map<String, List<String>> source = user.getAttributes();
+        Map<String, List<String>> copy = new HashMap<>();
+        if (source != null) {
+            source.forEach((key, value) -> copy.put(key, value == null ? List.of() : new ArrayList<>(value)));
+        }
+        return copy;
+    }
+
+    private String firstAttribute(Map<String, List<String>> attributes, String key) {
+        if (attributes == null) return null;
+        List<String> values = attributes.get(key);
+        if (values == null || values.isEmpty()) return null;
+        String value = values.get(0);
+        return value == null || value.isBlank() ? null : value;
+    }
+
+    private String hashOtp(String email, String otpCode) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashed = digest.digest((email.trim().toLowerCase() + ":" + otpCode).getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder(hashed.length * 2);
+            for (byte b : hashed) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is not available", exception);
+        }
     }
 
     private void ensureUserDoesNotExist(String username, String email) {
@@ -299,13 +506,24 @@ public class AuthenticationService {
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-        form.add("client_id", "frontend");
+        form.add("client_id", keycloakConfig.getPublicClientId());
+        if (keycloakConfig.getPublicClientSecret() != null && !keycloakConfig.getPublicClientSecret().isBlank()) {
+            form.add("client_secret", keycloakConfig.getPublicClientSecret());
+        }
         form.add("grant_type", grantType);
 
         params.forEach(form::add);
 
         HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(form, headers);
-        ResponseEntity<String> response = restTemplate.postForEntity(keycloakConfig.tokenUrl(), entity, String.class);
+        ResponseEntity<String> response;
+        try {
+            response = restTemplate.postForEntity(keycloakConfig.tokenUrl(), entity, String.class);
+        } catch (HttpClientErrorException exception) {
+            if (exception.getStatusCode().value() == 400 || exception.getStatusCode().value() == 401) {
+                throw new UnauthorizedException("Invalid or expired token");
+            }
+            throw new KeycloakException("Failed to obtain token from Keycloak", exception);
+        }
 
         if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
             throw new KeycloakException("Failed to obtain token from Keycloak");
@@ -324,6 +542,57 @@ public class AuthenticationService {
             throw new KeycloakException("Failed to parse Keycloak token response", exception);
         }
     }
+
+    private GoogleProfile fetchGoogleProfile(String accessToken) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(
+                    "https://www.googleapis.com/oauth2/v3/userinfo",
+                    HttpMethod.GET,
+                    entity,
+                    String.class
+            );
+            JsonNode node = objectMapper.readTree(response.getBody());
+            String email = node.path("email").asText(null);
+            if (email == null || email.isBlank()) {
+                throw new UnauthorizedException("Google email is missing");
+            }
+            return new GoogleProfile(
+                    email,
+                    node.path("given_name").asText(null),
+                    node.path("family_name").asText(null),
+                    node.path("picture").asText(null),
+                    node.path("email_verified").asBoolean(false)
+            );
+        } catch (UnauthorizedException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new UnauthorizedException("Invalid Google access token");
+        }
+    }
+
+    private String googleUsername(String email) {
+        return email.split("@")[0].replaceAll("[^A-Za-z0-9]", "");
+    }
+
+    private Map<String, List<String>> googleAttributes(String profilePicture) {
+        Map<String, List<String>> attributes = new HashMap<>();
+        attributes.put(AUTH_PROVIDER_ATTRIBUTE, List.of(GOOGLE_AUTH_PROVIDER));
+        if (profilePicture != null && !profilePicture.isBlank()) {
+            attributes.put("profile", List.of(profilePicture));
+        }
+        return attributes;
+    }
+
+    private record GoogleProfile(
+            String email,
+            String firstName,
+            String lastName,
+            String picture,
+            boolean emailVerified
+    ) {}
 
     private UserDTO toDTO(UserRepresentation user) {
 

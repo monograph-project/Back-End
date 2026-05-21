@@ -77,6 +77,34 @@ public class RepositoryOperationProcessor implements NotificationProcessor<Repos
                     "Pull request merged notification sent."
             );
 
+            case TASK_ASSIGNED -> notifyTaskRecipients(
+                    event,
+                    NotificationType.REPOSITORY_TASK_ASSIGNED,
+                    safe(event.getActorName()) + " assigned you task #" + safeMetadata(event, "taskNumber"),
+                    safe(event.getMetadata() == null ? null : String.valueOf(event.getMetadata().get("message")))
+            );
+
+            case TASK_SUBMITTED -> notifyTaskRecipients(
+                    event,
+                    NotificationType.REPOSITORY_TASK_SUBMITTED,
+                    safe(event.getActorName()) + " submitted task #" + safeMetadata(event, "taskNumber"),
+                    safe(event.getMetadata() == null ? null : String.valueOf(event.getMetadata().get("message")))
+            );
+
+            case TASK_COMPLETED -> notifyTaskRecipients(
+                    event,
+                    NotificationType.REPOSITORY_TASK_COMPLETED,
+                    safe(event.getActorName()) + " completed task #" + safeMetadata(event, "taskNumber"),
+                    safe(event.getMetadata() == null ? null : String.valueOf(event.getMetadata().get("message")))
+            );
+
+            case TASK_DEADLINE_REMINDER -> notifyTaskDeadlineRecipients(
+                    event,
+                    NotificationType.REPOSITORY_TASK_DEADLINE_REMINDER,
+                    "Task #" + safeMetadata(event, "taskNumber") + " deadline is coming",
+                    safe(event.getMetadata() == null ? null : String.valueOf(event.getMetadata().get("message")))
+            );
+
             case REPOSITORY_PULLED, REPOSITORY_FETCHED, REPOSITORY_CLONED -> {
                 log.debug("No notification needed for eventType={}", event.getEventType());
             }
@@ -176,6 +204,62 @@ public class RepositoryOperationProcessor implements NotificationProcessor<Repos
                 "REPOSITORY"
         );
     }
+
+    private void notifyTaskRecipients(
+            RepositoryOperationEvent event,
+            NotificationType notificationType,
+            String subject,
+            String body
+    ) {
+        List<RepositoryMemberRecipient> recipients = event.getRecipients();
+        if (recipients == null || recipients.isEmpty()) {
+            log.warn("No recipients found for task eventId={}", event.getEventId());
+            return;
+        }
+
+        for (RepositoryMemberRecipient recipient : recipients) {
+            if (isActor(event, recipient)) {
+                log.debug("Skipping actor notification for task event userId={}", recipient.getUserId());
+                continue;
+            }
+            saveNotification(
+                    event,
+                    recipient,
+                    notificationType,
+                    subject,
+                    body == null || body.isBlank() ? subject : body,
+                    resolveReferenceId(event),
+                    "REPOSITORY_TASK"
+            );
+        }
+    }
+
+    private void notifyTaskDeadlineRecipients(
+            RepositoryOperationEvent event,
+            NotificationType notificationType,
+            String subject,
+            String body
+    ) {
+        List<RepositoryMemberRecipient> recipients = event.getRecipients();
+        if (recipients == null || recipients.isEmpty()) {
+            log.warn("No recipients found for task deadline reminder eventId={}", event.getEventId());
+            return;
+        }
+
+        for (RepositoryMemberRecipient recipient : recipients) {
+            saveNotification(
+                    event,
+                    recipient,
+                    notificationType,
+                    subject,
+                    body == null || body.isBlank() ? subject : body,
+                    resolveReferenceId(event),
+                    "REPOSITORY_TASK",
+                    NotificationChannel.EMAIL
+            );
+        }
+    }
+
     private void saveNotification(
             RepositoryOperationEvent event,
             RepositoryMemberRecipient recipient,
@@ -198,6 +282,34 @@ public class RepositoryOperationProcessor implements NotificationProcessor<Repos
                 .referenceType(referenceType)
                 .metadata(serializeMetadata(buildEventMetadataSnapshot(event, recipient)))
                 .idempotencyKey(event.getEventType() + ":" + event.getEventId() + ":" + recipient.getUserId())
+                .build();
+
+        notificationService.saveAndProcess(notification);
+    }
+
+    private void saveNotification(
+            RepositoryOperationEvent event,
+            RepositoryMemberRecipient recipient,
+            NotificationType type,
+            String subject,
+            String body,
+            String referenceId,
+            String referenceType,
+            NotificationChannel channel
+    ) {
+        Notification notification = Notification.builder()
+                .recipientUserId(recipient.getUserId())
+                .recipientEmail(recipient.getEmail())
+                .recipientName(recipient.getName())
+                .type(type)
+                .channel(channel)
+                .status(NotificationStatus.PROCESSING)
+                .subject(subject)
+                .body(body)
+                .referenceId(referenceId)
+                .referenceType(referenceType)
+                .metadata(serializeMetadata(buildEventMetadataSnapshot(event, recipient)))
+                .idempotencyKey(event.getEventType() + ":" + event.getEventId() + ":" + channel + ":" + recipient.getUserId())
                 .build();
 
         notificationService.saveAndProcess(notification);
@@ -230,6 +342,14 @@ public class RepositoryOperationProcessor implements NotificationProcessor<Repos
             return repositoryName;
         }
         return event.getEventId();
+    }
+
+    private String safeMetadata(RepositoryOperationEvent event, String key) {
+        if (event == null || event.getMetadata() == null || key == null) {
+            return "";
+        }
+        Object value = event.getMetadata().get(key);
+        return value == null ? "" : String.valueOf(value);
     }
 
     private Map<String, Object> buildEventMetadataSnapshot(

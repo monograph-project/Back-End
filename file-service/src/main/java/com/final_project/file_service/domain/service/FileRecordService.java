@@ -12,8 +12,8 @@ import java.util.List;
 @AllArgsConstructor
 public class FileRecordService {
     private final FileRecordRepository fileRecordRepository;
-    public void add(FileRecord fileRecord) {
-        fileRecordRepository.save(fileRecord);
+    public FileRecord add(FileRecord fileRecord) {
+        return fileRecordRepository.save(fileRecord);
     }
 
     public void remove(FileRecord fileRecord) {
@@ -49,5 +49,10 @@ public class FileRecordService {
     public FileRecord findByIdAndOwnerIdAndCategory(String fileId, String ownerId, FileCategory category){
         return fileRecordRepository.findByIdAndOwnerIdAndCategory(fileId,ownerId,category)
                 .orElseThrow(() -> new FileNotFound("Not Found"));
+    }
+
+    public FileRecord findLatestByOwnerIdAndCategory(String ownerId, FileCategory category) {
+        return fileRecordRepository.findFirstByOwnerIdAndCategoryOrderByUploadedAtDesc(ownerId, category)
+                .orElseThrow(() -> new FileNotFound("File Not Found"));
     }
 }

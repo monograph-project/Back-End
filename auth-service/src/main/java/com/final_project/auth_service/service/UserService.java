@@ -10,7 +10,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.naming.AuthenticationException;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -110,6 +112,18 @@ public class UserService {
     @Transactional(readOnly = true)
     public List<UserDTO> getAllActiveUsers() {
         return keycloakService.getUsers().stream()
+                .map(this::toDTO)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserDTO> getAdminUsers() {
+        return keycloakService.getUsers().stream()
+                .filter(user -> Boolean.TRUE.equals(user.isEnabled()))
+                .filter(user -> {
+                    List<String> roles = keycloakService.getUserRealmRoleNames(user.getId());
+                    return roles.contains("ADMIN_USER") || roles.contains("PLATFORM_ADMIN");
+                })
                 .map(this::toDTO)
                 .toList();
     }
@@ -229,8 +243,38 @@ public class UserService {
                 .emailVerified(user.isEmailVerified())
                 .twoFactorEnabled(false)
                 .roles(new java.util.LinkedHashSet<>(keycloakService.getUserRealmRoleNames(user.getId())))
+                .createdAt(keycloakCreatedAt(user))
                 .photoUrl(getFirstAttribute(user, "profile"))
                 .build();
+    }
+
+    private LocalDateTime keycloakCreatedAt(UserRepresentation user) {
+        Long createdTimestamp = user.getCreatedTimestamp();
+        if (createdTimestamp != null && createdTimestamp > 0) {
+            return LocalDateTime.ofInstant(
+                    Instant.ofEpochMilli(createdTimestamp),
+                    ZoneId.systemDefault()
+            );
+        }
+        String registeredAt = getFirstAttribute(user, "registered_at");
+        if (registeredAt == null || registeredAt.isBlank()) {
+            registeredAt = getFirstAttribute(user, "created_at");
+        }
+        if (registeredAt == null || registeredAt.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(registeredAt.trim());
+        } catch (Exception ignored) {
+            try {
+                return LocalDateTime.ofInstant(
+                        Instant.parse(registeredAt.trim()),
+                        ZoneId.systemDefault()
+                );
+            } catch (Exception ignoredAgain) {
+                return null;
+            }
+        }
     }
 
     private Map<String, List<String>> attributesFrom(String phoneNumber, String profile, String entityId, String userType) {

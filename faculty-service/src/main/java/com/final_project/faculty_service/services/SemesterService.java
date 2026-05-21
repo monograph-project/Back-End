@@ -70,6 +70,7 @@ public class SemesterService {
         AcademicYear academicYear = academicYearRepository.findByIdAndIsDeletedIsFalse(semesterRequest.getAcademicYear())
                 .orElseThrow(() -> new ResourceNotFoundException("Academic Year not found"));
         Semester semester = semesterMapper.toEntity(semesterRequest);
+        semester.setAcademicYear(academicYear);
 
         long sequence = sequenceGeneratorService.generateSequence("semester_seq");
         semester.setCode("SEM-"+academicYear.getName().split("-")[0].toUpperCase()+"-"+sequence);

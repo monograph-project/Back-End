@@ -1,6 +1,9 @@
 package com.final_project.faculty_service.DTO.request;
 
+import com.final_project.faculty_service.models.ProjectStatus;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -15,4 +18,19 @@ public class ProjectRequest {
     private String  teacher;
 
     private String projectRepository;
+    private String abstractText;
+    private String finalFileName;
+    private String finalFileDownloadUrl;
+
+    private ProjectStatus status;
+
+    @Min(value = 0, message = "Progress must be at least 0")
+    @Max(value = 100, message = "Progress must be at most 100")
+    private Integer progress;
+
+    @Min(value = 0, message = "Completion must be at least 0")
+    @Max(value = 100, message = "Completion must be at most 100")
+    private Integer completion;
+
+    private Boolean published;
 }
