@@ -30,4 +30,13 @@ public class Group {
     @CreatedBy
     private String createdBy;
 
+    public boolean hasMember(String studentId) {
+        return groupMembers != null
+                && groupMembers.stream().anyMatch(student -> student != null && studentId.equals(student.getId()));
+    }
+
+    public boolean removeMember(String studentId) {
+        return groupMembers != null
+                && groupMembers.removeIf(student -> student != null && studentId.equals(student.getId()));
+    }
 }

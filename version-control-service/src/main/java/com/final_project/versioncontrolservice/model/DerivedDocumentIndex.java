@@ -28,6 +28,7 @@ public class DerivedDocumentIndex {
     private String blobHash;
     private String commitHash;
     private String fileType;
+    private Integer extractionVersion;
     private Instant indexedAt;
     private List<DocumentSegment> segments;
 
@@ -42,5 +43,6 @@ public class DerivedDocumentIndex {
         private String stableHash;
         private Integer page;
         private Integer orderIndex;
+        private String location;
     }
 }
