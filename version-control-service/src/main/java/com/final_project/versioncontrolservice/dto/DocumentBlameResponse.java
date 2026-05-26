@@ -30,6 +30,7 @@ public class DocumentBlameResponse {
         private String stableHash;
         private Integer page;
         private Integer orderIndex;
+        private String location;
         private String changeType;
         private String previousText;
         private String commitSha;

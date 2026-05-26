@@ -107,6 +107,7 @@ public class DocumentBlameService {
                                     .stableHash(state.segment.getStableHash())
                                     .page(state.segment.getPage())
                                     .orderIndex(state.segment.getOrderIndex())
+                                    .location(state.segment.getLocation())
                                     .changeType(state.changeType)
                                     .previousText(state.previousText)
                                     .commitSha(meta != null ? meta.sha : "")
@@ -293,12 +294,13 @@ public class DocumentBlameService {
             String blobHash
     ) {
         return derivedDocumentIndexRepository
-                .findFirstByOwnerUsernameIgnoreCaseAndRepositoryNameIgnoreCaseAndCommitHashAndPathAndBlobHashOrderByIndexedAtDesc(
+                .findFirstByOwnerUsernameIgnoreCaseAndRepositoryNameIgnoreCaseAndCommitHashAndPathAndBlobHashAndExtractionVersionOrderByIndexedAtDesc(
                         owner,
                         repo,
                         commitHash,
                         filePath,
-                        blobHash
+                        blobHash,
+                        DocumentExtractionService.EXTRACTION_VERSION
                 )
                 .orElseGet(() -> createIndex(
                         owner,
@@ -343,6 +345,7 @@ public class DocumentBlameService {
                 .blobHash(blobHash)
                 .commitHash(commitHash)
                 .fileType(extraction.getFileType())
+                .extractionVersion(DocumentExtractionService.EXTRACTION_VERSION)
                 .indexedAt(Instant.now())
                 .segments(extractedSegments)
                 .build();
@@ -651,9 +654,10 @@ public class DocumentBlameService {
         }
 
         String text = normalizeSegmentText(segment.getText());
+        String location = segment.getLocation() == null ? "" : segment.getLocation().trim();
 
         if (!text.isBlank()) {
-            return text;
+            return location.isBlank() ? text : location + "\n" + text;
         }
 
         return safeHash(segment.getStableHash());

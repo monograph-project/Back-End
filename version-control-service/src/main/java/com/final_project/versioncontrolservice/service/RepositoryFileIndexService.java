@@ -111,6 +111,7 @@ public class RepositoryFileIndexService {
                             .blobHash(hash)
                             .commitHash(commitHash)
                             .fileType(extraction.getFileType())
+                            .extractionVersion(DocumentExtractionService.EXTRACTION_VERSION)
                             .indexedAt(Instant.now())
                             .segments(extraction.getSegments())
                             .build();

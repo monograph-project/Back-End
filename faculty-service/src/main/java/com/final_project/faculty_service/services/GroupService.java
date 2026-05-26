@@ -182,4 +182,23 @@ public class GroupService {
         group.setGroupLeader(newLeader);
         return groupMapper.toResponse(groupRepository.save(group));
     }
+
+    public GroupResponse removeGroupMember(String groupId, String studentId) {
+        Group group = groupRepository.findByIdAndIsDeletedIsFalse(groupId)
+                .orElseThrow(() -> new ResourceNotFoundException("Group not found: " + groupId));
+
+        Student member = studentRepository.findByIdAndIsDeletedIsFalse(studentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found: " + studentId));
+
+        if (!group.hasMember(member.getId())) {
+            throw new ResourceBadRequest("Student is not a member of this group");
+        }
+
+        if (group.getGroupLeader() != null && member.getId().equals(group.getGroupLeader().getId())) {
+            throw new ResourceBadRequest("Group leader cannot be removed. Change leader first");
+        }
+
+        group.removeMember(member.getId());
+        return groupMapper.toResponse(groupRepository.save(group));
+    }
 }
