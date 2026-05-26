@@ -81,36 +81,9 @@ flowchart LR
   Notify -.register.-> Eureka
   VC -.register.-> Eureka
 ```
-
-## Frontend Architecture
-
-The frontend is a Vite + React 19 single-page application.
-
-- `src/App.jsx` defines the route tree and separates public routes from protected role workspaces.
-- `src/AppRoot.jsx` wraps the app with authentication and optional Google OAuth providers.
-- `src/auth/` owns session storage, token refresh coordination, role normalization, and route access rules.
-- `src/services/RouteConfig.js` is the central contract for backend endpoints.
-- `src/services/apiRoute.js` contains typed client helpers and payload normalization for faculty, blog, notification, user, and repository APIs.
-- `src/services/axiosConfig.js` attaches access tokens and retries failed requests after coordinated refresh.
-- `src/layout/` contains public and authenticated shells.
-- `src/pages/` is organized by domain and role: `public`, `admin`, `student`, `teacher`, `staff`, `dean`, `author`, and `blog`.
-- `src/components/` contains shared controls plus domain components for registration, blogs, repositories, pull requests, merge conflicts, notifications, and document viewing.
-
-The app reads backend base URLs from Vite environment variables. In development, Vite proxies API traffic to the gateway:
-
-- `/api/**`
-- `/file/**`
-- `/auth/**`
-- `/repos/**`
-- `/students/**`
-- `/departments/**`
-- `/batches/**`
-- `/teachers/**`
-- `/employees/**`
-
 ## Backend Architecture
 
-The backend at `../Back-End` is a Java 17 Spring Cloud microservice architecture. Each business area is isolated behind its own service, and the gateway provides the single entry point for the frontend.
+The backend at `Back-End` is a Java 17 Spring Cloud microservice architecture. Each business area is isolated behind its own service, and the gateway provides the single entry point for the frontend.
 
 | Service | Port | Responsibility |
 | --- | ---: | --- |
